@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>twitch-min regression fixture</title>
+  <style>
+    body { margin: 0; font: 16px sans-serif; }
+    .side-nav-card__link { display: flex; width: 230px; height: 60px; }
+    [data-a-target="side-nav-card-metadata"] { width: 120px; }
+    .side-nav-card__avatar { width: 40px; }
+  </style>
+  <script src="../../extension/settings.js" defer></script>
+  <script src="../../extension/rules.js" defer></script>
+  <script src="../../extension/content.js" defer></script>
+</head>
+<body>
+  <nav data-a-target="top-nav-container">
+    <a id="browse" href="/directory">Browse</a>
+    <button id="top-bell" data-a-target="activity-feed-button">Notifications</button>
+    <button id="top-bits" data-a-target="top-nav-get-bits-button">Bits</button>
+    <button id="top-turbo" aria-label="Gift Turbo">Gift Turbo</button>
+    <button id="whispers">Whispers</button>
+  </nav>
+  <aside data-a-target="side-nav-bar">
+    <div id="sidebar-heading" class="side-nav-header" data-a-target="side-nav-header-expanded">Followed Channels</div>
+    <button id="sidebar-arrow" data-a-target="side-nav-arrow">Collapse</button>
+    <div id="sidebar-streak" data-test-selector="watch-streak-reminder">Save your Streak</div>
+    <a id="channel-row" class="side-nav-card__link" href="/example" aria-label="Example channel">
+      <div id="avatar" class="side-nav-card__avatar">Avatar</div>
+      <div>
+        <div style="display:flex">
+          <div id="sidebar-metadata" data-a-target="side-nav-card-metadata">
+            <div class="side-nav-card__title">Example channel</div>
+            <div class="side-nav-card__metadata">Phantasy Star</div>
+          </div>
+          <div id="viewer-count" data-a-target="side-nav-live-status">17</div>
+        </div>
+        <div id="sidebar-hype"><div><div class="hype-train-icon"></div></div><p>Shared Hype Train</p></div>
+      </div>
+    </a>
+    <button id="show-more" data-a-target="side-nav-show-more-button">Show More</button>
+  </aside>
+  <main>
+    <div id="player" data-a-target="video-player">Stream video</div>
+    <div class="channel-info-content">
+      <button id="follow" data-a-target="follow-button">Follow</button>
+      <button id="channel-bell" data-a-target="notifications-toggle">Channel bell</button>
+      <button id="channel-bits" data-a-target="bits-button">Bits</button>
+      <button id="channel-gift" data-a-target="gift-button">Gift a Sub</button>
+      <button id="channel-subscribe" data-a-target="subscribe-button">Subscribe</button>
+    </div>
+  </main>
+  <section class="chat-room">
+    <header id="chat-header">Stream Chat</header>
+    <div class="chat-room__content">
+      <div id="leaderboard"><button>Previous</button><div><button aria-label="Expand Top Gifters Leaderboard"><span data-test-selector="leaderboard-item-name-test-selector">Top gifter</span></button></div><button>Next</button></div>
+      <div id="messages" data-a-target="chat-scroller"><div>Example chat message mentioning Bits and Gift Turbo.</div></div>
+      <div class="chat-input">
+        <div id="composer" class="chat-input__textarea">
+          <div class="chat-wysiwyg-input-box"><div data-a-target="chat-input" contenteditable="true" tabindex="0" role="textbox">Send a message</div></div>
+          <button data-a-target="bits-button">Cheer</button>
+          <button data-a-target="emote-picker-button">Emotes</button>
+        </div>
+        <div data-test-selector="chat-input-buttons-container">
+          <button id="points" data-test-selector="community-points-summary">327.3K</button>
+          <button id="chat-settings" data-a-target="chat-settings">Settings</button>
+          <button id="chat-send" data-a-target="chat-send-button">Chat</button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <button id="outside-gift" data-a-target="gift-button">Unrelated gift button outside channel</button>
+  <div id="outside-metadata" data-a-target="side-nav-card-metadata">Unrelated metadata</div>
+</body>
+</html>

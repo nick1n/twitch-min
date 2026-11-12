@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "twitch-min",
+  "version": "0.1.0",
+  "description": "Hide selected Twitch distractions while keeping the stream, chat, sidebar avatars, and viewer counts.",
+  "minimum_chrome_version": "105",
+  "permissions": ["storage"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "twitch-min",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" }
+  },
+  "content_scripts": [{
+    "matches": ["https://www.twitch.tv/*", "https://twitch.tv/*"],
+    "js": ["settings.js", "rules.js", "content.js"],
+    "run_at": "document_start"
+  }]
+}

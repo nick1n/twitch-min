@@ -1,0 +1,18 @@
+twitch-min 0.1.0 - local Chrome extension
+
+1. Extract this ZIP completely, if using the packaged download.
+2. Open chrome://extensions in Chrome.
+3. Enable Developer mode at the top right.
+4. Click Load unpacked and select the folder containing manifest.json.
+5. Refresh any Twitch tabs that were already open.
+6. Pin twitch-min from Chrome's Extensions menu to reach its switches easily.
+
+All six hiding groups are on initially. The composer switch makes chat
+read-only while preserving the channel points and settings row.
+Restore everything pauses hiding immediately in open Twitch tabs.
+
+The extension runs only on twitch.tv, saves settings locally, and sends no data.
+Signed-in-only controls use fallbacks and still need verification in your session.
+If an item stays visible, report the item and its DevTools HTML (Copy outerHTML).
+After an update: click Reload on this extension at chrome://extensions, then
+refresh Twitch. To uninstall, click Remove on the extension card.

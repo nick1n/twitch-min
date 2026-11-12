@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>twitch-min</title>
+  <link rel="stylesheet" href="popup.css">
+  <script src="settings.js" defer></script>
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <main class="popup" aria-labelledby="app-title">
+    <header class="header">
+      <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="brand-copy">
+        <p class="eyebrow">A calmer Twitch</p>
+        <h1 id="app-title">twitch-min</h1>
+      </div>
+      <label class="switch master-switch" for="master-toggle">
+        <span class="sr-only">Enable twitch-min</span>
+        <input id="master-toggle" type="checkbox" role="switch" aria-label="Enable twitch-min" disabled>
+        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+      </label>
+    </header>
+    <p id="mode-note" class="mode-note" role="status"></p>
+
+    <section class="settings" aria-labelledby="settings-title">
+      <div class="section-heading">
+        <h2 id="settings-title">Hide on Twitch</h2>
+        <span class="section-caption">Choose what stays out of view</span>
+      </div>
+      <div id="groups" class="group-list" aria-live="polite" aria-busy="true">
+        <p class="loading">Loading your preferences…</p>
+      </div>
+    </section>
+
+    <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+
+    <div class="actions">
+      <button id="restore-button" class="button button-secondary" type="button" disabled>Restore everything</button>
+      <button id="preset-button" class="button button-primary" type="button" disabled>
+        <span aria-hidden="true">✦</span> Use screenshot preset
+      </button>
+    </div>
+
+    <footer class="footer">
+      <span class="footer-icon" aria-hidden="true">◉</span>
+      <p>Preferences apply to open Twitch tabs. Your page content is never sent anywhere.</p>
+    </footer>
+  </main>
+</body>
+</html>

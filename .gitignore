@@ -1,0 +1,3 @@
+.browser-tests/
+dist/
+node_modules/
