@@ -113,7 +113,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       for (const id of ['snapshot-live-repeat-identity','snapshot-live-repeat-body']) assert.equal(await isVisible(id), true, `${id} stays visible`);
       assert.equal(await evaluate(`document.querySelector('#snapshot-live-repeat [data-tq-chat-author]').matches('.chat-line__username')`), true, 'the name wrapper hides independently of its badge siblings');
       await evaluate(`document.querySelector('#snapshot-live-repeat [data-a-target="chat-message-username"]').style.color='rgb(25, 190, 150)'`);
-      assert.equal(await evaluate(`document.querySelector('#snapshot-live-repeat').style.getPropertyValue('--tq-chat-color')`), 'rgb(25, 190, 150)');
+      assert.equal(await evaluate(`document.querySelector('#snapshot-live-repeat').style.getPropertyValue('--tq-chat-color')`), 'rgb(108, 187, 211)');
       await evaluate(`__storagePatch({enabled:false})`);
       assert.equal(await evaluate(`document.querySelectorAll('#snapshot-live-chat [data-tq-chat-tint], #snapshot-live-chat [data-tq-chat-author], #snapshot-live-chat [data-tq-chat-separator]').length`), 0);
       for (const id of ['snapshot-live-repeat-author','snapshot-live-repeat-colon']) assert.equal(await isVisible(id), true, `${id} restores`);

@@ -251,7 +251,8 @@ tests/
   support/chrome.cjs   Reusable Chrome/CDP resource lifecycle and page helpers
   support/production.cjs Manifest-driven fixture scripts/styles and local network policy
   architecture.test.cjs Settings, exact CSS preservation, script order, version checks
-  runtime.browser.test.cjs Integration lifecycle, region, timestamp, and no-op regressions
+  runtime.test.cjs     Lifecycle failure cleanup and retry checks
+  browser/runtime.cjs Integration lifecycle, region, timestamp, and no-op regressions
 scripts/package.ps1   ZIP the installable extension files
 ```
 

@@ -33,11 +33,15 @@ disposes it on pause. Keep feature-specific selectors beside
 their feature; promote selectors shared across controllers/rules to `selectors.js`.
 The production dependency order is defined by `extension/manifest.json`.
 
+## Lifecycle recovery
+
 Synchronous feature startup/update failures are reported in the console with the
 feature name and do not block the remaining features. A later relevant storage
 event retries failed features, even when its values are unchanged; healthy
 features and unchanged root attributes are skipped. Retries are event-driven,
 not a timer loop. Failed cleanup must succeed before a fresh attach can run.
+
+## Region cleanup
 
 Region attachments receive an `onCleanup` callback and register teardown before
 changing the DOM or connecting observers. `regions.watch(selector, attach, own)`

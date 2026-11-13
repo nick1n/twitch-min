@@ -23,9 +23,15 @@
       // Overlay the native background so mentions and moderation highlights stay.
       declaration: 'background-image: linear-gradient(var(--tq-chat-tint), var(--tq-chat-tint)) !important; background-image: linear-gradient(color-mix(in srgb, var(--tq-chat-color) 6%, transparent), color-mix(in srgb, var(--tq-chat-color) 6%, transparent)) !important; border-radius: 2px;'
     }],
+    [4.5, {
+      key: 'enabled',
+      selectors: ['[data-tq-chat-tint].bttv-split-chat-alt-bg'],
+      // BetterTTV zebra stripes otherwise change the base under equal tints.
+      declaration: 'background-color: transparent !important;'
+    }],
     [5, {
       key: 'enabled',
-      selectors: ['[data-tq-chat-continuation] [data-tq-chat-author]', '[data-tq-chat-continuation] [data-tq-chat-separator]'],
+      selectors: ['[data-tq-chat-continuation] [data-tq-chat-author]', '[data-tq-chat-continuation] [data-tq-chat-separator]', '[data-tq-chat-continuation] :is(.chat-badge, [data-a-target="chat-badge"], .chat-line__message--flair, .chat-author__flair)'],
       declaration: 'display: none !important;'
     }],
     [43, {

@@ -4,6 +4,22 @@ const path = require('node:path');
 const { root } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
+    await t.test('BetterTTV stripes do not change equal sender backgrounds and restore on pause', async () => {
+      await navigate('tests/fixtures/chat-sequences.html');
+      const backgrounds = () => evaluate(`['k1','k2'].map(id=>{const style=getComputedStyle(document.getElementById(id));return [style.backgroundColor,style.backgroundImage]})`);
+      let styles = await backgrounds();
+      assert.deepEqual(styles[0], styles[1], 'same sender has the same full background despite a BetterTTV stripe');
+      await evaluate(`__storagePatch({enabled:false})`);
+      styles = await backgrounds();
+      assert.notEqual(styles[0][0], styles[1][0], 'pausing restores BetterTTV backgrounds');
+      await evaluate(`__storagePatch({enabled:true})`);
+      styles = await backgrounds();
+      assert.deepEqual(styles[0], styles[1]);
+      await evaluate(`document.querySelector('#k2').classList.add('bttv-split-chat-alt-bg');document.querySelector('#k1').classList.remove('bttv-split-chat-alt-bg')`);
+      styles = await backgrounds();
+      assert.deepEqual(styles[0], styles[1], 'later stripe changes remain consistent');
+    });
+
     await t.test('chat batches repeated author changes and cleans detached rows without touching retained rows', async () => {
       await navigate('tests/fixtures/chat-sequences.html');
       await evaluate(`window.colorReads=0;window.nativeComputedStyle=window.getComputedStyle;window.getComputedStyle=function(...args){colorReads++;return nativeComputedStyle.apply(this,args)};for(let i=0;i<20;i++)document.querySelector('#l2 [data-a-target="chat-message-username"]').classList.toggle('batch-test')`);
@@ -44,19 +60,22 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.notEqual(colors[0].image, colors[1].image, 'different name colors produce different backgrounds');
       for (const color of colors) assert.match(color.image, /0\.06/, 'tints stay subtle');
       assert.equal(colors[1].background, 'rgb(40, 40, 40)', 'native highlights remain under the tint');
+      assert.equal(await isVisible('live-repeat-badge'), false);
       for (const id of ['live-repeat-wrapper','live-repeat-colon']) assert.equal(await isVisible(id), false, `${id} stays grouped`);
-      for (const id of ['live-repeat-badge','live-repeat-body','live-repeat-emote']) assert.equal(await isVisible(id), true, `${id} stays visible`);
+      for (const id of ['live-repeat-body','live-repeat-emote']) assert.equal(await isVisible(id), true, `${id} stays visible`);
       await evaluate(`document.querySelector('#live-repeat-name').style.color='rgb(10, 180, 90)'`);
-      assert.equal(await evaluate(`document.querySelector('#live-repeat').style.getPropertyValue('--tq-chat-color')`), 'rgb(10, 180, 90)', 'hidden repeated names still update their row tint');
+      assert.equal(await evaluate(`document.querySelector('#live-repeat').style.getPropertyValue('--tq-chat-color')`), 'rgb(139, 88, 255)', 'continuations share the first sender tint');
       await evaluate(`(()=>{const row=document.querySelector('#live-pink').cloneNode(true);for(const node of [row,...row.querySelectorAll('[id]')])node.removeAttribute('id');row.id='live-new';row.dataset.aUser='new_user';const name=row.querySelector('[data-a-target="chat-message-username"]');name.dataset.aUser='new_user';name.textContent='NewUser';name.style.color='rgb(20, 100, 220)';document.querySelector('#live-native-items').append(row)})()`);
       assert.equal(await evaluate(`document.querySelector('#live-new').style.getPropertyValue('--tq-chat-color')`), 'rgb(20, 100, 220)', 'new messages use their own inner color');
       await evaluate(`__storagePatch({enabled:false})`);
       assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-tint], [data-tq-chat-author], [data-tq-chat-separator]').length`), 0);
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('#live-purple')).backgroundColor`), 'rgb(40, 40, 40)');
-      for (const id of ['live-repeat-wrapper','live-repeat-colon']) assert.equal(await isVisible(id), true);
+      for (const id of ['live-repeat-wrapper','live-repeat-colon','live-repeat-badge']) assert.equal(await isVisible(id), true);
       await evaluate(`__storagePatch({enabled:true})`);
-      assert.equal(await evaluate(`document.querySelector('#live-repeat').style.getPropertyValue('--tq-chat-color')`), 'rgb(10, 180, 90)');
+      assert.equal(await evaluate(`document.querySelector('#live-repeat').style.getPropertyValue('--tq-chat-color')`), 'rgb(139, 88, 255)');
       assert.equal(await isVisible('live-repeat-wrapper'), false);
+      await evaluate(`document.querySelector('#live-purple [data-a-target="chat-message-username"]').style.color='rgb(20, 160, 80)'`);
+      assert.equal(await evaluate(`document.querySelector('#live-repeat').style.getPropertyValue('--tq-chat-color')`), 'rgb(20, 160, 80)', 'first-row color updates propagate to continuations');
     });
 
     await t.test('consecutive VOD senders hide only repeated names and colons, keeping every message and timestamp', async () => {
@@ -105,7 +124,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       for (const id of ['l2-time','l2-body']) assert.equal(await isVisible(id), true);
       await evaluate(`document.querySelector('#l2 [data-a-target="chat-message-username"]').style.color='rgb(10,10,250)'`);
       assert.equal(await isVisible('l2-author'), false, 'color changes do not split the same account');
-      assert.equal(await evaluate(`document.querySelector('#l2').style.getPropertyValue('--tq-chat-color')`), 'rgb(10, 10, 250)');
+      assert.equal(await evaluate(`document.querySelector('#l2').style.getPropertyValue('--tq-chat-color')`), 'rgb(20, 150, 200)');
       await evaluate(`document.querySelector('#l1').remove()`);
       assert.equal(await isVisible('l2-author'), true, 'removing an old live row restores the first visible name');
       await evaluate(`document.querySelector('#live-items').insertAdjacentHTML('beforeend','<div class="chat-line__message"><span id="same-name-one" data-a-target="chat-message-username" data-user-id="101">SameName</span><span>One</span></div><div class="chat-line__message"><span id="same-name-two" data-a-target="chat-message-username" data-user-id="202">SameName</span><span>Two</span></div><div class="chat-line__message"><span id="same-name-three" data-a-target="chat-message-username" data-user-id="202">SameName</span><span>Three</span></div>')`);

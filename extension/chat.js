@@ -28,7 +28,16 @@
         }
         return;
       }
-      const color = getComputedStyle(author).color;
+      // A hidden continuation may have a different native name color. Use the
+      // first sender label in this run so every row has the same background.
+      const key = sender(row, author);
+      let first = row;
+      let previous = adjacent(first, true);
+      while (key && previous?.matches(ROW) && sender(previous) === key) {
+        first = previous;
+        previous = adjacent(first, true);
+      }
+      const color = getComputedStyle(authorFor(first) || author).color;
       if (marked.has(row) && row.style.getPropertyValue('--tq-chat-color') === color) return;
       const rgb = color.match(/^rgba?\(\s*([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)/);
       marked.add(row);
@@ -170,7 +179,16 @@
 
     function flush(dirty, neighbors) {
       for (const row of dirty) if (row.isConnected) update(row);
-      for (const row of neighbors) if (row.isConnected && !dirty.has(row)) group(row);
+      for (const row of neighbors) if (row.isConnected && !dirty.has(row)) update(row);
+      // Color or identity changes can affect the remainder of this sender run.
+      const visited = new Set([...dirty, ...neighbors]);
+      for (const row of visited) {
+        const next = adjacent(row);
+        if (next?.matches(ROW) && !visited.has(next) && sender(row) && sender(next) === sender(row)) {
+          visited.add(next);
+          update(next);
+        }
+      }
     }
 
     const observer = new MutationObserver(records => {
