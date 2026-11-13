@@ -2,6 +2,18 @@
 
 Historical changes and verification notes, in release order.
 
+## 0.18.0 - Lifecycle reliability and documentation
+
+- Retry failed feature applications on a later settings change after cleanup,
+  while allowing other features to continue.
+- Register region teardown before setup, retain failed cleanup for retry, and
+  prevent duplicate attachment after partial failures. Cover recovery in runtime,
+  settings, and real-Chrome regressions.
+- Add repository instructions in AGENTS.md and move implementation details into
+  docs/architecture.md, leaving a concise architecture overview in the README.
+- Remove hardcoded release numbers from installation and development documentation;
+  packaging continues to derive archive names from the manifest version.
+
 ## 0.17.0 - Architecture and reliability
 
 - Rebuild the 0.17.0 ZIP with all refactored modules. Validate referenced assets,

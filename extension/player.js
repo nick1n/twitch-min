@@ -5,7 +5,7 @@
   let enabled = false;
   let hud = null;
   let timer = null;
-  function attachFit(region) {
+  function attachFit(region, onCleanup) {
     let source = null;
     let portal = null;
     let fittedRoot = null;
@@ -98,16 +98,16 @@
           node instanceof Element && (node.matches(FIT_PARTS) || node.querySelector(FIT_PARTS))))) locateFit();
     });
 
-    regionObserver.observe(region, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'data-a-target', 'data-target'] });
-    window.addEventListener('resize', locateFit);
-    document.addEventListener('fullscreenchange', locateFit);
-    locateFit();
-    return () => {
+    onCleanup(() => {
       regionObserver.disconnect();
       window.removeEventListener('resize', locateFit);
       document.removeEventListener('fullscreenchange', locateFit);
       releaseFit();
-    };
+    });
+    regionObserver.observe(region, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'data-a-target', 'data-target'] });
+    window.addEventListener('resize', locateFit);
+    document.addEventListener('fullscreenchange', locateFit);
+    locateFit();
   }
 
   function clearHUD() {
@@ -161,7 +161,7 @@
   let stopFitRegions = null;
   function update(settings) {
     if (settings.channelAbout && !stopFitRegions) {
-      stopFitRegions = globalThis.TwitchMinRegions.watch('.root-scrollable__wrapper', attachFit);
+      stopFitRegions = globalThis.TwitchMinRegions.watch('.root-scrollable__wrapper', attachFit, stop => { stopFitRegions = stop; });
     } else if (!settings.channelAbout && stopFitRegions) {
       stopFitRegions();
       stopFitRegions = null;

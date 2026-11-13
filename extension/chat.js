@@ -7,7 +7,7 @@
   const NOTICE = '.chat-line__status, .user-notice-line, [data-a-target="chat-welcome-message"], .chat-line__message--deleted';
   const ENTRY = `${ROW}, ${NOTICE}`;
   const BARRIER = Symbol('chat boundary');
-  function attachChat(root) {
+  function attachChat(root, onCleanup) {
     const marked = new Set();
     const grouped = new Set();
     const labels = new WeakMap();
@@ -20,20 +20,21 @@
 
     function tint(row, author) {
       if (!author) {
-        if (marked.delete(row)) {
+        if (marked.has(row)) {
           row.removeAttribute('data-tq-chat-tint');
           row.style.removeProperty('--tq-chat-color');
           row.style.removeProperty('--tq-chat-tint');
+          marked.delete(row);
         }
         return;
       }
       const color = getComputedStyle(author).color;
       if (marked.has(row) && row.style.getPropertyValue('--tq-chat-color') === color) return;
       const rgb = color.match(/^rgba?\(\s*([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)/);
+      marked.add(row);
       row.style.setProperty('--tq-chat-color', color);
       row.style.setProperty('--tq-chat-tint', rgb ? `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, 0.06)` : 'rgba(128, 128, 128, 0.04)');
       row.setAttribute('data-tq-chat-tint', '');
-      marked.add(row);
     }
 
     function sender(row, author = authorFor(row)) {
@@ -108,11 +109,11 @@
       const old = labels.get(row);
       if (old?.author === identity && old.separators.length === separators.length && old.separators.every((node, i) => node === separators[i])) return;
       clearGroup(row);
+      labels.set(row, { author: identity, separators });
+      grouped.add(row);
       row.setAttribute('data-tq-chat-continuation', '');
       identity.setAttribute('data-tq-chat-author', '');
       for (const separator of separators) separator.setAttribute('data-tq-chat-separator', '');
-      labels.set(row, { author: identity, separators });
-      grouped.add(row);
     }
 
     function update(row) {
@@ -189,23 +190,23 @@
       flush(dirty, neighbors);
     });
 
-    const dirty = new Set();
-    const neighbors = new Set();
-    visit(root, dirty, neighbors);
-    flush(dirty, neighbors);
-    observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['style', 'class', 'data-a-user', 'data-user-id', 'data-a-user-id', 'href'] });
-    return () => {
+    onCleanup(() => {
       observer.disconnect();
       for (const row of marked) if (!row.isConnected || root.contains(row)) tint(row, null);
       for (const row of grouped) if (!row.isConnected || root.contains(row)) clearGroup(row);
       marked.clear();
       grouped.clear();
-    };
+    });
+    const dirty = new Set();
+    const neighbors = new Set();
+    visit(root, dirty, neighbors);
+    flush(dirty, neighbors);
+    observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['style', 'class', 'data-a-user', 'data-user-id', 'data-a-user-id', 'href'] });
   }
 
   let stopRegions = null;
   globalThis.TwitchMinChat = globalThis.TwitchMinRuntime.create({
-    attach() { stopRegions = globalThis.TwitchMinRegions.watch(LIST, attachChat); },
+    attach() { stopRegions = globalThis.TwitchMinRegions.watch(LIST, attachChat, stop => { stopRegions = stop; }); },
     dispose() { stopRegions?.(); stopRegions = null; }
   });
 })();

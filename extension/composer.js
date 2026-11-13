@@ -73,15 +73,15 @@
     render(state);
   }
 
-  function attachOwner(owner) {
-    sync(owner);
+  function attachOwner(owner, onCleanup) {
     const observer = new MutationObserver(() => { if (owner.isConnected) sync(owner); });
-    observer.observe(owner, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'id', 'data-a-target'] });
-    return () => {
+    onCleanup(() => {
       observer.disconnect();
       const state = states.get(owner);
       if (state) remove(state);
-    };
+    });
+    sync(owner);
+    observer.observe(owner, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'id', 'data-a-target'] });
   }
 
   function onClick(event) {
@@ -104,7 +104,7 @@
     attach() {
       enabled = true;
       document.addEventListener('click', onClick, true);
-      stopRegions = globalThis.TwitchMinRegions.watch(OWNER, attachOwner);
+      stopRegions = globalThis.TwitchMinRegions.watch(OWNER, attachOwner, stop => { stopRegions = stop; });
     },
     dispose() {
       enabled = false;

@@ -3,17 +3,31 @@
   "use strict";
   globalThis.TwitchMinRuntime = Object.freeze({
     create(feature, isEnabled = settings => settings.enabled === true) {
-      let attached = false;
+      let state = 'idle'; // dirty means cleanup must succeed before another attach.
+      function cleanup() {
+        if (state === 'idle') return;
+        state = 'dirty';
+        feature.dispose();
+        state = 'idle';
+      }
       return Object.freeze({
         update(settings) {
-          if (!isEnabled(settings)) {
-            if (attached) { attached = false; feature.dispose(); }
-          } else if (!attached) {
-            attached = true;
-            feature.attach(settings);
-          } else feature.update?.(settings);
+          if (state === 'dirty' || !isEnabled(settings)) cleanup();
+          if (!isEnabled(settings)) return;
+          try {
+            if (state === 'idle') {
+              state = 'dirty';
+              feature.attach(settings);
+              state = 'attached';
+            } else feature.update?.(settings);
+          } catch (error) {
+            try { cleanup(); } catch (cleanupError) {
+              throw new AggregateError([error, cleanupError], 'Feature failed and cleanup failed');
+            }
+            throw error;
+          }
         },
-        dispose() { if (attached) { attached = false; feature.dispose(); } }
+        dispose: cleanup
       });
     }
   });

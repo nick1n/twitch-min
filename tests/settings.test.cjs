@@ -82,3 +82,39 @@ test('content script handles late document root, initial-read races, removals an
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(attributes, {}, 'failed settings read must leave the page unhidden');
 });
+
+test('content isolates failures and retries only unsuccessful features with unchanged settings', async () => {
+  const calls = { first: 0, later: 0 };
+  const warnings = [];
+  let writes = 0, changeListener, fail = true;
+  const context = vm.createContext({
+    document: {
+      documentElement: { setAttribute() { writes++; }, appendChild() {} },
+      createElement: () => ({})
+    },
+    chrome: { storage: { onChanged: { addListener(callback) { changeListener = callback; } },
+      local: { get: async defaults => defaults } } },
+    console: { warn: (...args) => warnings.push(args) },
+    TwitchMinEmotes: { update() { calls.first++; if (fail) throw Error('injected startup/update failure'); } },
+    TwitchMinComposer: { update() { calls.later++; } }
+  });
+  for (const file of [...ruleScripts, 'content.js']) vm.runInContext(read(`extension/${file}`), context);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(calls, { first: 1, later: 1 });
+  assert.match(warnings[0][0], /TwitchMinEmotes/);
+  assert.equal(writes, 9, 'initial settings are applied');
+  fail = false;
+  changeListener({ enabled: { newValue: true } }, 'local');
+  assert.deepEqual(calls, { first: 2, later: 1 });
+  assert.equal(writes, 9, 'retry leaves unchanged attributes untouched');
+  changeListener({ enabled: { newValue: true } }, 'local');
+  assert.deepEqual(calls, { first: 2, later: 1 });
+  fail = true;
+  changeListener({ chatComposer: { newValue: false } }, 'local');
+  assert.deepEqual(calls, { first: 3, later: 2 }, 'a later update failure does not block the remaining feature');
+  assert.equal(writes, 10);
+  fail = false;
+  changeListener({ chatComposer: { newValue: false } }, 'local');
+  assert.deepEqual(calls, { first: 4, later: 2 });
+  assert.equal(writes, 10);
+});

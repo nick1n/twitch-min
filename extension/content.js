@@ -6,17 +6,28 @@
   let root = null;
   let pendingChanges = {};
   let applied = null;
+  const featureApplied = new Map();
 
   function apply() {
     if (!root || !settings) return;
-    if (applied && Object.keys(DEFAULTS).every(key => applied[key] === settings[key])) return;
     for (const [key, attribute] of Object.entries(ATTRIBUTES)) {
       if (!applied || applied[key] !== settings[key]) root.setAttribute(attribute, String(settings[key]));
     }
     applied = { ...settings };
-    for (const feature of [globalThis.TwitchMinEmotes, globalThis.TwitchMinLayout,
-      globalThis.TwitchMinTimestamps, globalThis.TwitchMinPlayer,
-      globalThis.TwitchMinChat, globalThis.TwitchMinComposer]) feature?.update(settings);
+    for (const name of ['TwitchMinEmotes', 'TwitchMinLayout', 'TwitchMinTimestamps',
+      'TwitchMinPlayer', 'TwitchMinChat', 'TwitchMinComposer']) {
+      const feature = globalThis[name];
+      if (!feature) continue;
+      const previous = featureApplied.get(name);
+      if (previous && Object.keys(DEFAULTS).every(key => previous[key] === settings[key])) continue;
+      try {
+        feature.update(settings);
+        featureApplied.set(name, { ...settings });
+      } catch (error) {
+        featureApplied.delete(name);
+        console.warn(`twitch-min feature ${name} failed to apply settings.`, error);
+      }
+    }
   }
 
   function mount() {

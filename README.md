@@ -12,7 +12,7 @@ is required to use it.
 3. Refresh Twitch tabs that were already open.
 4. Pin **twitch-min** in Chrome's Extensions menu, then open its popup.
 
-Alternatively, extract `dist/twitch-min-0.17.0.zip` and load the extracted folder
+Alternatively, extract `dist/twitch-min-<version>.zip` and load the extracted folder
 containing `manifest.json`. Keep that folder: Chrome loads the extension from it.
 This is an unpacked extension, not a Chrome Web Store installation.
 
@@ -180,10 +180,7 @@ every future variant is covered.
 
 If an item remains visible, first enable its switch and refresh Twitch. If it
 still appears, inspect that item in DevTools and copy its `outerHTML` so the
-selector can be adjusted. Keep shared region selectors in `extension/selectors.js` and cosmetic selectors in the matching `extension/rules-*.js` feature file.
-Avoid broad selectors such as all buttons or all chat panels. Sidebar collapse
-belongs in `extension/layout.js`, with compact row styles in `extension/rules-sidebar.js`;
-keep the native metadata and overlay height intact.
+selector can be adjusted.
 
 After editing the extension, click **Reload** on its `chrome://extensions` card
 and refresh Twitch. **Remove** uninstalls it and removes its stored preferences.
@@ -200,6 +197,8 @@ and refresh Twitch. **Remove** uninstalls it and removes its stored preferences.
 
 ## Development
 
+Coding-agent instructions are in [AGENTS.md](AGENTS.md).
+
 Node 22 or newer and an installed Chrome are needed for tests, not for installation.
 On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`.
 
@@ -209,8 +208,8 @@ npm.cmd run package
 ```
 
 Packaging requires Windows PowerShell and its built-in .NET ZIP support; no
-additional dependencies are needed. It uses the manifest version (currently `0.17.0`) and rebuilds the
-ignored `dist/twitch-min-0.17.0.zip`. The script checks package/manifest version
+additional dependencies are needed. It uses the manifest version and rebuilds the
+ignored `dist/twitch-min-<version>.zip`. The script checks package/manifest version
 agreement and the manifest's scripts, styles, popup, and icons, including local
 assets referenced by the popup. It writes a temporary ZIP, verifies the root
 manifest and every source file's SHA-256 content, then replaces the release ZIP
@@ -256,72 +255,14 @@ tests/
 scripts/package.ps1   ZIP the installable extension files
 ```
 
-The document-start content script waits for saved preferences before activating
-the rules, so a previously paused extension does not temporarily hide controls.
-This can allow a brief initial flash while storage loads. CSS handles new matching
-elements during Twitch navigation. A mount observer waits for the initial document
-root, then disconnects. After mounting, `regions.js` owns one shared document
-observer for discovery while features are active. It tracks added subtrees,
-region identity changes, and detached mounts; feature observers stay inside their
-mounted sidebar, navigation, player, chat, or composer regions. Discovery handles
-later mounts without rescanning the whole document on every chat mutation. Pausing
-releases subscriptions and disconnects discovery when none remain; asynchronous
-native sidebar restoration is allowed to finish. Delegated click and keyboard
-handlers cover emotes in later messages without scanning chat. While a preview is
-open, its temporary observer checks source connectivity and filters mutations
-before measuring the native tooltip. It disconnects when the preview closes.
-Replay time formatting observes added nodes/text changes and visits only the
-affected subtrees. Player sizing observes its placeholder dimensions and root mode
-changes, reconnecting when relevant player or metadata nodes change during navigation.
-Unrelated chat updates do not trigger document-wide player searches.
-Chat styling observes affected rows, author changes, and adjacent messages; it
-deduplicates affected rows within each mutation batch and cleans up removed
-subtrees without scanning every retained row. Disabling the
-master switch removes tint variables and temporary grouping attributes.
-The composer controller watches changed editor subtrees and later mounts. It
-never rewrites the draft or changes Twitch's native Send disabled state; temporary
-controls, IDs, and open-state markers are removed when the feature is paused.
-
 Icons can be regenerated with `python scripts/generate_icons.py` (standard library only).
 
 ### Architecture and ownership
 
-See [ROADMAP.md](ROADMAP.md) for validation priorities, small follow-ups, and the
-conditions that would justify a sidebar state machine or DOM compatibility layer.
+Settings are declared centrally, cosmetic rules are split by feature, and runtime
+controllers own DOM behavior and restoration. Shared discovery tracks Twitch's
+changing page regions; the manifest defines production script order.
 
-`settings.js` declares each stable storage key, default, HTML attribute, popup
-title, and description once in `DEFINITIONS`. `DEFAULTS`, `ATTRIBUTES`, and the
-existing eight-entry `GROUPS` popup API are derived from it. The master preference
-is declared alongside the groups but remains a separate popup control.
-
-Feature rule files expose frozen `[cascadeSlot, rule]` entries. `rules.js` sorts
-those slots and retains the `TwitchMinRules.RULES` / `buildCSS()` API. The slots
-preserve the existing cross-feature cascade, including interleaved master-switch
-rules. `tests/rules-baseline.json` records the original rule count and SHA-256 of
-the complete CSS; an intentional cosmetic change requires reviewing and updating
-that baseline. Shared selectors can be comma-separated lists; descendant rules
-wrap those lists in `:is(...)` so every alternative stays scoped. VOD rules add
-the existing theatre exclusions to the shared VOD root.
-
-Runtime controllers own DOM discovery, observers, event handlers, and restoration;
-rule modules own cosmetic CSS. Shared region discovery belongs in `regions.js`
-and lifecycle support in `runtime.js`. Each feature supplies internal
-`attach(settings)`, `update(settings)`, and `dispose()` hooks to
-`TwitchMinRuntime.create`. The public controller API is `update(settings)` and
-`dispose()`; the adapter attaches on activation, updates an active feature, and
-disposes it on pause. Keep feature-specific selectors beside
-their feature; promote selectors shared across controllers/rules to `selectors.js`.
-The production dependency order is defined by `extension/manifest.json`.
-
-The browser harness launches one Chrome child and one UUID profile per run,
-reuses their CDP connection for sequential feature modules, and removes only that
-profile after the child exits, including on assertion/setup failures. Each test
-navigates independently with a fresh storage mock; emote click tracking and popup
-write failures have their own setup. HTML fixtures contain a production marker
-that the local CDP response handler expands from the manifest, including CSS.
-No generated script lists or fixture web server are needed. All remote requests
-are blocked or fulfilled locally, including emote images and snapshot resources.
-The harness captures uncaught page exceptions from startup onward, including
-timer errors and unhandled promise rejections. Handled storage failures and
-console warnings remain valid test scenarios. Harness failure checks use separate
-isolated browsers so deliberately broken pages cannot contaminate feature tests.
+See [docs/architecture.md](docs/architecture.md) for lifecycle, observer, CSS
+cascade, failure recovery, and browser harness details. See
+[ROADMAP.md](ROADMAP.md) for validation priorities and deferred improvements.

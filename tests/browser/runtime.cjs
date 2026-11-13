@@ -1,6 +1,48 @@
 const assert = require('node:assert/strict');
 
 module.exports = async (t, { navigate, evaluate, waitFor }) => {
+  await t.test('a composer setup failure rolls back controls and listeners before a same-settings retry', async () => {
+    await navigate('tests/fixtures/twitch.html');
+    await evaluate(`__storagePatch({chatComposer:false});window.composerWarnings=[];console.warn=(...args)=>composerWarnings.push(String(args[0]));window.originalObserve=MutationObserver.prototype.observe;MutationObserver.prototype.observe=function(target,options){originalObserve.call(this,target,options);if(target.matches?.('.chat-input')){MutationObserver.prototype.observe=originalObserve;throw Error('injected failure after observing composer')}};__storagePatch({chatComposer:true})`);
+    assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-toggle], [data-tq-composer-id]').length`), 0, 'partial controls and generated IDs are removed');
+    assert.equal(await evaluate(`composerWarnings.some(message=>message.includes('TwitchMinComposer'))`), true);
+    await evaluate(`__storagePatch({chatComposer:true})`);
+    assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-toggle]').length`), 1);
+    await evaluate(`document.querySelector('[data-tq-chat-toggle]').click()`);
+    assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle]').getAttribute('aria-expanded')`), 'true', 'one click produces one toggle after recovery');
+    await evaluate(`__storagePatch({enabled:false})`);
+    assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-toggle], [data-tq-composer-id]').length`), 0);
+  });
+
+  await t.test('failed region setup retains failed cleanup, releases other roots, and blocks duplicate attachment', async () => {
+    await navigate('tests/fixtures/twitch.html');
+    const result = await evaluate(`(()=>{
+      document.body.insertAdjacentHTML('beforeend','<div class="fault-region" id="fault-one"></div><div class="fault-region" id="fault-two"></div>');
+      let stop, attempts=0, failCleanup=true, failAttach=true;
+      const live=new Set();
+      const feature=TwitchMinRuntime.create({
+        attach(){TwitchMinRegions.watch('.fault-region',(element,onCleanup)=>{
+          attempts++;
+          onCleanup(()=>{if(element.id==='fault-two'&&failCleanup)throw Error('cleanup blocked');live.delete(element.id)});
+          live.add(element.id);
+          if(element.id==='fault-two'&&failAttach)throw Error('attach failed');
+        },dispose=>{stop=dispose})},
+        dispose(){stop?.();stop=null}
+      });
+      try{feature.update({enabled:true})}catch{}
+      const partial=[...live];
+      try{feature.update({enabled:true})}catch{}
+      const attemptsBeforeRecovery=attempts;
+      failCleanup=failAttach=false;
+      feature.update({enabled:true});
+      const recovered=[...live].sort();
+      feature.dispose();
+      feature.dispose();
+      return {partial,attemptsBeforeRecovery,attempts,recovered,remaining:live.size};
+    })()`);
+    assert.deepEqual(result, { partial: ['fault-two'], attemptsBeforeRecovery: 2, attempts: 4, recovered: ['fault-one', 'fault-two'], remaining: 0 });
+  });
+
   await t.test('one discovery observer owns nested and independent chat mounts and fully pauses', async () => {
     await navigate('tests/fixtures/chat-sequences.html', `
       window.documentObservers=new Set();

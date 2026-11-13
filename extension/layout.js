@@ -9,6 +9,7 @@
   let compact = false;
   let stopSides = null;
   let stopNavigation = null;
+  let stoppingSides = false;
   const sides = new Set();
 
   function markNavigation(nav) {
@@ -36,13 +37,13 @@
   }
 
   function finishPause() {
-    if (enabled || [...sides].some(state => state.restoring())) return;
-    const stop = stopSides;
-    stopSides = null;
-    stop?.();
+    if (enabled || stoppingSides || [...sides].some(state => state.restoring())) return;
+    stoppingSides = true;
+    try { stopSides?.(); stopSides = null; }
+    finally { stoppingSides = false; }
   }
 
-  function attachSide(side) {
+  function attachSide(side, onCleanup) {
     let restore = false;
     let pending = null;
     function expanded() {
@@ -75,16 +76,12 @@
       sync,
       restoring: () => side.isConnected && side.querySelector('[data-a-target="side-nav-arrow"]') && (pending || restore)
     };
-    sides.add(state);
     const observer = new MutationObserver(() => {
       sync();
       if (enabled) markSections(side);
       finishPause();
     });
-    observer.observe(side, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'data-a-target', 'aria-label'] });
-    sync();
-    if (enabled) markSections(side);
-    return () => {
+    onCleanup(() => {
       observer.disconnect();
       sides.delete(state);
       for (const node of side.querySelectorAll('[data-tq-section], [data-tq-section-title]')) {
@@ -92,24 +89,28 @@
         node.removeAttribute('data-tq-section-title');
       }
       finishPause();
-    };
+    });
+    sides.add(state);
+    observer.observe(side, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'data-a-target', 'aria-label'] });
+    if (enabled) markSections(side);
+    sync();
   }
 
-  function attachNavigation(nav) {
+  function attachNavigation(nav, onCleanup) {
     const observer = new MutationObserver(() => markNavigation(nav));
-    observer.observe(nav, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'title'] });
-    markNavigation(nav);
-    return () => {
+    onCleanup(() => {
       observer.disconnect();
       for (const node of nav.querySelectorAll('[data-tq-top-extra]')) node.removeAttribute('data-tq-top-extra');
-    };
+    });
+    observer.observe(nav, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'title'] });
+    markNavigation(nav);
   }
 
   function update(settings) {
     enabled = true;
     compact = settings.sidebarLabels === true;
-    if (!stopSides) stopSides = globalThis.TwitchMinRegions.watch(SIDE, attachSide);
-    if (!stopNavigation) stopNavigation = globalThis.TwitchMinRegions.watch(NAV, attachNavigation);
+    if (!stopSides) stopSides = globalThis.TwitchMinRegions.watch(SIDE, attachSide, stop => { stopSides = stop; });
+    if (!stopNavigation) stopNavigation = globalThis.TwitchMinRegions.watch(NAV, attachNavigation, stop => { stopNavigation = stop; });
     for (const state of sides) state.sync();
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "twitch-min",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "private": true,
   "description": "Local Twitch cosmetic-hiding extension and dependency-free checks",
   "scripts": {

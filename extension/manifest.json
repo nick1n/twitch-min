@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "twitch-min",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "description": "Compact Twitch sidebar with viewer counts and games, hide distractions, and preview chat emotes at 3x.",
   "minimum_chrome_version": "105",
   "permissions": ["storage"],

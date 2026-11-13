@@ -1,4 +1,4 @@
-twitch-min 0.17.0 - local Chrome extension
+twitch-min - local Chrome extension
 
 The ZIP is the Chrome Web Store upload package, with manifest.json at its root.
 It is optional for local use: load the repository's extension folder directly.

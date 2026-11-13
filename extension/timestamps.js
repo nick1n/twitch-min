@@ -2,7 +2,7 @@
 (() => {
   "use strict";
   const TIME = '.video-chat .vod-message__header p, .video-chat__message-time, .video-chat [data-a-target="video-chat-timestamp"], .video-chat__message a[href^="/videos/"][href*="?t="], [data-a-target="video-chat-message"] a[href^="/videos/"][href*="?t="]';
-  function attachTimes(root) {
+  function attachTimes(root, onCleanup) {
     const marked = new Set();
 
     function shortTime(text) {
@@ -24,8 +24,8 @@
         visited.add(leaf);
         const value = shortTime(leaf.textContent);
         if (value !== null) {
-          if (leaf.getAttribute('data-tq-time') !== value) leaf.setAttribute('data-tq-time', value);
           marked.add(leaf);
+          if (leaf.getAttribute('data-tq-time') !== value) leaf.setAttribute('data-tq-time', value);
         } else if (marked.delete(leaf)) leaf.removeAttribute("data-tq-time");
       }
     }
@@ -63,20 +63,20 @@
       }
       flush(candidates);
     });
+    onCleanup(() => {
+      observer.disconnect();
+      for (const leaf of marked) if (!leaf.isConnected || root.contains(leaf)) leaf.removeAttribute('data-tq-time');
+      marked.clear();
+    });
     const initial = new Set();
     visit(root, initial);
     flush(initial);
     observer.observe(root, { childList: true, subtree: true, characterData: true });
-    return () => {
-      observer.disconnect();
-      for (const leaf of marked) if (!leaf.isConnected || root.contains(leaf)) leaf.removeAttribute('data-tq-time');
-      marked.clear();
-    };
   }
 
   let stopRegions = null;
   globalThis.TwitchMinTimestamps = globalThis.TwitchMinRuntime.create({
-    attach() { stopRegions = globalThis.TwitchMinRegions.watch(globalThis.TwitchMinSelectors.chatRoot, attachTimes); },
+    attach() { stopRegions = globalThis.TwitchMinRegions.watch(globalThis.TwitchMinSelectors.chatRoot, attachTimes, stop => { stopRegions = stop; }); },
     dispose() { stopRegions?.(); stopRegions = null; }
   }, settings => settings.enabled === true && settings.chatTimestamps === true);
 })();
