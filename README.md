@@ -12,7 +12,7 @@ is required to use it.
 3. Refresh Twitch tabs that were already open.
 4. Pin **twitch-min** in Chrome's Extensions menu, then open its popup.
 
-Alternatively, extract `dist/twitch-min-0.1.16.zip` and load the extracted folder
+Alternatively, extract `dist/twitch-min-0.16.0.zip` and load the extracted folder
 containing `manifest.json`. Keep that folder: Chrome loads the extension from it.
 This is an unpacked extension, not a Chrome Web Store installation.
 
@@ -249,7 +249,7 @@ extra `tp-ps` speed group, and player subscription/follow overlays. Clip and spe
 markup was checked against the supplied snapshots; the existing Chrome preset
 and restoration checks cover the hidden controls and retained playback controls.
 
-Version 0.1.16 restores the decrease/increase speed buttons and hides only the
+Version 0.16.0 restores the decrease/increase speed buttons and hides only the
 middle rate display. Existing Chrome visibility checks now cover all three
 speed controls separately.
 
