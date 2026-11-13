@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { root } = require('../support/production.cjs');
+const { root, manifest } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
     await t.test('default screenshot preset hides targets and preserves intended UI', async () => {
@@ -82,7 +82,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
     });
 
     await t.test('popup saves changed keys, restores, presets, and handles external changes', async () => {
-      await navigate('extension/popup.html');
+      await navigate(`extension/${manifest.action.default_popup}`);
       assert.equal(await evaluate(`document.querySelectorAll('#groups input').length`), 8);
       await evaluate(`window.originalControls=[...document.querySelectorAll('#groups input')]`);
       assert.equal(await evaluate(`document.querySelector('#groups .loading')`), null);
@@ -104,12 +104,12 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
     });
 
     await t.test('popup exposes storage read/write failures without leaving controls stuck', async () => {
-      await navigate('extension/popup.html');
+      await navigate(`extension/${manifest.action.default_popup}`);
       await evaluate(`__writeError=true; document.querySelector('#group-chatComposer').click()`);
       assert.equal(await evaluate(`document.querySelector('#group-chatComposer').checked`), true, 'failed write rolls back');
       assert.equal(await evaluate(`document.querySelector('#status').hidden`), false);
       assert.equal(await evaluate(`document.querySelector('#master-toggle').disabled`), false);
-      await navigate('extension/popup.html', '__readError=true;');
+      await navigate(`extension/${manifest.action.default_popup}`, '__readError=true;');
       assert.equal(await evaluate(`document.querySelector('#status').hidden`), false);
       assert.equal(await evaluate(`document.querySelector('#master-toggle').disabled`), true);
     });

@@ -9,7 +9,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 function loadRules() {
   const context = vm.createContext({});
-  for (const file of content.js.filter(file => file === 'settings.js' || file === 'selectors.js' || /^rules(?:-|\.)/.test(file))) {
+  for (const file of content.js.filter(file => file === 'shared/settings.js' || file === 'shared/selectors.js' || file.startsWith('styles/'))) {
     vm.runInContext(read(`extension/${file}`), context, { filename: file });
   }
   return context;

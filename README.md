@@ -227,29 +227,37 @@ loads trusted local fixture files. Each run removes its own profile after Chrome
 ```text
 extension/
   manifest.json       Twitch-only scope and popup declaration
-  settings.js         Single setting declaration; derived defaults, attributes, popup groups
-  selectors.js        Shared region selectors used by controllers and rules
-  runtime.js          Feature lifecycle adapter
-  regions.js          Shared region discovery and remount notifications
-  rules-sidebar.js    Sidebar filtering and compact row CSS
-  rules-navigation.js Navigation extras and search CSS
-  rules-player.js     Player controls, channel actions, and VOD layout CSS
-  rules-chat.js       Chat headers, tint, timestamps, and composer CSS
-  rules.js            Thin ordered rule aggregator and CSS builder
+  INSTALL.txt         Installation and usage instructions for ZIP users
   content.js          Stylesheet setup and saved-preference updates
-  layout.js           Native sidebar state and text-only navigation controls
-  emotes.js/css       Click previews for chat emotes and their anchored bubble
-  timestamps.js       Replay timestamp formatting without changing seek targets
-  player.js/css       Wheel volume control and fitted VOD portal sizing
-  chat.js             Author-color tints and consecutive-sender labels
-  composer.js         Chat toggle, editor focus, and native Send restoration
-  popup.*             Controls, local storage, and error states
-  icons/              PNG extension icons
+  shared/
+    settings.js       Single setting declaration; derived defaults, attributes, popup groups
+    selectors.js      Shared region selectors used by controllers and rules
+    runtime.js        Feature lifecycle adapter
+    regions.js        Shared region discovery and remount notifications
+  controllers/
+    layout.js         Native sidebar state and text-only navigation controls
+    emotes.js         Click previews for chat emotes and their anchored bubble
+    timestamps.js     Replay timestamp formatting without changing seek targets
+    player.js         Wheel volume control and fitted VOD portal sizing
+    chat.js           Author-color tints and consecutive-sender labels
+    composer.js       Chat toggle, editor focus, and native Send restoration
+  styles/
+    rules-sidebar.js  Sidebar filtering and compact row CSS
+    rules-navigation.js Navigation extras and search CSS
+    rules-player.js   Player controls, channel actions, and VOD layout CSS
+    rules-chat.js     Chat headers, tint, timestamps, and composer CSS
+    rules.js          Thin ordered rule aggregator and CSS builder
+    emotes.css        Anchored emote preview bubble
+    player.css        Player volume indicator and fitted VOD sizing
+  popup/
+    popup.html/css/js Controls, local storage, and error states
+  icons/              PNG extension icons and SVG popup logo
 tests/
   browser.test.cjs     One browser run, sequential feature registration
   browser/*.cjs        Independent feature checks and optional snapshot imports
   support/chrome.cjs   Reusable Chrome/CDP resource lifecycle and page helpers
   support/production.cjs Manifest-driven fixture scripts/styles and local network policy
+  support/mock-storage.cjs Shared Chrome storage mock injected into browser pages
   architecture.test.cjs Settings, exact CSS preservation, script order, version checks
   runtime.test.cjs     Lifecycle failure cleanup and retry checks
   browser/runtime.cjs Integration lifecycle, region, timestamp, and no-op regressions

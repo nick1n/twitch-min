@@ -15,22 +15,22 @@
 - See [docs/architecture.md](docs/architecture.md) for architecture details.
   Treat `extension/manifest.json` as the production script-order source of truth;
   do not maintain duplicate script lists in fixtures or tooling.
-- Keep stable preference definitions in `extension/settings.js`. Preserve saved
+- Keep stable preference definitions in `extension/shared/settings.js`. Preserve saved
   keys and defaults unless the task intentionally changes them.
-- Keep cosmetic CSS in the matching `extension/rules-*.js` module and DOM behavior
-  in its controller. Shared selectors belong in `extension/selectors.js`;
+- Keep cosmetic CSS in the matching `extension/styles/rules-*.js` module and DOM behavior
+  in `extension/controllers/`. Shared selectors belong in `extension/shared/selectors.js`;
   feature-specific selectors stay with their feature. Scope comma-separated
   descendant selectors with `:is(...)` and avoid broad button/chat selectors.
-- Keep shared discovery in `extension/regions.js` and lifecycle support in
-  `extension/runtime.js`. Register teardown before DOM changes or observer setup.
+- Keep shared discovery in `extension/shared/regions.js` and lifecycle support in
+  `extension/shared/runtime.js`. Register teardown before DOM changes or observer setup.
   Release observers, listeners, temporary attributes, styles, and controls on
   pause or disposal, including failed setup and detached regions.
 - Keep mutation work scoped to affected regions and subtrees. Do not introduce
   document-wide scans on ordinary chat updates or timer-based retry loops.
 - Preserve native handlers, accessible names, drafts, timestamp seek targets,
   and retained player controls. Turning a feature off must restore native behavior.
-- Sidebar collapse behavior belongs in `extension/layout.js`, with compact row
-  styles in `extension/rules-sidebar.js`. Preserve native metadata, overlay height,
+- Sidebar collapse behavior belongs in `extension/controllers/layout.js`, with compact row
+  styles in `extension/styles/rules-sidebar.js`. Preserve native metadata, overlay height,
   and the obligation to restore an initially collapsed sidebar.
 
 ## Validation

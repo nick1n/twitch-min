@@ -5,12 +5,12 @@ const vm = require('node:vm');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const { manifest, content } = require('./support/production.cjs');
-const ruleScripts = content.js.slice(0, content.js.indexOf('rules.js') + 1).filter(file => !['runtime.js', 'regions.js'].includes(file));
+const ruleScripts = content.js.filter(file => file === 'shared/settings.js' || file === 'shared/selectors.js' || file.startsWith('styles/'));
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('settings reject malformed values and retain explicit false preferences', () => {
   const context = vm.createContext({});
-  vm.runInContext(read('extension/settings.js'), context);
+  vm.runInContext(read('extension/shared/settings.js'), context);
   const api = context.TwitchMinSettings;
   assert.equal(api.normalize(null).enabled, true);
   assert.equal(api.normalize({ enabled: false }).enabled, false);
@@ -30,8 +30,8 @@ test('manifest is Twitch-only, storage-only, with local scripts in dependency or
   assert.equal(manifest.host_permissions, undefined);
   assert.deepEqual(manifest.content_scripts[0].matches, ['https://www.twitch.tv/*', 'https://twitch.tv/*']);
   assert.equal(manifest.content_scripts[0].run_at, 'document_start');
-  assert.deepEqual(manifest.content_scripts[0].js, ['settings.js', 'selectors.js', 'runtime.js', 'regions.js', 'rules-sidebar.js', 'rules-navigation.js', 'rules-player.js', 'rules-chat.js', 'rules.js', 'emotes.js', 'layout.js', 'timestamps.js', 'player.js', 'chat.js', 'composer.js', 'content.js']);
-  assert.deepEqual(manifest.content_scripts[0].css, ['emotes.css', 'player.css']);
+  assert.equal(new Set(content.js).size, content.js.length, 'content scripts are loaded once');
+  assert.equal(new Set(content.css).size, content.css.length, 'content styles are loaded once');
   for (const file of [...manifest.content_scripts[0].js, ...manifest.content_scripts[0].css, manifest.action.default_popup]) {
     assert.ok(fs.existsSync(path.join(root, 'extension', file)), file);
   }
@@ -39,7 +39,7 @@ test('manifest is Twitch-only, storage-only, with local scripts in dependency or
     const bytes = fs.readFileSync(path.join(root, 'extension', file));
     assert.equal(bytes.subarray(1, 4).toString(), 'PNG');
   }
-  assert.doesNotMatch(read('extension/popup.html'), /<script(?![^>]*\bsrc=)/i);
+  assert.doesNotMatch(read(`extension/${manifest.action.default_popup}`), /<script(?![^>]*\bsrc=)/i);
 });
 
 test('content script handles late document root, initial-read races, removals and storage errors', async () => {

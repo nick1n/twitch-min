@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-require('../extension/runtime.js');
+require('../extension/shared/runtime.js');
 
 test('failed lifecycle work cleans up and retries only after cleanup succeeds', () => {
   let allocated = 0, attempts = 0, failCleanup = true, failUpdate = true;

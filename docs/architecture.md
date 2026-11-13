@@ -9,12 +9,13 @@ See [README.md](../README.md#development) for setup and commands and
 See [ROADMAP.md](../ROADMAP.md) for validation priorities, small follow-ups, and the
 conditions that would justify a sidebar state machine or DOM compatibility layer.
 
-`settings.js` declares each stable storage key, default, HTML attribute, popup
+`extension/shared/settings.js` declares each stable storage key, default, HTML attribute, popup
 title, and description once in `DEFINITIONS`. `DEFAULTS`, `ATTRIBUTES`, and the
 existing eight-entry `GROUPS` popup API are derived from it. The master preference
 is declared alongside the groups but remains a separate popup control.
 
-Feature rule files expose frozen `[cascadeSlot, rule]` entries. `rules.js` sorts
+Feature rule files in `extension/styles/` expose frozen `[cascadeSlot, rule]`
+entries. `extension/styles/rules.js` sorts
 those slots and retains the `TwitchMinRules.RULES` / `buildCSS()` API. The slots
 preserve the existing cross-feature cascade, including interleaved master-switch
 rules. `tests/rules-baseline.json` records the original rule count and SHA-256 of
@@ -23,15 +24,21 @@ that baseline. Shared selectors can be comma-separated lists; descendant rules
 wrap those lists in `:is(...)` so every alternative stays scoped. VOD rules add
 the existing theatre exclusions to the shared VOD root.
 
-Runtime controllers own DOM discovery, observers, event handlers, and restoration;
-rule modules own cosmetic CSS. Shared region discovery belongs in `regions.js`
-and lifecycle support in `runtime.js`. Each feature supplies internal
+Runtime controllers in `extension/controllers/` own DOM discovery, observers,
+event handlers, and restoration; rule modules own cosmetic CSS. Shared region
+discovery belongs in `extension/shared/regions.js` and lifecycle support in
+`extension/shared/runtime.js`. Each feature supplies internal
 `attach(settings)`, `update(settings)`, and `dispose()` hooks to
 `TwitchMinRuntime.create`. The public controller API is `update(settings)` and
 `dispose()`; the adapter attaches on activation, updates an active feature, and
 disposes it on pause. Keep feature-specific selectors beside
-their feature; promote selectors shared across controllers/rules to `selectors.js`.
+their feature; promote selectors shared across controllers/rules to
+`extension/shared/selectors.js`.
 The production dependency order is defined by `extension/manifest.json`.
+`extension/content.js` applies saved preferences and coordinates the controllers.
+The popup's HTML, CSS, and script live in `extension/popup/` and load the same
+shared settings declaration. See [README.md](../README.md#development) for the
+repository folder map.
 
 ## Lifecycle recovery
 
@@ -56,7 +63,7 @@ The document-start content script waits for saved preferences before activating
 the rules, so a previously paused extension does not temporarily hide controls.
 This can allow a brief initial flash while storage loads. CSS handles new matching
 elements during Twitch navigation. A mount observer waits for the initial document
-root, then disconnects. After mounting, `regions.js` owns one shared document
+root, then disconnects. After mounting, `extension/shared/regions.js` owns one shared document
 observer for discovery while features are active. It tracks added subtrees,
 region identity changes, and detached mounts; feature observers stay inside their
 mounted sidebar, navigation, player, chat, or composer regions. Discovery handles

@@ -87,8 +87,8 @@ test('packaging replaces stale output with all source files at ZIP root, byte fo
   assertPreserved(dir);
 });
 
-for (const asset of ['selectors.js', 'runtime.js', 'regions.js', 'rules-sidebar.js', 'rules-navigation.js',
-  'rules-player.js', 'rules-chat.js', 'emotes.css', 'popup.html', 'popup.js', 'popup.css', 'icons/icon128.png', 'icons/logo.svg']) {
+for (const asset of ['shared/selectors.js', 'shared/runtime.js', 'shared/regions.js', 'styles/rules-sidebar.js', 'styles/rules-navigation.js',
+  'styles/rules-player.js', 'styles/rules-chat.js', 'styles/emotes.css', 'popup/popup.html', 'popup/popup.js', 'popup/popup.css', 'icons/icon128.png', 'icons/logo.svg']) {
   test('packaging rejects missing ' + asset + ' and preserves the previous release', t => {
     const dir = fixture(t);
     fs.unlinkSync(path.join(dir, 'extension', asset));
@@ -124,14 +124,14 @@ test('archive validation rejects same-name corruption and cleans its temporary Z
   fs.writeFileSync(script, source.replace(marker, `
     $damaged = [IO.Compression.ZipFile]::Open($temporaryArchive, [IO.Compression.ZipArchiveMode]::Update)
     try {
-        $damaged.GetEntry('runtime.js').Delete()
-        $writer = [IO.StreamWriter]::new($damaged.CreateEntry('runtime.js').Open())
+        $damaged.GetEntry('shared/runtime.js').Delete()
+        $writer = [IO.StreamWriter]::new($damaged.CreateEntry('shared/runtime.js').Open())
         try { $writer.Write('corrupted module') } finally { $writer.Dispose() }
     } finally { $damaged.Dispose() }
 ${marker}`));
   const result = run(dir);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /Archive content differs from source: runtime.js/);
+  assert.match(result.stderr, /Archive content differs from source: shared\/runtime.js/);
   assert.deepEqual(fs.readFileSync(path.join(dir, 'dist', archiveName)), oldRelease);
   assertPreserved(dir);
 });
