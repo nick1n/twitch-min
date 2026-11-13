@@ -11,6 +11,11 @@
     for (const [key, attribute] of Object.entries(ATTRIBUTES)) {
       root.setAttribute(attribute, String(settings[key]));
     }
+    globalThis.TwitchMinEmotes?.setEnabled(settings.enabled);
+    globalThis.TwitchMinLayout?.configure(settings);
+    globalThis.TwitchMinTimestamps?.configure(settings);
+    globalThis.TwitchMinPlayer?.configure(settings);
+    globalThis.TwitchMinChat?.configure(settings);
   }
 
   function mount() {

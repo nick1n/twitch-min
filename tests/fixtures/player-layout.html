@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>VOD player layout</title>
+<link rel="stylesheet" href="../../extension/player.css">
+<style>
+  * { box-sizing: border-box; } body { margin: 0; }
+  p { margin: 0; }
+  main { height: 650px; width: 800px; position: relative; }
+  .root-scrollable__wrapper { height: auto; min-height: 100%; }
+  .channel-root__player { position: absolute; width: 800px; height: 450px; }
+  .channel-page__video-player { position: relative; max-height: calc(100vh - 160px); }
+  .tw-aspect { position: relative; }
+  .aspect-spacer { padding-top: 56.25%; }
+  [data-target="persistent-player-content"] { position: absolute; inset: 0; }
+  video { width: 100%; height: 100%; object-fit: contain; }
+  .persistent-player { position: absolute; top: 0; left: 0; width: 620px; }
+  .video-player, .video-player__container { position: absolute; inset: 0; }
+  .video-ref { height: 100%; }
+  .channel-root__info { transform: translateY(450px); min-height: 900px; }
+  .metadata-layout__split-top { height: 100px; }
+  #vod-card { height: 150px; } #recommendations { height: 600px; }
+</style>
+<script src="../../extension/settings.js" defer></script>
+<script src="../../extension/rules.js" defer></script>
+<script src="../../extension/player.js" defer></script>
+<script src="../../extension/content.js" defer></script>
+</head><body><main><div class="root-scrollable__wrapper"><div class="channel-root"><div class="channel-root__main--with-chat">
+  <div class="channel-root__player"><div><div><div><div class="channel-root__player-background"><div class="channel-page__video-player"><div class="tw-aspect"><div class="aspect-spacer"></div><div data-target="persistent-player-content"></div></div></div></div></div></div></div></div>
+  <div class="channel-root__info"><div class="channel-info-content"><section id="live-channel-stream-information"><div><div>
+    <div class="metadata-layout__split-top"><p>Video title</p><a data-a-target="video-info-game-boxart-link">Game and views</a></div><div id="vod-card">Channel card</div>
+  </div></div></section><div id="recommendations">Recommendations</div></div></div>
+</div></div>
+<div class="persistent-player"><div class="tw-aspect"><div class="aspect-spacer"></div><div class="video-player"><div class="video-player__container"><div class="video-ref"><video id="fit-video"></video></div></div></div></div></div>
+</div></main></body></html>

@@ -3,63 +3,181 @@
 <head>
   <meta charset="utf-8">
   <title>twitch-min regression fixture</title>
+  <link rel="stylesheet" href="../../extension/emotes.css">
+  <link rel="stylesheet" href="../../extension/player.css">
   <style>
+    html { overflow-y: scroll; }
     body { margin: 0; font: 16px sans-serif; }
+    p { margin: 0; }
+    .page-layout { display: flex; }
+    .side-nav { width: 240px; height: 650px; flex-shrink: 0; }
+    .side-nav > div { display: flex; flex-direction: column; height: 100%; }
+    .side-nav__overlay-wrapper { width: 240px; flex: 1; min-height: 0; }
+    .side-nav__scrollable_content { height: 100%; }
+    .side-nav--collapsed, .side-nav--collapsed .side-nav__overlay-wrapper,
+    .side-nav--collapsed #sidebar-nav { width: 50px; }
+    a.side-nav-card { display: flex; justify-content: center; width: 50px; height: 60px; }
+    main { flex: 1; min-width: 0; }
+    .chat-room { width: 300px; flex-shrink: 0; }
+    .about-section { height: 180px; margin-block: 20px; padding: 20px; }
+    .channel-panels { height: 120px; }
     .side-nav-card__link { display: flex; width: 230px; height: 60px; }
     [data-a-target="side-nav-card-metadata"] { width: 120px; }
-    .side-nav-card__avatar { width: 40px; }
+    .side-nav-card__avatar, .tw-avatar { width: 40px; }
+    #vod-channel-card { height: 100px; margin-block: 10px; }
+    #vod-recommendations { height: 200px; }
   </style>
+  <script src="native-sidebar.js" defer></script>
   <script src="../../extension/settings.js" defer></script>
   <script src="../../extension/rules.js" defer></script>
+  <script src="../../extension/emotes.js" defer></script>
+  <script src="../../extension/layout.js" defer></script>
+  <script src="../../extension/timestamps.js" defer></script>
+  <script src="../../extension/player.js" defer></script>
+  <script src="../../extension/chat.js" defer></script>
   <script src="../../extension/content.js" defer></script>
 </head>
 <body>
-  <nav data-a-target="top-nav-container">
+  <nav class="top-nav" data-a-target="top-nav-container">
     <a id="browse" href="/directory">Browse</a>
     <button id="top-bell" data-a-target="activity-feed-button">Notifications</button>
     <button id="top-bits" data-a-target="top-nav-get-bits-button">Bits</button>
     <button id="top-turbo" aria-label="Gift Turbo">Gift Turbo</button>
     <button id="whispers">Whispers</button>
+    <div id="top-bell-wrapper" data-test-selector="activity-feed-dropdown-toggle"><button>Notifications inbox</button></div>
+    <a id="top-turbo-gift" href="/turbo/gift?source=nav">Gift Turbo</a>
+    <button id="top-turbo-test" data-test-selector="gift-turbo-button">Turbo</button>
+    <button id="top-notifications-label" aria-label="Open Notifications Inbox">Bell</button>
+    <div id="actual-notifications" class="onsite-notifications">
+      <div><div><button aria-label="Open Notifications"><svg><path d="M3 17h18v-2"></path></svg></button></div>
+      <div data-test-selector="onsite-notifications__badge">2</div></div>
+    </div>
+    <div><div><button id="top-turbo-text"><div><div data-a-target="tw-core-button-label-text">Gift Turbo</div></div></button></div></div>
+    <div id="luna-offers" class="top-nav__prime"><button data-a-target="prime-offers-icon" aria-label="Prime offers">Luna</button><span>31</span></div>
+    <button id="shouts" aria-label="Shouts">Shouts</button>
+    <div data-a-target="nav-search-box"><div class="tw-combo-input"><div class="tw-combo-input__input"><input id="search" type="search" aria-label="Search" style="border:1px solid white;box-shadow:0 0 0 1px white"></div></div></div>
+    <button id="account">Account</button>
   </nav>
-  <aside data-a-target="side-nav-bar">
-    <div id="sidebar-heading" class="side-nav-header" data-a-target="side-nav-header-expanded">Followed Channels</div>
-    <button id="sidebar-arrow" data-a-target="side-nav-arrow">Collapse</button>
-    <div id="sidebar-streak" data-test-selector="watch-streak-reminder">Save your Streak</div>
+  <div class="page-layout">
+  <aside id="sidebar-shell" class="side-nav side-nav--expanded" data-a-target="side-nav-bar">
+  <div>
+  <div id="sidebar-overlay" class="side-nav__overlay-wrapper">
+  <div class="scrollable-area side-nav__scrollable_content">
+  <div class="collapse-toggle"><button id="sidebar-arrow" aria-label="Collapse Side Nav" data-a-target="side-nav-arrow">Collapse</button></div>
+  <div class="side-bar-contents">
+  <nav id="sidebar-nav" aria-label="Left Navigation">
+    <div id="sidebar-for-you" class="side-nav__title"><h3>For You</h3></div>
+    <div id="sidebar-streak" role="group" aria-label="Watch Streaks at risk"><a aria-label="Save your Streak, streak of 3 streams on Example">Save your Streak</a></div>
+    <div class="side-nav-section" id="followed-section" role="group" aria-label="Followed Channels">
+    <div id="sidebar-heading" class="followed-side-nav-header"><button><h3>Followed Channels</h3><span>Viewers (High to Low)</span></button></div>
+    <div class="tw-transition-group">
+    <div class="tw-transition"><div class="side-nav-card">
     <a id="channel-row" class="side-nav-card__link" href="/example" aria-label="Example channel">
-      <div id="avatar" class="side-nav-card__avatar">Avatar</div>
-      <div>
+      <div><div><div id="avatar" class="tw-avatar">Avatar</div></div><p id="stray-avatar-text">T...</p></div>
+      <div id="sidebar-channel-details">
         <div style="display:flex">
           <div id="sidebar-metadata" data-a-target="side-nav-card-metadata">
-            <div class="side-nav-card__title">Example channel</div>
-            <div class="side-nav-card__metadata">Phantasy Star</div>
+            <div id="sidebar-channel-name" class="side-nav-card__title">Example channel</div>
+            <div id="sidebar-game" class="side-nav-card__metadata"><p title="Phantasy Star">Phantasy Star</p></div>
           </div>
           <div id="viewer-count" data-a-target="side-nav-live-status">17</div>
+          <span id="stray-nested-text" style="font-size:13px;min-height:20px">T...</span>
         </div>
         <div id="sidebar-hype"><div><div class="hype-train-icon"></div></div><p>Shared Hype Train</p></div>
       </div>
     </a>
+    </div></div>
+    <div id="offline-transition" class="tw-transition"><div class="side-nav-card"><a id="offline-channel" class="side-nav-card__link side-nav-card__link--offline" href="/offline"><div class="side-nav-card__avatar side-nav-card__avatar--offline">Avatar</div><div><div><div data-a-target="side-nav-card-metadata"><div class="side-nav-card__title">Offline channel</div><div class="side-nav-card__metadata">Offline</div></div></div></div></a></div></div>
+    </div></div>
+    <div class="side-nav-section" id="live-section" role="group" aria-label="Live Channels">
+    <div id="live-heading" class="side-nav-header"><h3>Live Channels</h3></div>
+    <a id="second-channel-row" class="side-nav-card__link" href="/second" aria-label="Second channel">
+      <div id="second-avatar" class="side-nav-card__avatar">Avatar</div>
+      <div><div><div data-a-target="side-nav-card-metadata"><div class="side-nav-card__title">Second channel</div><div class="side-nav-card__metadata"><p title="Just Chatting">Just Chatting</p></div></div><div data-a-target="side-nav-live-status">2.1K</div></div></div>
+    </a>
+    </div>
+    <div class="side-nav-section" id="similar-section" role="group" aria-label="Example Viewers Also Watch"><div id="similar-heading" class="side-nav-header"><h3>Example Viewers Also Watch</h3></div><a class="side-nav-card__link" href="/similar"><div class="tw-avatar">Avatar</div><div><div><div data-a-target="side-nav-card-metadata"><div class="side-nav-card__title">Similar channel</div><div class="side-nav-card__metadata"><p>Retro</p></div></div><div data-a-target="side-nav-live-status">100</div></div></div></a></div>
+    <div class="side-nav-section" id="other-section" role="group" aria-label="Stories"><div class="side-nav-header">Stories</div><p>Unwanted section</p></div>
     <button id="show-more" data-a-target="side-nav-show-more-button">Show More</button>
+  </nav>
+  </div>
+  </div>
+  </div>
+  </div>
   </aside>
-  <main>
-    <div id="player" data-a-target="video-player">Stream video</div>
-    <div class="channel-info-content">
+  <main id="main">
+    <div id="player" data-a-target="video-player" style="position:relative">
+      <video id="stream-video" width="320" height="180"></video>
+      <input type="range" data-a-target="player-volume-slider" min="0" max="1" step="0.001" value="0.5">
+      <div id="player-menu" data-a-target="player-settings-menu">Player menu</div>
+    </div>
+    <div class="metadata-layout__support">
       <button id="follow" data-a-target="follow-button">Follow</button>
       <button id="channel-bell" data-a-target="notifications-toggle">Channel bell</button>
       <button id="channel-bits" data-a-target="bits-button">Bits</button>
+      <button id="channel-bits-alt" data-a-target="top-nav-get-bits-button"><div data-a-target="tw-core-button-label-text">Bits</div></button>
       <button id="channel-gift" data-a-target="gift-button">Gift a Sub</button>
-      <button id="channel-subscribe" data-a-target="subscribe-button">Subscribe</button>
+      <button id="channel-subscribe" data-a-target="subscribe-button" aria-label="Subscribe"><div style="display:flex;align-items:center;padding:0 10px"><div class="tw-core-button-icon" style="margin-right:6px"><svg id="subscribe-star" width="20" height="20" aria-hidden="true"><path d="M10 2 12 7 18 8 14 12 15 18 10 15 5 18 6 12 2 8 8 7Z"/></svg></div><div id="subscribe-label" data-a-target="tw-core-button-label-text">Subscribe</div><div class="tw-core-button-icon"><svg id="subscribe-arrow" width="20" height="20" aria-hidden="true"><path d="m5 8 5 5 5-5Z"/></svg></div></div></button>
+      <button id="channel-resubscribe" data-a-target="subscribe-button" aria-label="Resubscribe"><div style="display:flex;align-items:center;padding:0 10px"><div class="tw-core-button-icon" style="margin-right:6px"><svg id="resubscribe-star" width="20" height="20" aria-hidden="true"><path d="M10 2 12 7 18 8 14 12 15 18 10 15 5 18 6 12 2 8 8 7Z"/></svg></div><div id="resubscribe-label" data-a-target="tw-core-button-label-text">Resubscribe</div></div></button>
+      <button id="channel-resubscribe-fallback" data-a-target="resubscribe-button"><span class="tw-core-button-icon"><svg width="20" height="20" aria-hidden="true"><path d="M10 2 12 7 18 8 14 12 15 18 10 15 5 18 6 12 2 8 8 7Z"/></svg></span><span data-a-target="tw-core-button-label-text">Resubscribe</span></button>
     </div>
+    <div id="vod-info" class="channel-info-content">
+    <section id="live-channel-stream-information" aria-label="Stream Information">
+    <div><div>
+    <div class="metadata-layout__split-top" data-test-selector="metadata-layout__split-top">
+      <h1 id="video-title">Phantasy Star - First playthrough</h1>
+      <p id="video-category"><a data-a-target="video-info-game-boxart-link" href="/directory/category/phantasy-star">Phantasy Star</a> · 2,173 views</p>
+      <button id="video-share" data-a-target="share-button">Share</button>
+      <button id="video-share-label" aria-label="Share">Share</button>
+      <button id="video-menu">More options</button>
+    </div>
+    <div id="vod-channel-card"><div><div class="metadata-layout__support">Channel name, followers, Follow, notifications, Watch live</div></div></div>
+    </div></div>
+    </section>
+    <div id="vod-recommendations"><div data-test-selector="content"><strong>Filter By</strong><p>Recent broadcasts</p><div class="preview-card-carousel__child-container">Video recommendations</div></div></div>
+    </div>
+      <section id="about" class="about-section"><h2>About Example</h2><p>Channel description</p></section>
+      <section id="panels" class="channel-panels">Channel links and panels</section>
+      <div id="after-about">Content after the panels</div>
   </main>
   <section class="chat-room">
-    <header id="chat-header">Stream Chat</header>
+    <header id="chat-header" class="stream-chat-header">Stream Chat</header>
     <div class="chat-room__content">
       <div id="leaderboard"><button>Previous</button><div><button aria-label="Expand Top Gifters Leaderboard"><span data-test-selector="leaderboard-item-name-test-selector">Top gifter</span></button></div><button>Next</button></div>
-      <div id="messages" data-a-target="chat-scroller"><div>Example chat message mentioning Bits and Gift Turbo.</div></div>
+      <div id="messages" data-a-target="chat-scroller">
+        <div id="tint-red" class="chat-line__message"><span class="chat-author__display-name" data-a-target="chat-message-username" style="color:rgb(220,30,60)">RedUser</span><span>First message</span></div>
+        <div id="tint-blue" class="vod-message" style="background-color:rgb(40,40,40)"><div class="vod-message__header"><button><p>2:19:30</p></button></div><div><a class="video-chat__message-author"><span data-a-target="chat-message-username" style="color:rgb(30,100,220)">BlueUser</span></a><div class="video-chat__message">Second message</div></div></div>
+        <div>Example chat message mentioning Bits and Gift Turbo.</div>
+        <div class="video-chat__message">
+          <a id="replay-time" class="video-chat__message-time" href="/videos/2921409707?t=1h28m10s">1:28:10</a>
+          <span id="replay-body">Example: message in replay chat.</span>
+          <a id="replay-body-link" href="https://example.com/">A link in the message</a>
+        </div>
+        <div data-a-target="video-chat-message">
+          <a id="replay-time-link" href="/videos/2921409707?t=1h30m32s">1:30:32</a>
+          <span>Another message</span>
+        </div>
+        <div class="video-chat"><div class="vod-message">
+          <div id="actual-replay-time" class="vod-message__header"><div><div><button><div><p>1:32:56</p></div></button></div></div></div>
+          <div><div><a class="video-chat__message-author">Example</a><div id="actual-replay-message" class="video-chat__message">Message text remains visible</div></div></div>
+        </div></div>
+        <div class="chat-line__message">
+          <button id="emote-button" type="button" data-test-selector="emote-button" title="eyesonbHmm">
+            <img id="chat-emote" class="chat-image" data-a-target="emote-name" alt="eyesonbHmm" title="eyesonbHmm" aria-describedby="native-emote-hint" width="28" height="28"
+              src="https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_fixture/default/dark/1.0"
+              srcset="https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_fixture/default/dark/1.0 1x, https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_fixture/default/dark/2.0 2x, https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_fixture/default/dark/3.0 4x">
+          </button>
+          <img id="second-emote" class="chat-line__message--emote" alt="OtherEmote" width="24" height="18" src="https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_second/animated/light/1.0">
+          <img id="chat-badge" class="chat-image" alt="Subscriber badge" width="18" height="18" src="../../extension/icons/icon16.png">
+          <span id="native-emote-hint" hidden>Native emote description</span>
+        </div>
+      </div>
       <div class="chat-input">
         <div id="composer" class="chat-input__textarea">
           <div class="chat-wysiwyg-input-box"><div data-a-target="chat-input" contenteditable="true" tabindex="0" role="textbox">Send a message</div></div>
           <button data-a-target="bits-button">Cheer</button>
           <button data-a-target="emote-picker-button">Emotes</button>
+          <img id="picker-emote" data-a-target="emote-name" alt="Composer emote" width="28" height="28" src="https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_fixture/default/dark/1.0">
         </div>
         <div data-test-selector="chat-input-buttons-container">
           <button id="points" data-test-selector="community-points-summary">327.3K</button>
@@ -69,7 +187,10 @@
       </div>
     </div>
   </section>
+  </div>
   <button id="outside-gift" data-a-target="gift-button">Unrelated gift button outside channel</button>
+  <button id="outside-share" data-a-target="share-button">Unrelated share button</button>
   <div id="outside-metadata" data-a-target="side-nav-card-metadata">Unrelated metadata</div>
+  <img id="outside-emote" data-a-target="emote-name" alt="Emote outside chat" width="28" height="28" src="https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_fixture/default/dark/1.0">
 </body>
 </html>

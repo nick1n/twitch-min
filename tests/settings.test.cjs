@@ -15,7 +15,10 @@ test('settings reject malformed values and retain explicit false preferences', (
   assert.equal(api.normalize({ chatComposer: 'false' }).chatComposer, true);
   assert.equal(api.normalize({ sidebarLabels: false }).sidebarLabels, false);
   assert.equal(Object.hasOwn(api.normalize({ unrelated: true }), 'unrelated'), false);
-  assert.equal(api.GROUPS.length, 6);
+  assert.equal(api.normalize({ sidebarLabels: true, enabled: false }).channelAbout, true, 'old saved settings adopt the new default');
+  assert.equal(api.normalize({ channelAbout: false }).channelAbout, false);
+  assert.equal(api.GROUPS.length, 8);
+  assert.equal(api.normalize({ sidebarHeadings: false }).sidebarSections, true, 'old header-hiding preference does not disable new section labels');
 });
 
 test('manifest is Twitch-only, storage-only, with local scripts in dependency order', () => {
@@ -26,8 +29,9 @@ test('manifest is Twitch-only, storage-only, with local scripts in dependency or
   assert.equal(manifest.host_permissions, undefined);
   assert.deepEqual(manifest.content_scripts[0].matches, ['https://www.twitch.tv/*', 'https://twitch.tv/*']);
   assert.equal(manifest.content_scripts[0].run_at, 'document_start');
-  assert.deepEqual(manifest.content_scripts[0].js, ['settings.js', 'rules.js', 'content.js']);
-  for (const file of [...manifest.content_scripts[0].js, manifest.action.default_popup]) {
+  assert.deepEqual(manifest.content_scripts[0].js, ['settings.js', 'rules.js', 'emotes.js', 'layout.js', 'timestamps.js', 'player.js', 'chat.js', 'content.js']);
+  assert.deepEqual(manifest.content_scripts[0].css, ['emotes.css', 'player.css']);
+  for (const file of [...manifest.content_scripts[0].js, ...manifest.content_scripts[0].css, manifest.action.default_popup]) {
     assert.ok(fs.existsSync(path.join(root, 'extension', file)), file);
   }
   for (const file of Object.values(manifest.icons)) {

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "twitch-min",
-  "version": "0.1.0",
-  "description": "Hide selected Twitch distractions while keeping the stream, chat, sidebar avatars, and viewer counts.",
+  "version": "0.1.13",
+  "description": "Compact Twitch sidebar with viewer counts and games, hide distractions, and preview chat emotes at 3x.",
   "minimum_chrome_version": "105",
   "permissions": ["storage"],
   "icons": {
@@ -18,7 +18,8 @@
   },
   "content_scripts": [{
     "matches": ["https://www.twitch.tv/*", "https://twitch.tv/*"],
-    "js": ["settings.js", "rules.js", "content.js"],
+    "js": ["settings.js", "rules.js", "emotes.js", "layout.js", "timestamps.js", "player.js", "chat.js", "content.js"],
+    "css": ["emotes.css", "player.css"],
     "run_at": "document_start"
   }]
 }

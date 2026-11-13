@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Live chat username wrappers</title>
+<style>
+  body { font: 14px/20px Arial, sans-serif; color: rgb(239, 239, 241); background: #18181b; }
+  .chat-line__message { padding: 4px 8px; }
+  .chat-line__username-container { display: inline; }
+  .chat-line__username { font-weight: 600; }
+  .chat-line__no-background { background: transparent; }
+  img { width: 20px; height: 20px; }
+</style>
+<script src="../../extension/settings.js" defer></script>
+<script src="../../extension/rules.js" defer></script>
+<script src="../../extension/chat.js" defer></script>
+<script src="../../extension/content.js" defer></script>
+</head><body>
+<div class="chat-room"><div id="live-native-items" class="chat-scrollable-area__message-container" role="log">
+  <div><div><div id="live-pink" class="chat-line__message" data-a-target="chat-line-message" data-a-user="pink_user" data-tq-chat-tint style="--tq-chat-color: rgb(239, 239, 241); --tq-chat-tint: rgba(239, 239, 241, 0.06);">
+    <div class="chat-line__message-container"><div><div class="chat-line__no-background"><div>
+      <div class="chat-line__username-container chat-line__username-container--hoverable">
+        <span id="live-pink-badge">★</span><span id="live-pink-wrapper" class="chat-line__username" role="button" tabindex="0"><span><span id="live-pink-name" class="chat-author__display-name" data-a-target="chat-message-username" data-a-user="pink_user" style="color: rgb(244, 165, 205)">PinkUser</span></span></span>
+      </div><span aria-hidden="true">: </span><span data-a-target="chat-line-message-body" dir="auto"><span class="text-fragment" data-a-target="chat-message-text">First message.</span></span>
+    </div></div></div></div>
+  </div></div></div>
+  <div><div><div id="live-purple" class="chat-line__message" data-a-target="chat-line-message" data-a-user="purple_user" style="background-color: rgb(40, 40, 40)">
+    <div class="chat-line__message-container"><div><div class="chat-line__no-background"><div>
+      <div class="chat-line__username-container chat-line__username-container--hoverable">
+        <span>★</span><span class="chat-line__username" role="button" tabindex="0"><span><span id="live-purple-name" class="chat-author__display-name" data-a-target="chat-message-username" data-a-user="purple_user" style="color: rgb(139, 88, 255)">PurpleUser</span></span></span>
+      </div><span aria-hidden="true">: </span><span data-a-target="chat-line-message-body" dir="auto"><span class="text-fragment" data-a-target="chat-message-text">Second speaker.</span></span>
+    </div></div></div></div>
+  </div></div></div>
+  <div><div><div id="live-repeat" class="chat-line__message" data-a-target="chat-line-message" data-a-user="purple_user">
+    <div class="chat-line__message-container"><div><div class="chat-line__no-background"><div>
+      <div class="chat-line__username-container chat-line__username-container--hoverable">
+        <span id="live-repeat-badge">★</span><span id="live-repeat-wrapper" class="chat-line__username" role="button" tabindex="0"><span><span id="live-repeat-name" class="chat-author__display-name" data-a-target="chat-message-username" data-a-user="purple_user" style="color: rgb(139, 88, 255)">PurpleUser</span></span></span>
+      </div><span id="live-repeat-colon" aria-hidden="true">: </span><span id="live-repeat-body" data-a-target="chat-line-message-body" dir="auto"><span class="text-fragment" data-a-target="chat-message-text">Still the same user. <img id="live-repeat-emote" src="../../extension/icons/icon16.png" alt="Emote"></span></span>
+    </div></div></div></div>
+  </div></div></div>
+  <div id="live-class-name" class="chat-line__message" data-a-user="class_user"><span class="chat-line__username" role="button"><span class="chat-author__display-name" style="color: rgb(230, 140, 20)">ClassUser</span></span><span>Class-only display name.</span></div>
+  <div id="live-fallback-name" class="chat-line__message" data-a-user="fallback_user"><span class="chat-line__username" style="color: rgb(40, 180, 100)">FallbackUser</span><span>Older username markup.</span></div>
+</div></div>
+</body></html>

@@ -1,4 +1,9 @@
-twitch-min 0.1.0 - local Chrome extension
+twitch-min 0.1.13 - local Chrome extension
+
+The ZIP is the Chrome Web Store upload package, with manifest.json at its root.
+It is optional for local use: load the repository's extension folder directly.
+For local updates, reload the extension at chrome://extensions and refresh Twitch.
+Creating the ZIP does not publish the extension.
 
 1. Extract this ZIP completely, if using the packaged download.
 2. Open chrome://extensions in Chrome.
@@ -7,9 +12,48 @@ twitch-min 0.1.0 - local Chrome extension
 5. Refresh any Twitch tabs that were already open.
 6. Pin twitch-min from Chrome's Extensions menu to reach its switches easily.
 
-All six hiding groups are on initially. The composer switch makes chat
+All eight hiding groups are on initially. The compact sidebar keeps avatars,
+viewer counts, and the current game below each count, while hiding channel names.
+Only Followed, Live, and Similar sections remain, with short headers. Offline
+channels, other sections, and all third-line promotional captions are hidden.
+It is 144px wide, with 13px viewer counts, 12px game names and headers, compact
+38px rows, and a hidden scrollbar; scrolling still works.
+Promoted followed channels use the same avatar/count/game layout, with their
+large promotional artwork and sponsorship footer hidden.
+About, the replay channel card, and the lower recommendations collapse completely.
+The video fills the remaining height above its title/details.
+Share, Luna/Prime offers, Shouts, Gift Turbo, and Bits are hidden; notifications stay.
+The live action row also hides Bits. Subscribe/Resubscribe show only their icons
+and dropdown arrow, keeping their accessible names and native click behavior.
+Turn off Channel action extras to restore these buttons and full labels.
+Replay chat times show hours:minutes without seconds; clicking still seeks normally.
+The composer switch makes chat
 read-only while preserving the channel points and settings row.
 Restore everything pauses hiding immediately in open Twitch tabs.
+The top chat header bar and its collapse control are hidden, freeing space for
+messages in live and replay chat. A collapsed chat can still be expanded.
+The master switch restores the header bar.
+
+Chat rows have a very subtle tint based on each author's name color. Native
+highlight backgrounds remain underneath it. Live chat uses the inner colored
+display name, so clickable username wrappers do not give every row a gray tint.
+The search field's white border is
+removed, with a muted purple indicator on focus.
+Consecutive messages from the same user show the username only on the first
+message. Timestamps, badges, emotes, and text remain visible on every message.
+Another speaker or a system notice starts a new run with a visible username.
+The master switch restores all usernames and native backgrounds.
+
+Click an emote in live or replay chat to show its name and a 3x image in a
+small bubble beside it. Click again, click away, or press Escape to dismiss.
+When Twitch's native emote-name tooltip is available, the image is inserted into
+that tooltip, preserving its name, theme, and arrow. A later tooltip adopts the
+existing preview; the standalone bubble is only a fallback.
+The master switch also pauses these emote previews.
+
+Scroll up over the video to raise volume, or down to lower it. A normal wheel
+notch changes volume by about 5%; trackpad gestures adjust it smoothly.
+Chat/sidebar scrolling, player menu scrolling, and Ctrl+wheel zoom are preserved.
 
 The extension runs only on twitch.tv, saves settings locally, and sends no data.
 Signed-in-only controls use fallbacks and still need verification in your session.

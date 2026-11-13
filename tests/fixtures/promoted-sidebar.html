@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Promoted followed sidebar card</title>
+<style>
+  body { margin: 0; font: 14px Arial, sans-serif; }
+  p { margin: 0; }
+  .side-nav { width: 240px; height: 650px; }
+  .side-nav-card__link { display: flex; width: 230px; min-height: 52px; }
+  .side-nav-card__link--promoted-followed > :first-child { position: relative; width: 230px; overflow: hidden; }
+  .side-nav-promoted-followed-card__gradient { position: absolute; inset: 0; background: linear-gradient(purple, pink); }
+  .side-nav-card__link--promoted-followed > :first-child > :nth-child(2) { position: relative; display: flex; flex-direction: column; padding: 12px; }
+  .side-nav-card__link--promoted-followed > :first-child > :nth-child(2) > :first-child { display: flex; align-items: center; gap: 12px; }
+  .side-nav-card__live-status > div { display: flex; align-items: center; gap: 4px; }
+  .tw-channel-status-indicator { width: 8px; height: 8px; background: red; border-radius: 50%; }
+  .side-nav-card__live-status p { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .tw-avatar { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; }
+  .tw-image-avatar { display: block; width: 100%; height: 100%; }
+  .side-nav-promoted-followed-card__content { margin-top: 8px; }
+  .side-nav-card__link__tooltip-arrow { display: none; }
+</style>
+<script src="../../extension/settings.js" defer></script>
+<script src="../../extension/rules.js" defer></script>
+<script src="../../extension/layout.js" defer></script>
+<script src="../../extension/content.js" defer></script>
+</head><body>
+<aside class="side-nav side-nav--expanded" data-a-target="side-nav-bar"><div class="side-nav-section" aria-label="Followed Channels">
+  <header>Followed Channels</header>
+  <a id="promoted-row" class="side-nav-card__link side-nav-card__link--promoted-followed" href="/example-promoted" aria-haspopup="dialog">
+    <div>
+      <div class="side-nav-promoted-followed-card__gradient"></div>
+      <div>
+        <div>
+          <div><div class="tw-avatar"><img class="tw-image-avatar" src="../../extension/icons/icon32.png" alt="Avatar"></div><img class="tw-image" src="../../extension/icons/icon16.png" alt="Promotion artwork"><div><img src="../../extension/icons/icon16.png" alt="Sponsor logo"></div></div>
+          <div class="side-nav-card__live-status"><div><div class="tw-channel-status-indicator"></div><p>Live</p><div><span aria-hidden="true">100K</span><p>100K viewers</p></div></div></div>
+        </div>
+        <div class="side-nav-promoted-followed-card__title"><p title="ExamplePromoted">ExamplePromoted</p></div>
+        <div class="side-nav-promoted-followed-card__content"><p title="A very long current game category">A very long current game category</p></div>
+        <div class="side-nav-promoted-followed-card__sponsorship"><div class="side-nav-card-promoted-bottom"><p>Sponsored</p><p>·</p><p>Promotion title</p></div></div>
+      </div>
+    </div>
+    <div class="side-nav-card__link__tooltip-arrow"><p>Use the Right Arrow Key to show more information.</p></div>
+  </a>
+  <a id="reference-row" class="side-nav-card__link" href="/example"><div class="side-nav-card__avatar"><div class="tw-avatar"><img class="tw-image-avatar" src="../../extension/icons/icon32.png" alt="Avatar"></div></div><div><div><div data-a-target="side-nav-card-metadata"><div class="side-nav-card__title">Example</div><div class="side-nav-card__metadata"><p>Just Chatting</p></div></div><div data-a-target="side-nav-live-status"><span aria-hidden="true">36K</span></div></div></div></a>
+</div></aside>
+</body></html>
