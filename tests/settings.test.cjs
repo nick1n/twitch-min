@@ -1,17 +1,29 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const path = require('node:path');
-const root = path.resolve(__dirname, '..');
-const { manifest, content } = require('./support/production.cjs');
-const ruleScripts = content.js.filter(file => file === 'shared/settings.js' || file === 'shared/selectors.js' || file.startsWith('styles/'));
-const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const { loadRules } = require('./support/rules.cjs');
+
+test('settings declaration derives the stable storage and popup API', () => {
+  const { TwitchMinSettings: api } = loadRules();
+  const keys = ['enabled', 'sidebarSections', 'sidebarLabels', 'topNavigation', 'channelActions', 'channelAbout', 'chatLeaderboard', 'chatComposer', 'chatTimestamps'];
+  assert.deepEqual(Object.keys(api.DEFAULTS), keys);
+  assert.deepEqual(Object.keys(api.ATTRIBUTES), keys);
+  assert.deepEqual(Array.from(api.GROUPS, group => group.key), keys.slice(1));
+  assert.equal(new Set(Object.values(api.ATTRIBUTES)).size, keys.length);
+  for (const setting of api.DEFINITIONS) {
+    assert.equal(api.DEFAULTS[setting.key], setting.default);
+    assert.equal(api.ATTRIBUTES[setting.key], setting.attribute);
+    assert.ok(setting.title && setting.description);
+    assert.ok(Object.isFrozen(setting));
+    if (setting.key !== 'enabled') {
+      const group = api.GROUPS.find(group => group.key === setting.key);
+      assert.equal(group.title, setting.title);
+      assert.equal(group.description, setting.description);
+    }
+  }
+});
 
 test('settings reject malformed values and retain explicit false preferences', () => {
-  const context = vm.createContext({});
-  vm.runInContext(read('extension/shared/settings.js'), context);
-  const api = context.TwitchMinSettings;
+  const { TwitchMinSettings: api } = loadRules();
   assert.equal(api.normalize(null).enabled, true);
   assert.equal(api.normalize({ enabled: false }).enabled, false);
   assert.equal(api.normalize({ chatComposer: 'false' }).chatComposer, true);
@@ -21,100 +33,4 @@ test('settings reject malformed values and retain explicit false preferences', (
   assert.equal(api.normalize({ channelAbout: false }).channelAbout, false);
   assert.equal(api.GROUPS.length, 8);
   assert.equal(api.normalize({ sidebarHeadings: false }).sidebarSections, true, 'old header-hiding preference does not disable new section labels');
-});
-
-test('manifest is Twitch-only, storage-only, with local scripts in dependency order', () => {
-  assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual(manifest.permissions, ['storage']);
-  assert.equal(manifest.background, undefined);
-  assert.equal(manifest.host_permissions, undefined);
-  assert.deepEqual(manifest.content_scripts[0].matches, ['https://www.twitch.tv/*', 'https://twitch.tv/*']);
-  assert.equal(manifest.content_scripts[0].run_at, 'document_start');
-  assert.equal(new Set(content.js).size, content.js.length, 'content scripts are loaded once');
-  assert.equal(new Set(content.css).size, content.css.length, 'content styles are loaded once');
-  for (const file of [...manifest.content_scripts[0].js, ...manifest.content_scripts[0].css, manifest.action.default_popup]) {
-    assert.ok(fs.existsSync(path.join(root, 'extension', file)), file);
-  }
-  for (const file of Object.values(manifest.icons)) {
-    const bytes = fs.readFileSync(path.join(root, 'extension', file));
-    assert.equal(bytes.subarray(1, 4).toString(), 'PNG');
-  }
-  assert.doesNotMatch(read(`extension/${manifest.action.default_popup}`), /<script(?![^>]*\bsrc=)/i);
-});
-
-test('content script handles late document root, initial-read races, removals and storage errors', async () => {
-  const attributes = {};
-  const styles = [];
-  let rootObserver;
-  let changeListener;
-  let finishRead;
-  let failRead;
-  const rootElement = { setAttribute: (key, value) => attributes[key] = value, appendChild: style => styles.push(style) };
-  const document = { documentElement: null, createElement: () => ({}) };
-  const context = vm.createContext({
-    document,
-    MutationObserver: class { constructor(callback) { rootObserver = callback; } observe() {} disconnect() {} },
-    chrome: { storage: { onChanged: { addListener: callback => changeListener = callback }, local: {
-      get: () => new Promise((resolve, reject) => { finishRead = resolve; failRead = reject; })
-    } } },
-    console: { warn() {} }
-  });
-  for (const file of [...ruleScripts, 'content.js']) vm.runInContext(read(`extension/${file}`), context);
-  changeListener({ enabled: { newValue: false } }, 'local');
-  finishRead({ enabled: true });
-  await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(attributes, {});
-  document.documentElement = rootElement;
-  rootObserver();
-  assert.equal(attributes['data-tq-enabled'], 'false');
-  assert.equal(styles.length, 1);
-  changeListener({ enabled: { newValue: true }, chatComposer: { newValue: false } }, 'local');
-  assert.equal(attributes['data-tq-enabled'], 'true');
-  assert.equal(attributes['data-tq-chat-composer'], 'false');
-  changeListener({ enabled: { newValue: false } }, 'sync');
-  assert.equal(attributes['data-tq-enabled'], 'true');
-  changeListener({ chatComposer: {} }, 'local');
-  assert.equal(attributes['data-tq-chat-composer'], 'true');
-
-  for (const key of Object.keys(attributes)) delete attributes[key];
-  vm.runInContext(read('extension/content.js'), context);
-  failRead(new Error('storage unavailable'));
-  await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(attributes, {}, 'failed settings read must leave the page unhidden');
-});
-
-test('content isolates failures and retries only unsuccessful features with unchanged settings', async () => {
-  const calls = { first: 0, later: 0 };
-  const warnings = [];
-  let writes = 0, changeListener, fail = true;
-  const context = vm.createContext({
-    document: {
-      documentElement: { setAttribute() { writes++; }, appendChild() {} },
-      createElement: () => ({})
-    },
-    chrome: { storage: { onChanged: { addListener(callback) { changeListener = callback; } },
-      local: { get: async defaults => defaults } } },
-    console: { warn: (...args) => warnings.push(args) },
-    TwitchMinEmotes: { update() { calls.first++; if (fail) throw Error('injected startup/update failure'); } },
-    TwitchMinComposer: { update() { calls.later++; } }
-  });
-  for (const file of [...ruleScripts, 'content.js']) vm.runInContext(read(`extension/${file}`), context);
-  await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(calls, { first: 1, later: 1 });
-  assert.match(warnings[0][0], /TwitchMinEmotes/);
-  assert.equal(writes, 9, 'initial settings are applied');
-  fail = false;
-  changeListener({ enabled: { newValue: true } }, 'local');
-  assert.deepEqual(calls, { first: 2, later: 1 });
-  assert.equal(writes, 9, 'retry leaves unchanged attributes untouched');
-  changeListener({ enabled: { newValue: true } }, 'local');
-  assert.deepEqual(calls, { first: 2, later: 1 });
-  fail = true;
-  changeListener({ chatComposer: { newValue: false } }, 'local');
-  assert.deepEqual(calls, { first: 3, later: 2 }, 'a later update failure does not block the remaining feature');
-  assert.equal(writes, 10);
-  fail = false;
-  changeListener({ chatComposer: { newValue: false } }, 'local');
-  assert.deepEqual(calls, { first: 4, later: 2 });
-  assert.equal(writes, 10);
 });

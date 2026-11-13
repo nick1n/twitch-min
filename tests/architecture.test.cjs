@@ -2,18 +2,10 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
 const { createHash } = require('node:crypto');
 const { root, manifest, content, marker, fixtureHTML } = require('./support/production.cjs');
+const { loadRules } = require('./support/rules.cjs');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-
-function loadRules() {
-  const context = vm.createContext({});
-  for (const file of content.js.filter(file => file === 'shared/settings.js' || file === 'shared/selectors.js' || file.startsWith('styles/'))) {
-    vm.runInContext(read(`extension/${file}`), context, { filename: file });
-  }
-  return context;
-}
 
 test('package and extension versions agree and Node 22 is the declared minimum', () => {
   const pkg = JSON.parse(read('package.json'));
@@ -21,24 +13,40 @@ test('package and extension versions agree and Node 22 is the declared minimum',
   assert.equal(pkg.engines.node, '>=22');
 });
 
-test('settings declaration derives the stable storage and popup API', () => {
-  const { TwitchMinSettings: api } = loadRules();
-  const keys = ['enabled', 'sidebarSections', 'sidebarLabels', 'topNavigation', 'channelActions', 'channelAbout', 'chatLeaderboard', 'chatComposer', 'chatTimestamps'];
-  assert.deepEqual(Object.keys(api.DEFAULTS), keys);
-  assert.deepEqual(Object.keys(api.ATTRIBUTES), keys);
-  assert.deepEqual(Array.from(api.GROUPS, group => group.key), keys.slice(1));
-  assert.equal(new Set(Object.values(api.ATTRIBUTES)).size, keys.length);
-  for (const setting of api.DEFINITIONS) {
-    assert.equal(api.DEFAULTS[setting.key], setting.default);
-    assert.equal(api.ATTRIBUTES[setting.key], setting.attribute);
-    assert.ok(setting.title && setting.description);
-    assert.ok(Object.isFrozen(setting));
-    if (setting.key !== 'enabled') {
-      const group = api.GROUPS.find(group => group.key === setting.key);
-      assert.equal(group.title, setting.title);
-      assert.equal(group.description, setting.description);
-    }
+test('focused test commands cover every root test exactly once', () => {
+  const { scripts } = JSON.parse(read('package.json'));
+  const files = fs.readdirSync(path.join(root, 'tests'))
+    .filter(file => file.endsWith('.test.cjs'))
+    .map(file => `tests/${file}`)
+    .sort();
+  const listed = [];
+  for (const name of ['test:unit', 'test:browser', 'test:package']) {
+    const command = scripts[name];
+    assert.match(command, /^node --test(?: tests\/[\w.-]+\.test\.cjs)+$/, `${name} must list test paths explicitly`);
+    listed.push(...command.split(' ').slice(2));
   }
+  assert.equal(new Set(listed).size, listed.length, 'focused test paths must not be duplicated');
+  assert.deepEqual(listed.sort(), files, 'focused test paths must match root test files');
+  assert.equal(scripts.test, 'node --test tests/*.test.cjs', 'full test command must include every root test');
+});
+
+test('manifest is Twitch-only, storage-only, with unique local assets', () => {
+  assert.equal(manifest.manifest_version, 3);
+  assert.deepEqual(manifest.permissions, ['storage']);
+  assert.equal(manifest.background, undefined);
+  assert.equal(manifest.host_permissions, undefined);
+  assert.deepEqual(manifest.content_scripts[0].matches, ['https://www.twitch.tv/*', 'https://twitch.tv/*']);
+  assert.equal(manifest.content_scripts[0].run_at, 'document_start');
+  assert.equal(new Set(content.js).size, content.js.length, 'content scripts are loaded once');
+  assert.equal(new Set(content.css).size, content.css.length, 'content styles are loaded once');
+  for (const file of [...manifest.content_scripts[0].js, ...manifest.content_scripts[0].css, manifest.action.default_popup]) {
+    assert.ok(fs.existsSync(path.join(root, 'extension', file)), file);
+  }
+  for (const file of Object.values(manifest.icons)) {
+    const bytes = fs.readFileSync(path.join(root, 'extension', file));
+    assert.equal(bytes.subarray(1, 4).toString(), 'PNG');
+  }
+  assert.doesNotMatch(read(`extension/${manifest.action.default_popup}`), /<script(?![^>]*\bsrc=)/i);
 });
 
 test('feature rules preserve the complete pre-refactor CSS and cascade order', () => {

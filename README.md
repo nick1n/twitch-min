@@ -199,13 +199,26 @@ and refresh Twitch. **Remove** uninstalls it and removes its stored preferences.
 
 Coding-agent instructions are in [AGENTS.md](AGENTS.md).
 
-Node 22 or newer and an installed Chrome are needed for tests, not for installation.
+Node 22 or newer is needed for tests. Browser checks also require an installed
+Chrome, and packaging checks require Windows PowerShell.
 On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`.
 
 ```powershell
 npm.cmd test
 npm.cmd run package
 ```
+
+`npm.cmd test` runs the full suite. For focused checks:
+
+| Command | Checks | Requirements |
+| --- | --- | --- |
+| `npm.cmd run test:unit` | Settings, content startup/storage, lifecycle, manifest, and CSS contracts | Node |
+| `npm.cmd run test:browser` | Offline Chrome feature fixtures, popup, and harness failures | Node and Chrome |
+| `npm.cmd run test:package` | ZIP contents, missing assets, and preservation on failure in temporary fixtures | Node and Windows PowerShell |
+
+The [CI workflow](.github/workflows/ci.yml) runs the full suite and packaging on
+Windows with Node 22 for pushes and pull requests. The architecture checks ensure
+the focused commands cover every root test file exactly once.
 
 Packaging requires Windows PowerShell and its built-in .NET ZIP support; no
 additional dependencies are needed. It uses the manifest version and rebuilds the
@@ -253,14 +266,21 @@ extension/
     popup.html/css/js Controls, local storage, and error states
   icons/              PNG extension icons and SVG popup logo
 tests/
+  architecture.test.cjs Manifest, exact CSS preservation, script order, version checks
+  content.test.cjs     Content startup, storage races, failure isolation, and retries
+  settings.test.cjs    Stable preference API and malformed-value normalization
+  runtime.test.cjs     Lifecycle failure cleanup and retry checks
   browser.test.cjs     One browser run, sequential feature registration
+  harness.test.cjs     Chrome launch failures, profile cleanup, and page exception reporting
+  package.test.cjs     ZIP contents and packaging failure recovery
   browser/*.cjs        Independent feature checks and optional snapshot imports
+  browser/visibility.cjs Page visibility, layout, and preference changes
+  browser/popup.cjs    Popup controls, saved settings, and storage failures
+  browser/runtime.cjs  Integration lifecycle, region, timestamp, and no-op regressions
   support/chrome.cjs   Reusable Chrome/CDP resource lifecycle and page helpers
   support/production.cjs Manifest-driven fixture scripts/styles and local network policy
+  support/rules.cjs    Shared VM loader for settings and rules in manifest order
   support/mock-storage.cjs Shared Chrome storage mock injected into browser pages
-  architecture.test.cjs Settings, exact CSS preservation, script order, version checks
-  runtime.test.cjs     Lifecycle failure cleanup and retry checks
-  browser/runtime.cjs Integration lifecycle, region, timestamp, and no-op regressions
 scripts/package.ps1   ZIP the installable extension files
 ```
 

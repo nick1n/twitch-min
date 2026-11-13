@@ -2,6 +2,16 @@
 
 Historical changes and verification notes, in release order.
 
+## Unreleased
+
+- Preserve newer popup storage updates when an earlier save callback finishes.
+- Retry a failed initial preference read on the next relevant storage event,
+  retaining queued changes and keeping native Twitch UI usable until recovery.
+- Report failed Chrome launches and early exits with executable and stderr
+  details; verify cleanup of profiles from failed launches.
+- Separate test ownership, share rule loading, guard focused test coverage, and
+  add Windows CI for the full suite and packaging.
+
 ## 0.18.0 - Lifecycle reliability and documentation
 
 - Retry failed feature applications on a later settings change after cleanup,

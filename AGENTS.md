@@ -36,7 +36,8 @@
 ## Validation
 
 - Run `npm.cmd test` after code changes on Windows (`npm test` where supported).
-  Tests require Node as declared in `package.json` and an installed Chrome;
+  The full suite requires Node as declared in `package.json`, an installed Chrome,
+  and Windows PowerShell. See [README.md](README.md#development) for focused commands;
   set `CHROME_PATH` when Chrome is outside the standard locations.
 - For intentional cosmetic changes, review and update
   `tests/rules-baseline.json` along with relevant behavior assertions. Do not

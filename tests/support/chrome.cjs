@@ -7,8 +7,8 @@ const { randomUUID } = require('node:crypto');
 const root = path.resolve(__dirname, '../..');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-module.exports = async function withBrowser(run, { intercept, initSource = '' } = {}) {
-  const chromePath = process.env.CHROME_PATH || [
+module.exports = async function withBrowser(run, { intercept, initSource = '', chromePath: configuredChromePath = process.env.CHROME_PATH } = {}) {
+  const chromePath = configuredChromePath || [
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
     'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
     '/usr/bin/google-chrome', '/usr/bin/chromium', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
@@ -19,19 +19,30 @@ module.exports = async function withBrowser(run, { intercept, initSource = '' } 
   const browser = spawn(chromePath, [
     '--headless=new', '--no-sandbox', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
     '--disable-background-networking', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'
-  ], { stdio: 'ignore', windowsHide: true });
-  // Attach immediately so teardown also handles an early exit or spawn error.
-  const browserExited = new Promise(resolve => {
-    browser.once('exit', resolve);
-    browser.once('error', resolve);
+  ], { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+  let launchError, exit;
+  let stderr = '';
+  browser.stderr.setEncoding('utf8');
+  browser.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-8192); });
+  // Attach immediately; close also waits for diagnostic output to finish.
+  const browserClosed = new Promise(resolve => {
+    browser.once('error', error => { launchError = error; });
+    browser.once('exit', (code, signal) => { exit = { code, signal }; });
+    browser.once('close', resolve);
   });
+  const startupError = message => new Error(`${message}\nExecutable: ${chromePath}${stderr.trim() ? `\nChrome stderr:\n${stderr.trim()}` : ''}`, { cause: launchError });
   let socket;
   let closeBrowser;
   let closeProtocol = () => {};
   try {
     const portFile = path.join(profile, 'DevToolsActivePort');
-    for (let attempt = 0; !fs.existsSync(portFile) && attempt < 200; attempt++) await pause(50);
-    assert.ok(fs.existsSync(portFile), 'Chrome must expose its test debugging endpoint.');
+    for (let attempt = 0; !fs.existsSync(portFile) && !launchError && !exit && attempt < 200; attempt++) await pause(50);
+    if (launchError || exit) {
+      await browserClosed;
+      throw startupError(launchError ? `Chrome failed to start: ${launchError.message}`
+        : `Chrome exited before exposing its test debugging endpoint (exit code ${exit.code}, signal ${exit.signal || 'none'}).`);
+    }
+    if (!fs.existsSync(portFile)) throw startupError('Chrome timed out before exposing its test debugging endpoint.');
     const port = fs.readFileSync(portFile, 'utf8').split('\n')[0].trim();
     const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
     const page = targets.find(target => target.type === 'page');
@@ -130,7 +141,7 @@ module.exports = async function withBrowser(run, { intercept, initSource = '' } 
     closeProtocol();
     // Terminate only the Chrome child launched for this test profile.
     browser.kill();
-    await browserExited;
+    await browserClosed;
     // Only delete this run's direct child directory, never snapshots or other runs.
     const profilesRoot = path.resolve(root, '.browser-tests');
     assert.equal(path.dirname(path.resolve(profile)), profilesRoot);

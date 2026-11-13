@@ -113,7 +113,8 @@
     showStatus('');
     try {
       await storageSet(changes);
-      state = normalize({ ...state, ...changes });
+      // The change is already applied optimistically. Storage events received
+      // while saving may contain newer values, so completion must keep them.
       render();
     } catch (error) {
       // Re-read rather than discard preferences another popup changed while

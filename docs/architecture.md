@@ -48,6 +48,15 @@ event retries failed features, even when its values are unchanged; healthy
 features and unchanged root attributes are skipped. Retries are event-driven,
 not a timer loop. Failed cleanup must succeed before a fresh attach can run.
 
+If the initial preference read fails, the next relevant local storage event
+retries it. Only one read may be in flight. Changes received before or during
+recovery are retained, including removed keys and a saved pause; cosmetic rules
+stay inactive until preferences load successfully.
+
+The popup applies edits optimistically and merges storage notifications while a
+save is pending. A successful save callback keeps that current state, so it cannot
+overwrite a newer notification with the original edit.
+
 ## Region cleanup
 
 Region attachments receive an `onCleanup` callback and register teardown before
@@ -85,6 +94,28 @@ The composer controller watches changed editor subtrees and later mounts. It
 never rewrites the draft or changes Twitch's native Send disabled state; temporary
 controls, IDs, and open-state markers are removed when the feature is paused.
 
+## Test organization
+
+`tests/settings.test.cjs` checks the stable preference API and normalization.
+`tests/content.test.cjs` covers content startup, storage races, failure isolation,
+and retries; `tests/runtime.test.cjs` covers the lifecycle adapter. Manifest,
+version, CSS baseline, and fixture script-order contracts belong in
+`tests/architecture.test.cjs`.
+
+The architecture suite also checks that every root test file belongs to exactly
+one focused npm command, with no missing, duplicate, or stale entries.
+
+Settings, content, and CSS checks use `tests/support/rules.cjs` to load settings,
+selectors, and rules in manifest order without DOM controllers. Each call uses a fresh VM
+context unless a content test supplies its own context with DOM and storage mocks.
+
+Browser feature modules live in `tests/browser/`. `visibility.cjs` checks page
+visibility, layout, and preference changes, while `popup.cjs` owns popup controls
+and storage failures. `tests/browser.test.cjs` registers the modules sequentially.
+Harness failures have their own suite in `tests/harness.test.cjs`, and ZIP checks
+live in `tests/package.test.cjs`. See [README.md](../README.md#development) for
+full and focused test commands and their requirements.
+
 ## Browser test harness
 
 The browser harness launches one Chrome child and one UUID profile per run,
@@ -99,3 +130,7 @@ The harness captures uncaught page exceptions from startup onward, including
 timer errors and unhandled promise rejections. Handled storage failures and
 console warnings remain valid test scenarios. Harness failure checks use separate
 isolated browsers so deliberately broken pages cannot contaminate feature tests.
+Failed launches and early process exits report the executable and the last 8192
+characters of stderr without waiting for the startup timeout. Profile cleanup
+waits for the child process and its output streams to close, including launch
+failures.

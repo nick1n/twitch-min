@@ -5,6 +5,7 @@
   let settings = null;
   let root = null;
   let pendingChanges = {};
+  let readingSettings = false;
   let applied = null;
   const featureApplied = new Map();
 
@@ -59,19 +60,29 @@
     if (!Object.keys(patch).length) return;
     if (settings === null) {
       pendingChanges = { ...pendingChanges, ...patch };
+      readSettings();
       return;
     }
     settings = normalize({ ...settings, ...patch });
     apply();
   });
 
-  chrome.storage.local.get(DEFAULTS).then(raw => {
-    settings = normalize({ ...raw, ...pendingChanges });
-    pendingChanges = {};
-    apply();
-  }).catch(error => {
-    // Leave Twitch usable if preference loading fails. Never hide against an
-    // unknown preference (especially when the user previously paused hiding).
-    console.warn("twitch-min could not load settings; hiding is paused.", error);
-  });
+  async function readSettings() {
+    if (readingSettings || settings !== null) return;
+    readingSettings = true;
+    try {
+      const raw = await chrome.storage.local.get(DEFAULTS);
+      settings = normalize({ ...raw, ...pendingChanges });
+      pendingChanges = {};
+      apply();
+    } catch (error) {
+      // Leave Twitch usable until a later relevant storage event retries the read.
+      // Retain queued changes, including a saved pause, across failed attempts.
+      console.warn("twitch-min could not load settings; hiding is paused.", error);
+    } finally {
+      readingSettings = false;
+    }
+  }
+
+  readSettings();
 })();
