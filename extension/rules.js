@@ -8,11 +8,37 @@
   const SIDEBAR = ':is(.side-nav, [data-a-target="side-nav-bar"], [data-a-target="side-nav-bar-collapsed"])';
   const PROMOTED = `${SIDEBAR} .side-nav-card__link--promoted-followed`;
   const TOP_NAV = ':is(.top-nav, [data-a-target="top-nav-container"])';
+  const PLAYER = ':is(.video-player, [data-a-target="video-player"], .channel-page__video-player)';
   const CHANNEL_INFO = ':is(.channel-info-content, .video-info, [data-a-target="video-info"], .metadata-layout__support)';
   const SUBSCRIBE = `${CHANNEL_INFO} :is([data-a-target="subscribe-button"], [data-a-target="resubscribe-button"], button[aria-label="Subscribe" i], button[aria-label="Resubscribe" i]):has(.tw-core-button-icon, svg)`;
   const VOD = '.channel-root:not(.channel-root--theatre-mode):not(.channel-root--theatre):has(.metadata-layout__split-top [data-a-target="video-info-game-boxart-link"])';
 
   const RULES = Object.freeze([
+    {
+      key: 'enabled',
+      selectors: [
+        '[data-a-target="player-clip-button"]',
+        'button[aria-label="Clip" i]',
+        'button[aria-label^="Clip (" i]',
+        'button[aria-label="Create Clip" i]',
+        'button[aria-label="Subscribe to clip" i]',
+        // Hide only the middle rate display; keep decrease/increase controls.
+        '.tp-ps-group > :nth-child(2)',
+        '[data-a-target="follow-button"]',
+        '[data-a-target="unfollow-button"]',
+        '[data-a-target="gift-button"]',
+        '[data-a-target="subscribe-button"]',
+        '[data-a-target="resubscribe-button"]',
+        'button[aria-label="Follow" i]',
+        'button[aria-label^="Follow " i]',
+        'button[aria-label="Unfollow" i]',
+        'button[aria-label^="Unfollow " i]',
+        'button[aria-label="Gift a Sub" i]',
+        'button[aria-label="Subscribe" i]',
+        'button[aria-label="Resubscribe" i]'
+      ].map(selector => `${PLAYER} ${selector}`),
+      declaration: 'display: none !important;'
+    },
     {
       key: 'enabled',
       selectors: [
@@ -367,13 +393,33 @@
       key: "chatComposer",
       selectors: [
         // This is the input strip, NOT .chat-input (which also owns points/settings).
-        '.chat-input .chat-input__textarea',
-        '.chat-input .chat-wysiwyg-input-box',
-        '.chat-input [data-a-target="chat-input"]',
-        '.chat-input [data-a-target="bits-button"]',
-        '.chat-input [data-a-target="emote-picker-button"]'
-      ],
+        '.chat-input__textarea',
+        '.chat-wysiwyg-input-box',
+        '[data-a-target="chat-input"]',
+        '[data-a-target="bits-button"]',
+        '[data-a-target="emote-picker-button"]'
+      ].map(selector => `.chat-input:not([data-tq-composer-open]) ${selector}`),
       declaration: "display: none !important;"
+    },
+    {
+      key: "chatComposer",
+      selectors: ['.chat-input [data-a-target="chat-send-button"]'],
+      declaration: 'display: none !important;'
+    },
+    {
+      key: "chatComposer",
+      selectors: ['.chat-input [data-tq-chat-toggle]'],
+      declaration: 'display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 10px; border: 0; border-radius: 4px; background: var(--color-background-button-primary-default, #9147ff); color: var(--color-text-button-primary, #fff); font-size: 13px; font-weight: 600; line-height: normal; font-family: inherit; cursor: pointer;'
+    },
+    {
+      key: "chatComposer",
+      selectors: ['.chat-input [data-tq-chat-toggle]:hover'],
+      declaration: 'background: var(--color-background-button-primary-hover, #772ce8);'
+    },
+    {
+      key: "chatComposer",
+      selectors: ['.chat-input [data-tq-chat-toggle]:focus-visible'],
+      declaration: 'outline: 2px solid var(--color-border-input-focus, #a970ff); outline-offset: 2px;'
     }
   ].map(rule => Object.freeze({ ...rule, selectors: Object.freeze(rule.selectors) })));
 

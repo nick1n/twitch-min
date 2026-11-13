@@ -35,6 +35,7 @@
   <script src="../../extension/timestamps.js" defer></script>
   <script src="../../extension/player.js" defer></script>
   <script src="../../extension/chat.js" defer></script>
+  <script src="../../extension/composer.js" defer></script>
   <script src="../../extension/content.js" defer></script>
 </head>
 <body>
@@ -109,7 +110,18 @@
     <div id="player" data-a-target="video-player" style="position:relative">
       <video id="stream-video" width="320" height="180"></video>
       <input type="range" data-a-target="player-volume-slider" min="0" max="1" step="0.001" value="0.5">
-      <div id="player-menu" data-a-target="player-settings-menu">Player menu</div>
+      <button id="player-play" data-a-target="player-play-pause-button">Play</button>
+      <button id="player-mute" data-a-target="player-mute-unmute-button">Mute</button>
+      <button id="player-clip" aria-label="Clip (alt+x)">Clip</button>
+      <button id="player-clip-subscribe" aria-label="Subscribe to clip">Clip</button>
+      <div id="player-speed" class="tp-ps-group"><div id="player-speed-decrease" class="tp-player-control tp-ps-collapsible" aria-label="Decrease Playback Speed">−</div><div id="player-speed-display" class="tp-player-control tp-ps-collapsible" aria-label="X1.0 Speed">1x</div><div id="player-speed-increase" class="tp-player-control tp-ps-anchor" aria-label="Increase Playback Speed">+</div></div>
+      <button id="player-follow" data-a-target="follow-button" aria-label="Follow">♥</button>
+      <button id="player-gift" data-a-target="gift-button" aria-label="Gift a Sub">Gift a Sub</button>
+      <button id="player-subscribe" data-a-target="subscribe-button" aria-label="Subscribe">Subscribe</button>
+      <button id="player-settings" data-a-target="player-settings-button">Settings</button>
+      <button id="player-theatre" aria-label="Theatre Mode (alt+t)">Theatre</button>
+      <button id="player-fullscreen" data-a-target="player-fullscreen-button">Fullscreen</button>
+      <div id="player-menu" data-a-target="player-settings-menu">Player menu <button id="player-settings-speed" data-a-target="player-settings-menu-item-playback-rate">Playback Speed</button></div>
     </div>
     <div class="metadata-layout__support">
       <button id="follow" data-a-target="follow-button">Follow</button>
@@ -190,6 +202,7 @@
   </div>
   <button id="outside-gift" data-a-target="gift-button">Unrelated gift button outside channel</button>
   <button id="outside-share" data-a-target="share-button">Unrelated share button</button>
+  <button id="outside-clip" aria-label="Clip (alt+x)">Clip outside the video player</button>
   <div id="outside-metadata" data-a-target="side-nav-card-metadata">Unrelated metadata</div>
   <img id="outside-emote" data-a-target="emote-name" alt="Emote outside chat" width="28" height="28" src="https://static-cdn.jtvnw.net/emoticons/v2/emotesv2_fixture/default/dark/1.0">
 </body>

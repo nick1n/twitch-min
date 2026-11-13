@@ -12,7 +12,7 @@ is required to use it.
 3. Refresh Twitch tabs that were already open.
 4. Pin **twitch-min** in Chrome's Extensions menu, then open its popup.
 
-Alternatively, extract `dist/twitch-min-0.1.13.zip` and load the extracted folder
+Alternatively, extract `dist/twitch-min-0.1.16.zip` and load the extracted folder
 containing `manifest.json`. Keep that folder: Chrome loads the extension from it.
 This is an unpacked extension, not a Chrome Web Store installation.
 
@@ -37,12 +37,19 @@ Preferences update open Twitch tabs without a reload after the first installatio
 | Channel action extras | Share (including VOD pages), channel notification bell, Bits, Gift a Sub, visible Subscribe/Resubscribe labels | Follow, subscription icons and dropdown arrow, title, tags, and viewer count |
 | About & lower channel section | About/panels, the VOD channel card, and recommendations; the player fills available space above its details | Video title, category, views, and chat; native theatre/fullscreen sizing |
 | Chat leaderboard | Gift/cheer ranking strip and its carousel arrows | Chat messages |
-| Chat message composer | Input strip and its inline Bits/emote tools | Bottom points, settings, and Chat button, as in the screenshot |
+| Chat message composer | Input strip and its inline tools until Chat is clicked; native Send button | Points, settings, and a Chat toggle to show/hide the editor |
 | Short video chat times | Seconds in replay timestamp labels: `1:32:56` becomes `1:32`, `5:26` becomes `0:05` | Visible hours:minutes, original seek targets, and message text |
 
-Hiding the composer makes chat read-only until that switch is turned off.
-The bottom Chat button remains visible because it was not highlighted, but there
-is no visible message box to type into. Hidden controls use `display: none`.
+The message box starts hidden. Click **Chat** to show it and focus the editor;
+click **Chat** again to hide it. Neither click sends a message, and your draft
+stays intact. Enter inside the editor keeps Twitch's normal send behavior.
+A separate button replaces the visible native Send control, so the toggle works
+even when Twitch disables Send for an empty draft. It supports mouse, Enter,
+and Space activation, with an accessible expanded state. The open/closed state
+is local to the current composer and does not change your saved preferences.
+Turning off **Chat message composer**, the master switch, or **Restore everything**
+restores Twitch's original editor and Send button. Hidden controls use `display: none`.
+
 The compact sidebar keeps Twitch's expanded metadata mounted, because Twitch
 removes viewer counts and games from its native collapsed rows. If necessary,
 the extension uses Twitch's own expand control, then lays out the existing rows
@@ -75,6 +82,13 @@ focus, and native click behavior stay intact. Turning off the group restores the
 full labels and the Bits button.
 
 ## Video volume and sizing
+
+The player hides Clip, only the middle speed display, and its Follow, Gift a Sub,
+Subscribe, and Resubscribe overlay buttons. The decrease/increase speed buttons
+remain available. Playback, volume, Settings, theatre,
+fullscreen, and playback speed inside Settings remain available. These rules
+apply only inside the video player; the channel controls below it keep their
+existing behavior. The master switch restores the hidden player controls.
 
 Scroll up over the video to raise volume or down to lower it. A normal 100px wheel
 notch changes volume by 5%; smaller trackpad deltas make smaller adjustments.
@@ -225,6 +239,20 @@ floating collapse control. The native collapsed-state expand control is retained
 Header classes and control states were checked in the supplied HTML snapshots;
 the existing Chrome preset/restoration check now covers the hidden header.
 
+Version 0.1.14 makes Chat toggle the message box without sending. Chrome checks
+cover mouse and keyboard activation, focus, retained drafts, disabled native Send,
+form and delegated-handler isolation, native Enter behavior, editor replacements,
+later composers, full restoration, and the supplied live editor markup.
+
+Version 0.1.15 removes Clip (including the live Subscribe to clip variant), the
+extra `tp-ps` speed group, and player subscription/follow overlays. Clip and speed
+markup was checked against the supplied snapshots; the existing Chrome preset
+and restoration checks cover the hidden controls and retained playback controls.
+
+Version 0.1.16 restores the decrease/increase speed buttons and hides only the
+middle rate display. Existing Chrome visibility checks now cover all three
+speed controls separately.
+
 The test suite runs the actual styles and content script in real headless Chrome
 against representative fixtures, with a mocked Chrome storage API. It checks
 visibility, retained controls, reclaimed sidebar width and About height, settings changes, late DOM
@@ -290,6 +318,7 @@ extension/
   timestamps.js       Replay timestamp formatting without changing seek targets
   player.js/css       Wheel volume control and fitted VOD portal sizing
   chat.js             Author-color tints and consecutive-sender labels
+  composer.js         Chat toggle, editor focus, and native Send restoration
   popup.*             Controls, local storage, and error states
   icons/              PNG extension icons
 tests/                Node checks and real Chrome fixture checks
@@ -312,5 +341,8 @@ changes, reconnecting if Twitch replaces the player during navigation.
 Chat styling observes affected rows, author changes, and adjacent messages; it
 does not scan the entire message history for every new message. Disabling the
 master switch removes tint variables and temporary grouping attributes.
+The composer controller watches changed editor subtrees and later mounts. It
+never rewrites the draft or changes Twitch's native Send disabled state; temporary
+controls, IDs, and open-state markers are removed when the feature is paused.
 
 Icons can be regenerated with `python scripts/generate_icons.py` (standard library only).

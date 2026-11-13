@@ -1,4 +1,4 @@
-twitch-min 0.1.13 - local Chrome extension
+twitch-min 0.1.16 - local Chrome extension
 
 The ZIP is the Chrome Web Store upload package, with manifest.json at its root.
 It is optional for local use: load the repository's extension folder directly.
@@ -27,8 +27,11 @@ The live action row also hides Bits. Subscribe/Resubscribe show only their icons
 and dropdown arrow, keeping their accessible names and native click behavior.
 Turn off Channel action extras to restore these buttons and full labels.
 Replay chat times show hours:minutes without seconds; clicking still seeks normally.
-The composer switch makes chat
-read-only while preserving the channel points and settings row.
+The composer switch initially hides the message box. Click Chat to show and
+focus it; click Chat again to hide it. Chat never sends a message, and hiding
+keeps your draft. Enter inside the editor still sends normally. Channel points
+and settings stay visible. Turning off this switch restores Twitch's native
+message box and Send button.
 Restore everything pauses hiding immediately in open Twitch tabs.
 The top chat header bar and its collapse control are hidden, freeing space for
 messages in live and replay chat. A collapsed chat can still be expanded.
@@ -54,6 +57,10 @@ The master switch also pauses these emote previews.
 Scroll up over the video to raise volume, or down to lower it. A normal wheel
 notch changes volume by about 5%; trackpad gestures adjust it smoothly.
 Chat/sidebar scrolling, player menu scrolling, and Ctrl+wheel zoom are preserved.
+Inside the player, Clip, the middle speed display, Follow, Gift a Sub, and
+Subscribe/Resubscribe are hidden. The decrease/increase speed buttons remain.
+Playback, volume, settings, theatre, fullscreen, and speed selection inside
+Settings remain available. The master switch restores the hidden player controls.
 
 The extension runs only on twitch.tv, saves settings locally, and sends no data.
 Signed-in-only controls use fallbacks and still need verification in your session.

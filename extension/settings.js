@@ -10,7 +10,7 @@
     { key: "channelActions", title: "Channel action extras", description: "Hide Share, the channel bell, Bits, and Gift a Sub. Keep Follow and icon-only Subscribe/Resubscribe." },
     { key: "channelAbout", title: "About & lower channel section", description: "Hide About, the replay channel card, and recommendations below the video details." },
     { key: "chatLeaderboard", title: "Chat leaderboard", description: "Hide the gift and cheer rankings above chat." },
-    { key: "chatComposer", title: "Chat message composer", description: "Hide the message box and its tools. Chat becomes read-only; points and settings stay." },
+    { key: "chatComposer", title: "Chat message composer", description: "Use Chat to show or hide the message box. The button never sends; Enter in the box sends normally." },
     { key: "chatTimestamps", title: "Short video chat times", description: "Show hours and minutes beside replay messages, without seconds." }
   ].map(Object.freeze));
 

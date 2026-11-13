@@ -262,10 +262,10 @@ test('real Chrome: CSS, reversible settings, dynamic content, popup and failures
     await t.test('default screenshot preset hides targets and preserves intended UI', async () => {
       await navigate('tests/fixtures/twitch.html');
       await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
-      for (const id of ['top-bits','top-turbo','top-turbo-gift','top-turbo-test','top-turbo-text','luna-offers','shouts','sidebar-for-you','sidebar-arrow','sidebar-streak','sidebar-channel-name','sidebar-hype','stray-avatar-text','stray-nested-text','offline-transition','offline-channel','other-section','show-more','channel-bell','channel-bits','channel-gift','video-share','video-share-label','vod-channel-card','vod-recommendations','about','panels','chat-header','leaderboard','composer']) {
+      for (const id of ['top-bits','top-turbo','top-turbo-gift','top-turbo-test','top-turbo-text','luna-offers','shouts','sidebar-for-you','sidebar-arrow','sidebar-streak','sidebar-channel-name','sidebar-hype','stray-avatar-text','stray-nested-text','offline-transition','offline-channel','other-section','show-more','channel-bell','channel-bits','channel-gift','video-share','video-share-label','vod-channel-card','vod-recommendations','about','panels','chat-header','leaderboard','composer','chat-send','player-clip','player-clip-subscribe','player-speed-display','player-follow','player-gift','player-subscribe']) {
         assert.equal(await isVisible(id), false, `${id} should be hidden`);
       }
-      for (const id of ['sidebar-heading','live-heading','similar-heading','top-bell','top-bell-wrapper','actual-notifications','top-notifications-label','replay-time','replay-time-link','actual-replay-time','browse','whispers','search','account','avatar','second-avatar','viewer-count','sidebar-game','player','video-title','video-category','video-menu','follow','channel-subscribe','messages','replay-body','replay-body-link','actual-replay-message','points','chat-settings','chat-send','outside-gift','outside-share','outside-metadata']) {
+      for (const id of ['sidebar-heading','live-heading','similar-heading','top-bell','top-bell-wrapper','actual-notifications','top-notifications-label','replay-time','replay-time-link','actual-replay-time','browse','whispers','search','account','avatar','second-avatar','viewer-count','sidebar-game','player','video-title','video-category','video-menu','follow','channel-subscribe','messages','replay-body','replay-body-link','actual-replay-message','points','chat-settings','outside-gift','outside-share','outside-metadata','outside-clip','player-play','player-mute','player-settings','player-theatre','player-fullscreen','player-settings-speed','player-speed','player-speed-decrease','player-speed-increase']) {
         assert.equal(await isVisible(id), true, `${id} must stay visible`);
       }
       assert.equal(await evaluate(`document.querySelector('[data-a-target="chat-input"]').getClientRects().length`), 0, 'hidden editor cannot receive focus');
@@ -287,13 +287,118 @@ test('real Chrome: CSS, reversible settings, dynamic content, popup and failures
       assert.ok(before['sidebar-game'].x + before['sidebar-game'].width <= before['channel-row'].x + before['channel-row'].width, 'game stays inside the row');
       await evaluate(`__storagePatch({enabled:false})`);
       await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
-      for (const id of ['top-bell','top-turbo-text','actual-notifications','sidebar-heading','sidebar-metadata','viewer-count','channel-bits','video-share','vod-channel-card','vod-recommendations','about','panels','replay-time','actual-replay-time','chat-header','leaderboard','composer']) assert.equal(await isVisible(id), true, `${id} restores`);
+      for (const id of ['top-bell','top-turbo-text','actual-notifications','sidebar-heading','sidebar-metadata','viewer-count','channel-bits','video-share','vod-channel-card','vod-recommendations','about','panels','replay-time','actual-replay-time','chat-header','leaderboard','composer','player-clip','player-clip-subscribe','player-speed-display','player-follow','player-gift','player-subscribe']) assert.equal(await isVisible(id), true, `${id} restores`);
       const after = await geometry();
       assert.equal(after['sidebar-shell'].width, 240, 'restores the original sidebar width');
       assert.equal(after.main.x, 240);
       assert.equal(before.main.width - after.main.width, 96, 'video gains all reclaimed sidebar space');
       assert.ok(before['channel-row'].height >= 36 && before['channel-row'].height < 48, 'two-line rows have tighter spacing');
       assert.ok(after['after-about'].y - before['after-about'].y >= 340, 'About and panels collapse their entire layout space');
+    });
+
+    await t.test('Chat toggles the composer and preserves drafts without triggering native sends or form submission', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await evaluate(`(()=>{
+        window.nativeSends=0;window.nativeSubmits=0;window.delegatedClicks=0;
+        const owner=document.querySelector('.chat-input'),editor=owner.querySelector('[data-a-target="chat-input"]'),send=owner.querySelector('[data-a-target="chat-send-button"]');
+        editor.textContent='A draft to keep';send.disabled=true;
+        send.addEventListener('click',()=>nativeSends++);
+        owner.addEventListener('click',()=>delegatedClicks++);
+        editor.addEventListener('keydown',event=>{if(event.key==='Enter'){nativeSends++;event.preventDefault()}});
+        const form=document.createElement('form');form.addEventListener('submit',event=>{nativeSubmits++;event.preventDefault()});owner.before(form);form.append(owner);
+      })()`);
+      const toggle = () => evaluate(`document.querySelector('[data-tq-chat-toggle]').click()`);
+      const expanded = () => evaluate(`document.querySelector('[data-tq-chat-toggle]').getAttribute('aria-expanded')`);
+      assert.equal(await isVisible('composer'), false);
+      assert.equal(await isVisible('chat-send'), false);
+      assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle]').disabled`), false, 'toggle works even when native Send is disabled');
+      assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle]').type`), 'button');
+      assert.equal(await expanded(), 'false');
+      assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle]').getAttribute('aria-controls')`), 'composer');
+      await toggle();
+      assert.equal(await isVisible('composer'), true);
+      assert.equal(await isVisible('picker-emote'), true, 'opening restores native composer tools too');
+      assert.equal(await expanded(), 'true');
+      assert.equal(await evaluate(`document.activeElement.matches('[data-a-target="chat-input"]')`), true, 'opening focuses the editor');
+      await evaluate(`__storagePatch({topNavigation:false})`);
+      assert.equal(await expanded(), 'true', 'unrelated setting changes keep the composer open');
+      await toggle();
+      assert.equal(await isVisible('composer'), false);
+      assert.equal(await evaluate(`document.querySelector('[data-a-target="chat-input"]').textContent`), 'A draft to keep');
+      assert.equal(await evaluate(`document.activeElement.hasAttribute('data-tq-chat-toggle')`), true, 'closing returns focus to Chat');
+      for (const [key,code,keyCode] of [['Enter','Enter',13],[' ','Space',32]]) {
+        await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: keyCode, text: key === 'Enter' ? '\r' : ' ', unmodifiedText: key === 'Enter' ? '\r' : ' ' });
+        await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: keyCode });
+        assert.equal(await expanded(), 'true', `${code} opens the box instead of sending`);
+        await toggle();
+        assert.equal(await expanded(), 'false');
+      }
+      assert.deepEqual(await evaluate(`({sends:nativeSends,submits:nativeSubmits,delegated:delegatedClicks,writes:__writes.length})`), { sends: 0, submits: 0, delegated: 0, writes: 0 });
+      await toggle();
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+      assert.equal(await evaluate(`nativeSends`), 1, 'Enter in the editor still reaches its native handler');
+      await evaluate(`__storagePatch({chatComposer:false})`);
+      assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-toggle], [data-tq-composer-open]').length`), 0);
+      assert.equal(await isVisible('composer'), true);
+      assert.equal(await isVisible('chat-send'), true);
+      assert.equal(await evaluate(`document.querySelector('#chat-send').disabled`), true, 'native disabled state is never changed');
+      assert.equal(await evaluate(`document.querySelector('#composer').id`), 'composer', 'native IDs stay intact');
+      await evaluate(`document.querySelector('#chat-send').disabled=false;document.querySelector('#chat-send').click()`);
+      assert.equal(await evaluate(`nativeSends`), 2, 'pausing restores native Send behavior');
+      await evaluate(`__storagePatch({chatComposer:true})`);
+      assert.equal(await expanded(), 'false', 'reenabling starts collapsed');
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-toggle], [data-tq-composer-open]').length`), 0);
+      assert.equal(await isVisible('composer'), true);
+      assert.equal(await isVisible('chat-send'), true);
+    });
+
+    await t.test('Chat toggle follows later and replaced composers, including the supplied live editor', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await evaluate(`document.querySelector('[data-tq-chat-toggle]').click();const old=document.querySelector('.chat-input');old.replaceWith(old.cloneNode(true))`);
+      assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-toggle]').length`), 1, 'cloned controls are replaced without duplicates');
+      assert.equal(await isVisible('composer'), false, 'a new composer starts collapsed');
+      await evaluate(`document.querySelector('.chat-input').remove();document.querySelector('.chat-room__content').insertAdjacentHTML('beforeend','<div class="chat-input" id="late-composer"><div class="chat-input__textarea"><textarea data-a-target="chat-input">Later draft</textarea></div><div class="footer"><button data-a-target="chat-send-button" disabled>Chat</button></div></div>')`);
+      await waitFor(`document.querySelector('#late-composer [data-tq-chat-toggle]')`);
+      await evaluate(`document.querySelector('[data-tq-chat-toggle]').click()`);
+      assert.equal(await evaluate(`document.activeElement.matches('textarea')`), true);
+      assert.equal(await evaluate(`document.activeElement.value`), 'Later draft');
+      await evaluate(`document.querySelector('.chat-input__textarea').replaceWith(document.querySelector('.chat-input__textarea').cloneNode(true));document.querySelector('[data-a-target="chat-send-button"]').replaceWith(document.querySelector('[data-a-target="chat-send-button"]').cloneNode(true))`);
+      assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-toggle]').length`), 1);
+      assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle]').getAttribute('aria-expanded')`), 'true', 'replacing editor internals preserves open state');
+      assert.equal(await evaluate(`document.getElementById(document.querySelector('[data-tq-chat-toggle]').getAttribute('aria-controls'))===document.querySelector('.chat-input__textarea')`), true, 'controls points to the replacement editor');
+      await evaluate(`__storagePatch({chatComposer:false})`);
+      assert.equal(await evaluate(`document.querySelectorAll('[id^="twitch-min-composer-"], [data-tq-chat-toggle], [data-tq-composer-open]').length`), 0, 'generated IDs and markers are removed');
+      assert.equal(await evaluate(`document.querySelector('textarea').value`), 'Later draft');
+
+      const snapshotFile = path.join(root, '.browser-tests', 'live.html');
+      if (fs.existsSync(snapshotFile)) {
+        await send('Fetch.enable', { patterns: [{ urlPattern: 'http*' }] });
+        try {
+          const source = fs.readFileSync(snapshotFile, 'utf8');
+          await evaluate(`(()=>{
+            const snapshot=new DOMParser().parseFromString(${JSON.stringify(source)},'text/html'),owner=snapshot.querySelector('.chat-input').cloneNode(true);
+            owner.querySelectorAll('script,style,link,iframe,object,embed,img').forEach(node=>node.remove());
+            for(const node of [owner,...owner.querySelectorAll('*')])for(const attribute of [...node.attributes])if(/^on/i.test(attribute.name) || /^data-tq-/.test(attribute.name) || ['id','style','src','srcset'].includes(attribute.name))node.removeAttribute(attribute.name);
+            const editor=owner.querySelector('[data-a-target="chat-input"]');editor.textContent='Native live draft';editor.id='native-live-editor';
+            const send=owner.querySelector('[data-a-target="chat-send-button"]');send.disabled=true;window.liveNativeSends=0;send.addEventListener('click',()=>liveNativeSends++);
+            document.querySelector('.chat-input').replaceWith(owner);__storagePatch({chatComposer:true});
+          })()`);
+          await evaluate(`document.querySelector('[data-tq-chat-toggle]').click()`);
+          assert.equal(await evaluate(`document.activeElement.id`), 'native-live-editor');
+          assert.equal(await evaluate(`document.querySelector('#native-live-editor').checkVisibility({checkVisibilityCSS:true})`), true);
+          await evaluate(`document.querySelector('[data-tq-chat-toggle]').click()`);
+          assert.equal(await evaluate(`document.querySelector('#native-live-editor').checkVisibility({checkVisibilityCSS:true})`), false);
+          assert.equal(await evaluate(`document.querySelector('#native-live-editor').textContent`), 'Native live draft');
+          assert.equal(await evaluate(`liveNativeSends`), 0);
+          await evaluate(`__storagePatch({enabled:false})`);
+          assert.equal(await evaluate(`document.querySelectorAll('[id^="twitch-min-composer-"], [data-tq-chat-toggle], [data-tq-composer-open]').length`), 0);
+          assert.equal(await evaluate(`document.querySelector('[data-a-target="chat-send-button"]').disabled`), true);
+        } finally {
+          await send('Fetch.enable', { patterns: [{ urlPattern: 'https://static-cdn.jtvnw.net/emoticons/*' }] });
+        }
+      }
     });
 
     await t.test('channel Bits variants hide and subscription buttons keep only icons with accessible names and native actions', async () => {

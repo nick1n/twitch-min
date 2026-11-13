@@ -16,6 +16,7 @@
     globalThis.TwitchMinTimestamps?.configure(settings);
     globalThis.TwitchMinPlayer?.configure(settings);
     globalThis.TwitchMinChat?.configure(settings);
+    globalThis.TwitchMinComposer?.configure(settings);
   }
 
   function mount() {
