@@ -31,7 +31,7 @@ Preferences update open Twitch tabs without a reload after the first installatio
 
 | Switch | Hides | Preserves |
 | --- | --- | --- |
-| Sidebar sections | Offline channels, other sections, streak prompts, collapse arrow, sorting extras, Show More/Less | Only the shortened Followed, Live, and Similar headers and their online channels |
+| Sidebar sections | Offline channels, other sections, streak prompts, collapse arrow, sorting extras, Show More/Less | Only the shortened Followed, Recommended, and Similar headers and their online channels |
 | Compact sidebar | Channel names, stray avatar captions, status extras, and scrollbar; narrows the sidebar to 144px with compact rows | Avatar on the left, 13px viewer count on the right, 12px current game underneath; scrolling and full sidebar height |
 | Top navigation extras | Luna/Prime offers including its badge, Shouts, Gift Turbo (including text-only buttons), Bits | Notification bell and badge, search, browsing, whispers, and account controls |
 | Channel action extras | Share (including VOD pages), channel notification bell, Bits, Gift a Sub, visible Subscribe/Resubscribe labels | Follow, subscription icons and dropdown arrow, title, tags, and viewer count |
@@ -158,100 +158,7 @@ left to Twitch. Third-party extension emote markup is not specifically supported
 
 ## Verification and current limits
 
-Inspected the live **signed-out** `twitch.tv/karkalla` page on November 12, 2026:
-
-- Confirmed the sidebar metadata/header targets and hype-train row structure.
-- Confirmed channel `gift-button`, `.chat-input__textarea`, and the leaderboard's
-  `leaderboard-item-name-test-selector` inside a direct chat-content child.
-- Confirmed the composer can be targeted separately from the points/settings row.
-
-For 0.1.3, also inspected the live signed-out VOD at
-`twitch.tv/videos/2921409707` and the supplied logged-in HTML snapshot:
-
-- Confirmed the native expanded/collapsed DOM transition and a full-height 50px
-  rail with visible avatars on the live page, plus restoration to 240px.
-- Verified that the VOD title/category/views remain while its channel card,
-  recommendation section, Share button, and `.vod-message__header` timestamps hide.
-- Used the logged-in snapshot to check `.side-nav__title`, the streak reminder
-  group, `.onsite-notifications` (including its badge), and the text-only Gift
-  Turbo button. The snapshot is not a running signed-in Twitch session.
-
-Version 0.1.4 changes the avatar-only rail to a compact two-line layout so counts
-and games remain visible. Browser tests verify their visibility, vertical order,
-sidebar height, dynamic updates, and restoration, including the supplied logged-in
-markup. This revision has not been checked in a running signed-in session.
-
-Version 0.1.5 restores the notification bell, hides Luna/Prime and Shouts, reduces
-the sidebar from 168px to 118px, formats replay times without seconds, fits the
-VOD player above its metadata, and adds wheel volume control. Live signed-out VOD
-DOM checks confirmed the 118px sidebar, hidden scrollbar, formatted timestamps,
-hidden Prime offers control, synchronized video/slider volume, and matching video,
-placeholder, and metadata boundaries. Logged-in control matching is checked against
-the supplied HTML; a running signed-in session is not claimed. Browser snapshot
-capture timed out, so these live checks used DOM geometry and media properties.
-
-Version 0.1.6 verifies the three shortened section headers and offline filtering
-against the supplied signed-in HTML. Browser regressions cover nested third-line
-captions, changing online status, dynamic chat tints, native highlight preservation,
-search focus styling, auto-height player ancestors, and stale panel scroll offsets.
-Live signed-out DOM checks confirmed no visible stray row text, 6% author-color
-chat tints, a transparent search border, a reset scroll offset, and matching video,
-metadata, and viewport boundaries. Snapshot capture still timed out.
-
-Version 0.1.7 uses the supplied `.tw-tooltip-layer` / `.tw-tooltip-wrapper` markup
-to host the emote preview. Real Chrome fixture tests cover native theme/arrow
-preservation, exact-name matching, late tooltip adoption, same-name React refresh,
-native dismissal/reuse, keyboard activation on Twitch's focusable emote wrappers,
-viewport clamping, and cleanup. This integration is tested against the supplied
-markup; it has not been checked in a running signed-in session.
-
-Version 0.1.8 groups consecutive sender labels in live and replay chat. Chrome
-fixture tests cover runs of four messages, distinct accounts with matching colors
-or display names, inserts, deletions, history loading, changed senders, notices,
-separate chat panes, retained message content, and restoration. Native VOD markup
-is also checked against the supplied HTML; no running signed-in check is claimed.
-
-Version 0.1.9 fixes live chat using its gray username wrapper instead of the
-colored display name. Chrome tests reproduce the nested wrapper structure and
-check dynamic colors, later messages, hidden repeated names, native highlights,
-and restoration. An additional inert import of `.browser-tests/live.html` checks
-all supplied live message rows against their actual display-name colors and
-verifies that repeated names hide without their badge siblings. This uses the
-provided snapshot, not a running signed-in Twitch session.
-
-Version 0.1.10 fixes the first followed entry when Twitch renders it as a promoted
-card. Its nested wrappers no longer clip the whole card into the avatar slot.
-Chrome checks cover the complete avatar, count/game alignment, matching ordinary
-row height, native metadata updates, link handlers, and restoration, using both
-a representative fixture and the promoted card from the updated live snapshot.
-
-Version 0.1.11 hides Bits in the standalone live action row and makes its
-Subscribe/Resubscribe buttons icon-only. Chrome checks cover the supplied live
-controls, accessible names with and without aria-label, retained icons and native
-handlers, dynamic labels, independent settings, and full restoration.
-
-Version 0.1.12 widens the compact sidebar from 118px to 144px, enlarges viewer
-counts to 13px and game names/headers to 12px, and gives the two text lines 38px
-rows. Ordinary and promoted cards use the same sizes.
-
-Version 0.1.13 hides the live and replay chat header bars and the expanded chat's
-floating collapse control. The native collapsed-state expand control is retained.
-Header classes and control states were checked in the supplied HTML snapshots;
-the existing Chrome preset/restoration check now covers the hidden header.
-
-Version 0.1.14 makes Chat toggle the message box without sending. Chrome checks
-cover mouse and keyboard activation, focus, retained drafts, disabled native Send,
-form and delegated-handler isolation, native Enter behavior, editor replacements,
-later composers, full restoration, and the supplied live editor markup.
-
-Version 0.1.15 removes Clip (including the live Subscribe to clip variant), the
-extra `tp-ps` speed group, and player subscription/follow overlays. Clip and speed
-markup was checked against the supplied snapshots; the existing Chrome preset
-and restoration checks cover the hidden controls and retained playback controls.
-
-Version 0.16.0 restores the decrease/increase speed buttons and hides only the
-middle rate display. Existing Chrome visibility checks now cover all three
-speed controls separately.
+See [CHANGELOG.md](CHANGELOG.md) for release history and prior live verification notes.
 
 The test suite runs the actual styles and content script in real headless Chrome
 against representative fixtures, with a mocked Chrome storage API. It checks
@@ -273,9 +180,9 @@ every future variant is covered.
 
 If an item remains visible, first enable its switch and refresh Twitch. If it
 still appears, inspect that item in DevTools and copy its `outerHTML` so the
-selector can be adjusted. Keep all selector changes in `extension/rules.js`.
+selector can be adjusted. Keep shared region selectors in `extension/selectors.js` and cosmetic selectors in the matching `extension/rules-*.js` feature file.
 Avoid broad selectors such as all buttons or all chat panels. Sidebar collapse
-belongs in `extension/layout.js`, with compact row styles in `extension/rules.js`;
+belongs in `extension/layout.js`, with compact row styles in `extension/rules-sidebar.js`;
 keep the native metadata and overlay height intact.
 
 After editing the extension, click **Reload** on its `chrome://extensions` card
@@ -305,13 +212,20 @@ Set `CHROME_PATH` if Chrome is not at a standard location. Browser tests create
 isolated profiles under the ignored `.browser-tests` folder and use a local
 debugging connection. Tests never use your everyday browser profile. The test
 browser uses `--no-sandbox` to run in the managed Windows environment and only
-loads trusted local fixture files. Test profiles may be deleted after the tests.
+loads trusted local fixture files. Each run removes its own profile after Chrome exits; private HTML snapshots are preserved.
 
 ```text
 extension/
   manifest.json       Twitch-only scope and popup declaration
-  settings.js         Defaults, groups, and normalization
-  rules.js            Scoped CSS selectors, grouped by switch
+  settings.js         Single setting declaration; derived defaults, attributes, popup groups
+  selectors.js        Shared region selectors used by controllers and rules
+  runtime.js          Feature lifecycle adapter
+  regions.js          Shared region discovery and remount notifications
+  rules-sidebar.js    Sidebar filtering and compact row CSS
+  rules-navigation.js Navigation extras and search CSS
+  rules-player.js     Player controls, channel actions, and VOD layout CSS
+  rules-chat.js       Chat headers, tint, timestamps, and composer CSS
+  rules.js            Thin ordered rule aggregator and CSS builder
   content.js          Stylesheet setup and saved-preference updates
   layout.js           Native sidebar state and text-only navigation controls
   emotes.js/css       Click previews for chat emotes and their anchored bubble
@@ -321,7 +235,13 @@ extension/
   composer.js         Chat toggle, editor focus, and native Send restoration
   popup.*             Controls, local storage, and error states
   icons/              PNG extension icons
-tests/                Node checks and real Chrome fixture checks
+tests/
+  browser.test.cjs     One browser run, sequential feature registration
+  browser/*.cjs        Independent feature checks and optional snapshot imports
+  support/chrome.cjs   Reusable Chrome/CDP resource lifecycle and page helpers
+  support/production.cjs Manifest-driven fixture scripts/styles and local network policy
+  architecture.test.cjs Settings, exact CSS preservation, script order, version checks
+  runtime.browser.test.cjs Integration lifecycle, region, timestamp, and no-op regressions
 scripts/package.ps1   ZIP the installable extension files
 ```
 
@@ -329,20 +249,68 @@ The document-start content script waits for saved preferences before activating
 the rules, so a previously paused extension does not temporarily hide controls.
 This can allow a brief initial flash while storage loads. CSS handles new matching
 elements during Twitch navigation. A mount observer waits for the initial document
-root, then disconnects. The layout controller observes sidebar state and navigation
-labels within those regions; its document observer only checks that the roots are
-still connected during chat insertions. While an emote preview is open, another
-observer checks whether its source is still connected and the URL is unchanged;
-it disconnects when the bubble closes. Delegated click and keyboard handlers cover
-emotes in later messages without scanning chat.
+root, then disconnects. After mounting, `regions.js` owns one shared document
+observer for discovery while features are active. It tracks added subtrees,
+region identity changes, and detached mounts; feature observers stay inside their
+mounted sidebar, navigation, player, chat, or composer regions. Discovery handles
+later mounts without rescanning the whole document on every chat mutation. Pausing
+releases subscriptions and disconnects discovery when none remain; asynchronous
+native sidebar restoration is allowed to finish. Delegated click and keyboard
+handlers cover emotes in later messages without scanning chat. While a preview is
+open, its temporary observer checks source connectivity and filters mutations
+before measuring the native tooltip. It disconnects when the preview closes.
 Replay time formatting observes added nodes/text changes and visits only the
 affected subtrees. Player sizing observes its placeholder dimensions and root mode
-changes, reconnecting if Twitch replaces the player during navigation.
+changes, reconnecting when relevant player or metadata nodes change during navigation.
+Unrelated chat updates do not trigger document-wide player searches.
 Chat styling observes affected rows, author changes, and adjacent messages; it
-does not scan the entire message history for every new message. Disabling the
+deduplicates affected rows within each mutation batch and cleans up removed
+subtrees without scanning every retained row. Disabling the
 master switch removes tint variables and temporary grouping attributes.
 The composer controller watches changed editor subtrees and later mounts. It
 never rewrites the draft or changes Twitch's native Send disabled state; temporary
 controls, IDs, and open-state markers are removed when the feature is paused.
 
 Icons can be regenerated with `python scripts/generate_icons.py` (standard library only).
+
+### Architecture and ownership
+
+See [ROADMAP.md](ROADMAP.md) for validation priorities, small follow-ups, and the
+conditions that would justify a sidebar state machine or DOM compatibility layer.
+
+`settings.js` declares each stable storage key, default, HTML attribute, popup
+title, and description once in `DEFINITIONS`. `DEFAULTS`, `ATTRIBUTES`, and the
+existing eight-entry `GROUPS` popup API are derived from it. The master preference
+is declared alongside the groups but remains a separate popup control.
+
+Feature rule files expose frozen `[cascadeSlot, rule]` entries. `rules.js` sorts
+those slots and retains the `TwitchMinRules.RULES` / `buildCSS()` API. The slots
+preserve the existing cross-feature cascade, including interleaved master-switch
+rules. `tests/rules-baseline.json` records the original rule count and SHA-256 of
+the complete CSS; an intentional cosmetic change requires reviewing and updating
+that baseline. Shared selectors can be comma-separated lists; descendant rules
+wrap those lists in `:is(...)` so every alternative stays scoped. VOD rules add
+the existing theatre exclusions to the shared VOD root.
+
+Runtime controllers own DOM discovery, observers, event handlers, and restoration;
+rule modules own cosmetic CSS. Shared region discovery belongs in `regions.js`
+and lifecycle support in `runtime.js`. Each feature supplies internal
+`attach(settings)`, `update(settings)`, and `dispose()` hooks to
+`TwitchMinRuntime.create`. The public controller API is `update(settings)` and
+`dispose()`; the adapter attaches on activation, updates an active feature, and
+disposes it on pause. Keep feature-specific selectors beside
+their feature; promote selectors shared across controllers/rules to `selectors.js`.
+The production dependency order is defined by `extension/manifest.json`.
+
+The browser harness launches one Chrome child and one UUID profile per run,
+reuses their CDP connection for sequential feature modules, and removes only that
+profile after the child exits, including on assertion/setup failures. Each test
+navigates independently with a fresh storage mock; emote click tracking and popup
+write failures have their own setup. HTML fixtures contain a production marker
+that the local CDP response handler expands from the manifest, including CSS.
+No generated script lists or fixture web server are needed. All remote requests
+are blocked or fulfilled locally, including emote images and snapshot resources.
+The harness captures uncaught page exceptions from startup onward, including
+timer errors and unhandled promise rejections. Handled storage failures and
+console warnings remain valid test scenarios. Harness failure checks use separate
+isolated browsers so deliberately broken pages cannot contaminate feature tests.

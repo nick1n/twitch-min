@@ -11,32 +11,14 @@
   let ready = false;
   let pendingWrites = 0;
   let initialChanges = {};
+  const groupControls = new Map();
 
-  function showStatus(message) {
-    status.textContent = message;
-    status.hidden = !message;
-  }
-
-  function setBusy(busy) {
-    master.disabled = busy || !ready;
-    restoreButton.disabled = busy || !ready;
-    presetButton.disabled = busy || !ready;
-    groupList.querySelectorAll('input[type="checkbox"]').forEach((input) => {
-      input.disabled = busy || !ready;
-    });
-  }
-
-  function render() {
-    if (!state || !settingsApi) return;
-    const focusedId = document.activeElement?.id;
-    master.checked = Boolean(state.enabled);
-    master.setAttribute('aria-checked', String(master.checked));
+  function buildGroupControls() {
+    if (!settingsApi || groupControls.size) return;
     groupList.replaceChildren();
-
     settingsApi.GROUPS.forEach((group) => {
       const row = document.createElement('div');
-      row.className = `group-row${state[group.key] ? '' : ' is-off'}`;
-
+      row.className = 'group-row';
       const copy = document.createElement('div');
       copy.className = 'group-copy';
       const title = document.createElement('span');
@@ -48,7 +30,6 @@
       description.id = `group-description-${group.key}`;
       description.textContent = group.description;
       copy.append(title, description);
-
       const label = document.createElement('label');
       label.className = 'switch';
       label.setAttribute('for', `group-${group.key}`);
@@ -56,8 +37,6 @@
       input.id = `group-${group.key}`;
       input.type = 'checkbox';
       input.role = 'switch';
-      input.checked = Boolean(state[group.key]);
-      input.disabled = !ready || pendingWrites > 0;
       input.setAttribute('aria-labelledby', title.id);
       input.setAttribute('aria-describedby', description.id);
       input.addEventListener('change', () => updateField(group.key, input.checked));
@@ -70,6 +49,34 @@
       label.append(input, track);
       row.append(copy, label);
       groupList.append(row);
+      groupControls.set(group.key, { row, input });
+    });
+  }
+
+  function showStatus(message) {
+    status.textContent = message;
+    status.hidden = !message;
+  }
+
+  function setBusy(busy) {
+    master.disabled = busy || !ready;
+    restoreButton.disabled = busy || !ready;
+    presetButton.disabled = busy || !ready;
+    for (const { input } of groupControls.values()) {
+      input.disabled = busy || !ready;
+    }
+  }
+
+  function render() {
+    if (!state || !settingsApi) return;
+    const focusedId = document.activeElement?.id;
+    master.checked = Boolean(state.enabled);
+    master.setAttribute('aria-checked', String(master.checked));
+    buildGroupControls();
+    settingsApi.GROUPS.forEach((group) => {
+      const { row, input } = groupControls.get(group.key);
+      row.classList.toggle('is-off', !state[group.key]);
+      input.checked = Boolean(state[group.key]);
     });
 
     groupList.setAttribute('aria-busy', 'false');

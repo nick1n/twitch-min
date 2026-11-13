@@ -1,7 +1,7 @@
 /* A separate Chat toggle leaves Twitch's send handlers and draft untouched. */
 (() => {
   "use strict";
-  const OWNER = '.chat-input';
+  const OWNER = globalThis.TwitchMinSelectors.composer;
   const SOURCE = 'button[data-a-target="chat-send-button"]';
   const BOX = '.chat-input__textarea, .chat-wysiwyg-input-box, [data-a-target="chat-input"]';
   const OPEN = 'data-tq-composer-open';
@@ -73,22 +73,18 @@
     render(state);
   }
 
-  const observer = new MutationObserver(records => {
-    const dirty = new Set();
-    for (const record of records) {
-      const owner = record.target instanceof Element ? record.target.closest(OWNER) : null;
-      if (owner) dirty.add(owner);
-      for (const node of record.addedNodes || []) {
-        if (!(node instanceof Element)) continue;
-        if (node.matches(OWNER)) dirty.add(node);
-        for (const added of node.querySelectorAll(OWNER)) dirty.add(added);
-      }
-    }
-    for (const state of states.values()) if (!state.owner.isConnected) remove(state);
-    for (const owner of dirty) if (owner.isConnected) sync(owner);
-  });
+  function attachOwner(owner) {
+    sync(owner);
+    const observer = new MutationObserver(() => { if (owner.isConnected) sync(owner); });
+    observer.observe(owner, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'id', 'data-a-target'] });
+    return () => {
+      observer.disconnect();
+      const state = states.get(owner);
+      if (state) remove(state);
+    };
+  }
 
-  document.addEventListener('click', event => {
+  function onClick(event) {
     if (!enabled || !(event.target instanceof Element)) return;
     const control = event.target.closest('[data-tq-chat-toggle]');
     const state = controls.get(control);
@@ -101,20 +97,20 @@
     const editable = 'textarea, [contenteditable="true"], [contenteditable="plaintext-only"]';
     const editor = state.box.matches(editable) ? state.box : state.box.querySelector(editable);
     (state.open ? editor : control)?.focus({ preventScroll: true });
-  }, true);
+  }
 
-  globalThis.TwitchMinComposer = Object.freeze({
-    configure(settings) {
-      const next = settings.enabled === true && settings.chatComposer === true;
-      if (enabled === next) return;
-      enabled = next;
-      if (enabled) {
-        for (const owner of document.querySelectorAll(OWNER)) sync(owner);
-        observer.observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'id', 'data-a-target'] });
-      } else {
-        observer.disconnect();
-        for (const state of states.values()) remove(state);
-      }
+  let stopRegions = null;
+  globalThis.TwitchMinComposer = globalThis.TwitchMinRuntime.create({
+    attach() {
+      enabled = true;
+      document.addEventListener('click', onClick, true);
+      stopRegions = globalThis.TwitchMinRegions.watch(OWNER, attachOwner);
+    },
+    dispose() {
+      enabled = false;
+      document.removeEventListener('click', onClick, true);
+      stopRegions?.();
+      stopRegions = null;
     }
-  });
+  }, settings => settings.enabled === true && settings.chatComposer === true);
 })();

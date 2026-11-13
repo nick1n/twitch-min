@@ -18,7 +18,7 @@
   },
   "content_scripts": [{
     "matches": ["https://www.twitch.tv/*", "https://twitch.tv/*"],
-    "js": ["settings.js", "rules.js", "emotes.js", "layout.js", "timestamps.js", "player.js", "chat.js", "composer.js", "content.js"],
+    "js": ["settings.js", "selectors.js", "runtime.js", "regions.js", "rules-sidebar.js", "rules-navigation.js", "rules-player.js", "rules-chat.js", "rules.js", "emotes.js", "layout.js", "timestamps.js", "player.js", "chat.js", "composer.js", "content.js"],
     "css": ["emotes.css", "player.css"],
     "run_at": "document_start"
   }]

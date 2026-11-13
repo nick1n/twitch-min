@@ -207,6 +207,9 @@
       if (!active || active.popup !== popup) return;
       if (!image.isConnected || location.href !== href) { close(); return; }
       if (active.host) {
+        const relevant = records.some(record => record.target === active.host || active.host.contains(record.target) ||
+          record.target === active.positioner || (record.type === "attributes" && record.target.contains(active.host)) || [...record.removedNodes].some(node => node === active.host || node.contains?.(active.host)));
+        if (!relevant) return;
         if (!usableTooltip(active.host, name)) { close(); return; }
         // React may replace the name's text children while keeping the wrapper.
         if (!popup.isConnected) active.host.append(popup);
@@ -265,7 +268,7 @@
     else open(image);
   }
 
-  document.addEventListener("click", event => {
+  function onClick(event) {
     if (active?.popup.contains(event.target)) return;
     if (!enabled || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
       close();
@@ -274,9 +277,9 @@
     const image = emoteAt(event.target);
     if (image) activate(event, image);
     else close();
-  }, true);
+  }
 
-  document.addEventListener("keydown", event => {
+  function onKeydown(event) {
     if (event.key === "Escape" && active) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -285,12 +288,19 @@
       const image = emoteAt(event.target);
       if (image) activate(event, image);
     }
-  }, true);
+  }
 
-  globalThis.TwitchMinEmotes = Object.freeze({
-    setEnabled(value) {
-      enabled = value === true;
-      if (!enabled) close();
+  globalThis.TwitchMinEmotes = globalThis.TwitchMinRuntime.create({
+    attach() {
+      enabled = true;
+      document.addEventListener("click", onClick, true);
+      document.addEventListener("keydown", onKeydown, true);
+    },
+    dispose() {
+      enabled = false;
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("keydown", onKeydown, true);
+      close();
     }
   });
 })();

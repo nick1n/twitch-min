@@ -1,0 +1,140 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+const { spawn } = require('node:child_process');
+const { randomUUID } = require('node:crypto');
+const root = path.resolve(__dirname, '../..');
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+module.exports = async function withBrowser(run, { intercept, initSource = '' } = {}) {
+  const chromePath = process.env.CHROME_PATH || [
+    'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+    '/usr/bin/google-chrome', '/usr/bin/chromium', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  ].find(file => fs.existsSync(file));
+  assert.ok(chromePath, 'Install Chrome or set CHROME_PATH to run browser tests.');
+  const profile = path.join(root, '.browser-tests', randomUUID());
+  fs.mkdirSync(profile, { recursive: true });
+  const browser = spawn(chromePath, [
+    '--headless=new', '--no-sandbox', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
+    '--disable-background-networking', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'
+  ], { stdio: 'ignore', windowsHide: true });
+  // Attach immediately so teardown also handles an early exit or spawn error.
+  const browserExited = new Promise(resolve => {
+    browser.once('exit', resolve);
+    browser.once('error', resolve);
+  });
+  let socket;
+  let closeBrowser;
+  let closeProtocol = () => {};
+  try {
+    const portFile = path.join(profile, 'DevToolsActivePort');
+    for (let attempt = 0; !fs.existsSync(portFile) && attempt < 200; attempt++) await pause(50);
+    assert.ok(fs.existsSync(portFile), 'Chrome must expose its test debugging endpoint.');
+    const port = fs.readFileSync(portFile, 'utf8').split('\n')[0].trim();
+    const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    const page = targets.find(target => target.type === 'page');
+    assert.ok(page);
+    socket = new WebSocket(page.webSocketDebuggerUrl);
+    await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', reject, { once: true }); });
+    let sequence = 0;
+    const pending = new Map();
+    closeProtocol = () => {
+      for (const request of pending.values()) {
+        clearTimeout(request.timeout);
+        request.reject(new Error('Chrome debugging connection closed'));
+      }
+      pending.clear();
+    };
+    socket.addEventListener('close', closeProtocol, { once: true });
+    socket.addEventListener('message', ({ data }) => {
+      const message = JSON.parse(data);
+      if (!message.id) return;
+      const request = pending.get(message.id);
+      if (!request) return;
+      pending.delete(message.id);
+      clearTimeout(request.timeout);
+      message.error ? request.reject(new Error(message.error.message)) : request.resolve(message.result);
+    });
+    const send = (method, params = {}) => {
+      if (socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error('Chrome debugging connection closed'));
+      return new Promise((resolve, reject) => {
+        const id = ++sequence;
+        const timeout = setTimeout(() => { pending.delete(id); reject(new Error(`Timeout: ${method}`)); }, 10000);
+        pending.set(id, { resolve, reject, timeout });
+        socket.send(JSON.stringify({ id, method, params }));
+      });
+    };
+    let interceptionError;
+    const pageErrors = [];
+    const checkPageErrors = () => {
+      if (pageErrors.length) throw new Error(`Uncaught page exception:\n${pageErrors.join('\n\n')}`);
+    };
+    socket.addEventListener('message', ({ data }) => {
+      const message = JSON.parse(data);
+      if (message.method === 'Runtime.exceptionThrown') {
+        const details = message.params.exceptionDetails;
+        const location = details.url ? `\n${details.url}:${details.lineNumber + 1}:${details.columnNumber + 1}` : '';
+        pageErrors.push(`${details.exception?.description || details.text}${location}`);
+      }
+      if (message.method === 'Fetch.requestPaused') {
+        const handle = intercept || (({ requestId }, send) => send('Fetch.continueRequest', { requestId }));
+        handle(message.params, send).catch(error => { interceptionError = error; send('Fetch.failRequest', { requestId: message.params.requestId, errorReason: 'Failed' }).catch(() => {}); });
+      }
+    });
+
+    await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
+    closeBrowser = () => send('Browser.close');
+    // Subscribe before the first navigation so startup and async failures are
+    // retained even if a later page replaces the failing execution context.
+    await send('Runtime.enable');
+    const evaluate = async expression => {
+      checkPageErrors();
+      const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+      checkPageErrors();
+      if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text);
+      return result.result.value;
+    };
+    await send('Page.enable');
+    await send('Emulation.setFocusEmulationEnabled', { enabled: true });
+    let initScript;
+    const navigate = async (file, setup = '') => {
+      checkPageErrors();
+      if (initScript) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: initScript });
+      initScript = (await send('Page.addScriptToEvaluateOnNewDocument', { source: `${initSource}\n${setup}` })).identifier;
+      const url = pathToFileURL(path.join(root, file)).href;
+      await send('Page.navigate', { url });
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (await evaluate(`location.href === ${JSON.stringify(url)} && document.readyState === 'complete'`)) return;
+        await pause(25);
+      }
+      throw new Error(`Page did not load: ${file}`);
+    };
+    const isVisible = id => evaluate(`(()=>{ const x = document.getElementById(${JSON.stringify(id)}); return !!x && x.checkVisibility({checkVisibilityCSS:true}); })()`);
+    const waitFor = async expression => {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (await evaluate(expression)) return;
+        await pause(20);
+      }
+      assert.fail(`Timed out waiting for: ${expression}`);
+    };
+    await run({ send, evaluate, navigate, isVisible, waitFor });
+    // A protocol round trip drains already-delivered page errors before teardown.
+    await evaluate('0');
+    if (interceptionError) throw interceptionError;
+
+  } finally {
+    if (closeBrowser && socket?.readyState === WebSocket.OPEN) await closeBrowser().catch(() => {});
+    socket?.close();
+    closeProtocol();
+    // Terminate only the Chrome child launched for this test profile.
+    browser.kill();
+    await browserExited;
+    // Only delete this run's direct child directory, never snapshots or other runs.
+    const profilesRoot = path.resolve(root, '.browser-tests');
+    assert.equal(path.dirname(path.resolve(profile)), profilesRoot);
+    assert.match(path.basename(profile), /^[0-9a-f-]{36}$/);
+    await fs.promises.rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+};

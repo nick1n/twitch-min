@@ -2,119 +2,127 @@
 (() => {
   "use strict";
 
-  const SIDE = '.side-nav, [data-a-target="side-nav-bar"], [data-a-target="side-nav-bar-collapsed"]';
-  const NAV = '.top-nav, [data-a-target="top-nav-container"]';
+  const SIDE = globalThis.TwitchMinSelectors.sidebar;
+  const NAV = globalThis.TwitchMinSelectors.topNav;
   const EXTRA = /^(?:gift turbo|get bits|buy bits|turbo|get ad-free|try 1-month ad-free|go ad-free for free|try 1 month free|try free|luna|prime offers|prime gaming|shouts)$/i;
-  let started = false;
+  let enabled = false;
   let compact = false;
-  let side = null;
-  let nav = null;
-  let restoreSide = null;
-  let pending = null;
+  let stopSides = null;
+  let stopNavigation = null;
+  const sides = new Set();
 
-  function expanded() {
-    if (side.matches('.side-nav--collapsed, [data-a-target="side-nav-bar-collapsed"]')) return false;
-    if (side.matches('.side-nav--expanded, [data-a-target="side-nav-bar"]')) return true;
-    const label = side.querySelector('[data-a-target="side-nav-arrow"]')?.getAttribute("aria-label") || "";
-    if (/collapse/i.test(label)) return true;
-    if (/expand/i.test(label)) return false;
-    return null;
-  }
-
-  function syncSide() {
-    if (!side?.isConnected) return;
-    const current = expanded();
-    const button = side.querySelector('[data-a-target="side-nav-arrow"]');
-    if (current === null || !button) return;
-    // React can commit the click asynchronously. Never click again in between.
-    if (pending?.side === side && pending.button === button) {
-      if (pending.expanded !== current) return;
-      pending = null;
-    }
-    if (compact && !current) {
-      // Native collapsed rows omit both viewer counts and game metadata.
-      restoreSide = side;
-      pending = { side, button, expanded: true };
-      button.click();
-    } else if (!compact && restoreSide === side) {
-      if (!current) restoreSide = null;
-      else {
-        pending = { side, button, expanded: false };
-        button.click();
-      }
-    }
-  }
-
-  function markNavigation() {
+  function markNavigation(nav) {
     if (!nav?.isConnected) return;
     for (const button of nav.querySelectorAll('button, a')) {
       // The full-size Gift Turbo control has text but no aria-label or test ID.
       const labels = [button.textContent, button.getAttribute("aria-label"), button.getAttribute("title")];
       const extra = labels.some(label => EXTRA.test((label || "").replace(/\s+/g, " ").trim()));
-      if (extra) button.setAttribute("data-tq-top-extra", "");
-      else button.removeAttribute("data-tq-top-extra");
+      if (extra && !button.hasAttribute('data-tq-top-extra')) button.setAttribute('data-tq-top-extra', '');
+      else if (!extra && button.hasAttribute('data-tq-top-extra')) button.removeAttribute('data-tq-top-extra');
     }
   }
 
-  function markSections() {
+  function markSections(side) {
     if (!side?.isConnected) return;
     for (const section of side.querySelectorAll('.side-nav-section')) {
       const heading = section.querySelector(':scope > .followed-side-nav-header, :scope > .side-nav-header, :scope > header') || section.firstElementChild;
       const label = (section.getAttribute('aria-label') || heading?.textContent || '').replace(/\s+/g, ' ').trim();
       const title = /^followed(?: channels)?$/i.test(label) ? 'Followed'
-        : /^(?:live|recommended)(?: channels)?$/i.test(label) ? 'Live'
+        : /^(?:live|recommended)(?: channels)?$/i.test(label) ? 'Recommended'
         : /viewers also watch|^similar(?: channels)?$/i.test(label) ? 'Similar' : 'other';
-      section.setAttribute('data-tq-section', title);
-      if (heading) heading.setAttribute('data-tq-section-title', title);
+      if (section.getAttribute('data-tq-section') !== title) section.setAttribute('data-tq-section', title);
+      if (heading && heading.getAttribute('data-tq-section-title') !== title) heading.setAttribute('data-tq-section-title', title);
     }
   }
 
-  const sideObserver = new MutationObserver(() => { syncSide(); markSections(); });
-  const navObserver = new MutationObserver(markNavigation);
-
-  function findRoots() {
-    if (!side?.isConnected) {
-      sideObserver.disconnect();
-      side = document.querySelector(SIDE);
-      pending = null;
-      restoreSide = null;
-      if (side) {
-        sideObserver.observe(side, {
-          childList: true, subtree: true, attributes: true,
-          characterData: true, attributeFilter: ["class", "data-a-target", "aria-label"]
-        });
-        syncSide();
-        markSections();
-      }
-    }
-    if (!nav?.isConnected) {
-      navObserver.disconnect();
-      nav = document.querySelector(NAV);
-      if (nav) {
-        navObserver.observe(nav, {
-          childList: true, subtree: true, characterData: true, attributes: true,
-          attributeFilter: ["aria-label", "title"]
-        });
-        markNavigation();
-      }
-    }
+  function finishPause() {
+    if (enabled || [...sides].some(state => state.restoring())) return;
+    const stop = stopSides;
+    stopSides = null;
+    stop?.();
   }
 
-  const mountObserver = new MutationObserver(() => {
-    // Chat insertions do no DOM searches while both layout roots are mounted.
-    if (side?.isConnected && nav?.isConnected) return;
-    findRoots();
-  });
-
-  globalThis.TwitchMinLayout = Object.freeze({
-    configure(settings) {
-      compact = settings.enabled && settings.sidebarLabels;
-      if (!started && settings.enabled) {
-        started = true;
-        mountObserver.observe(document, { childList: true, subtree: true });
-        findRoots();
+  function attachSide(side) {
+    let restore = false;
+    let pending = null;
+    function expanded() {
+      if (side.matches('.side-nav--collapsed, [data-a-target="side-nav-bar-collapsed"]')) return false;
+      if (side.matches('.side-nav--expanded, [data-a-target="side-nav-bar"]')) return true;
+      const label = side.querySelector('[data-a-target="side-nav-arrow"]')?.getAttribute('aria-label') || '';
+      return /collapse/i.test(label) ? true : /expand/i.test(label) ? false : null;
+    }
+    function sync() {
+      if (!side.isConnected) return;
+      const current = expanded();
+      const button = side.querySelector('[data-a-target="side-nav-arrow"]');
+      if (current === null || !button) return;
+      // Native React clicks settle asynchronously. Retain this state through
+      // a pause/resume so a pending expansion is never clicked twice.
+      if (pending?.button === button) {
+        if (pending.expanded !== current) return;
+        pending = null;
       }
-      syncSide();
+      if (compact && !current) {
+        restore = true;
+        pending = { button, expanded: true };
+        button.click();
+      } else if (!compact && restore) {
+        if (!current) restore = false;
+        else { pending = { button, expanded: false }; button.click(); }
+      }
+    }
+    const state = {
+      sync,
+      restoring: () => side.isConnected && side.querySelector('[data-a-target="side-nav-arrow"]') && (pending || restore)
+    };
+    sides.add(state);
+    const observer = new MutationObserver(() => {
+      sync();
+      if (enabled) markSections(side);
+      finishPause();
+    });
+    observer.observe(side, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'data-a-target', 'aria-label'] });
+    sync();
+    if (enabled) markSections(side);
+    return () => {
+      observer.disconnect();
+      sides.delete(state);
+      for (const node of side.querySelectorAll('[data-tq-section], [data-tq-section-title]')) {
+        node.removeAttribute('data-tq-section');
+        node.removeAttribute('data-tq-section-title');
+      }
+      finishPause();
+    };
+  }
+
+  function attachNavigation(nav) {
+    const observer = new MutationObserver(() => markNavigation(nav));
+    observer.observe(nav, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'title'] });
+    markNavigation(nav);
+    return () => {
+      observer.disconnect();
+      for (const node of nav.querySelectorAll('[data-tq-top-extra]')) node.removeAttribute('data-tq-top-extra');
+    };
+  }
+
+  function update(settings) {
+    enabled = true;
+    compact = settings.sidebarLabels === true;
+    if (!stopSides) stopSides = globalThis.TwitchMinRegions.watch(SIDE, attachSide);
+    if (!stopNavigation) stopNavigation = globalThis.TwitchMinRegions.watch(NAV, attachNavigation);
+    for (const state of sides) state.sync();
+  }
+
+  globalThis.TwitchMinLayout = globalThis.TwitchMinRuntime.create({
+    attach: update,
+    update,
+    dispose() {
+      enabled = compact = false;
+      stopNavigation?.();
+      stopNavigation = null;
+      for (const state of sides) state.sync();
+      // Only the sidebar subscription survives until native restoration settles.
+      finishPause();
     }
   });
 })();

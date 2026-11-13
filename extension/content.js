@@ -5,18 +5,18 @@
   let settings = null;
   let root = null;
   let pendingChanges = {};
+  let applied = null;
 
   function apply() {
     if (!root || !settings) return;
+    if (applied && Object.keys(DEFAULTS).every(key => applied[key] === settings[key])) return;
     for (const [key, attribute] of Object.entries(ATTRIBUTES)) {
-      root.setAttribute(attribute, String(settings[key]));
+      if (!applied || applied[key] !== settings[key]) root.setAttribute(attribute, String(settings[key]));
     }
-    globalThis.TwitchMinEmotes?.setEnabled(settings.enabled);
-    globalThis.TwitchMinLayout?.configure(settings);
-    globalThis.TwitchMinTimestamps?.configure(settings);
-    globalThis.TwitchMinPlayer?.configure(settings);
-    globalThis.TwitchMinChat?.configure(settings);
-    globalThis.TwitchMinComposer?.configure(settings);
+    applied = { ...settings };
+    for (const feature of [globalThis.TwitchMinEmotes, globalThis.TwitchMinLayout,
+      globalThis.TwitchMinTimestamps, globalThis.TwitchMinPlayer,
+      globalThis.TwitchMinChat, globalThis.TwitchMinComposer]) feature?.update(settings);
   }
 
   function mount() {
@@ -45,6 +45,7 @@
     for (const key of Object.keys(DEFAULTS)) {
       if (Object.hasOwn(changes, key)) patch[key] = changes[key].newValue;
     }
+    if (!Object.keys(patch).length) return;
     if (settings === null) {
       pendingChanges = { ...pendingChanges, ...patch };
       return;

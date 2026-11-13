@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
+const { manifest, content } = require('./support/production.cjs');
+const ruleScripts = content.js.slice(0, content.js.indexOf('rules.js') + 1).filter(file => !['runtime.js', 'regions.js'].includes(file));
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('settings reject malformed values and retain explicit false preferences', () => {
@@ -22,14 +24,13 @@ test('settings reject malformed values and retain explicit false preferences', (
 });
 
 test('manifest is Twitch-only, storage-only, with local scripts in dependency order', () => {
-  const manifest = JSON.parse(read('extension/manifest.json'));
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual(manifest.permissions, ['storage']);
   assert.equal(manifest.background, undefined);
   assert.equal(manifest.host_permissions, undefined);
   assert.deepEqual(manifest.content_scripts[0].matches, ['https://www.twitch.tv/*', 'https://twitch.tv/*']);
   assert.equal(manifest.content_scripts[0].run_at, 'document_start');
-  assert.deepEqual(manifest.content_scripts[0].js, ['settings.js', 'rules.js', 'emotes.js', 'layout.js', 'timestamps.js', 'player.js', 'chat.js', 'composer.js', 'content.js']);
+  assert.deepEqual(manifest.content_scripts[0].js, ['settings.js', 'selectors.js', 'runtime.js', 'regions.js', 'rules-sidebar.js', 'rules-navigation.js', 'rules-player.js', 'rules-chat.js', 'rules.js', 'emotes.js', 'layout.js', 'timestamps.js', 'player.js', 'chat.js', 'composer.js', 'content.js']);
   assert.deepEqual(manifest.content_scripts[0].css, ['emotes.css', 'player.css']);
   for (const file of [...manifest.content_scripts[0].js, ...manifest.content_scripts[0].css, manifest.action.default_popup]) {
     assert.ok(fs.existsSync(path.join(root, 'extension', file)), file);
@@ -58,7 +59,7 @@ test('content script handles late document root, initial-read races, removals an
     } } },
     console: { warn() {} }
   });
-  for (const file of ['settings.js', 'rules.js', 'content.js']) vm.runInContext(read(`extension/${file}`), context);
+  for (const file of [...ruleScripts, 'content.js']) vm.runInContext(read(`extension/${file}`), context);
   changeListener({ enabled: { newValue: false } }, 'local');
   finishRead({ enabled: true });
   await new Promise(resolve => setImmediate(resolve));

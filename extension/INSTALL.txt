@@ -14,7 +14,7 @@ Creating the ZIP does not publish the extension.
 
 All eight hiding groups are on initially. The compact sidebar keeps avatars,
 viewer counts, and the current game below each count, while hiding channel names.
-Only Followed, Live, and Similar sections remain, with short headers. Offline
+Only Followed, Recommended, and Similar sections remain, with short headers. Offline
 channels, other sections, and all third-line promotional captions are hidden.
 It is 144px wide, with 13px viewer counts, 12px game names and headers, compact
 38px rows, and a hidden scrollbar; scrolling still works.
