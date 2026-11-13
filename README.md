@@ -12,7 +12,7 @@ is required to use it.
 3. Refresh Twitch tabs that were already open.
 4. Pin **twitch-min** in Chrome's Extensions menu, then open its popup.
 
-Alternatively, extract `dist/twitch-min-0.16.0.zip` and load the extracted folder
+Alternatively, extract `dist/twitch-min-0.17.0.zip` and load the extracted folder
 containing `manifest.json`. Keep that folder: Chrome loads the extension from it.
 This is an unpacked extension, not a Chrome Web Store installation.
 
@@ -207,6 +207,17 @@ On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`.
 npm.cmd test
 npm.cmd run package
 ```
+
+Packaging requires Windows PowerShell and its built-in .NET ZIP support; no
+additional dependencies are needed. It uses the manifest version (currently `0.17.0`) and rebuilds the
+ignored `dist/twitch-min-0.17.0.zip`. The script checks package/manifest version
+agreement and the manifest's scripts, styles, popup, and icons, including local
+assets referenced by the popup. It writes a temporary ZIP, verifies the root
+manifest and every source file's SHA-256 content, then replaces the release ZIP
+only after validation succeeds. Missing assets or validation failures fail the
+command and preserve the previous release. Packaging tests use isolated temporary
+fixtures and preserve unrelated outputs and private `.browser-tests` HTML files.
+Packaging does not publish or change extension permissions or Twitch-only scope.
 
 Set `CHROME_PATH` if Chrome is not at a standard location. Browser tests create
 isolated profiles under the ignored `.browser-tests` folder and use a local

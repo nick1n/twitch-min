@@ -2,8 +2,12 @@
 
 Historical changes and verification notes, in release order.
 
-## Unreleased architecture refactor
+## 0.17.0 - Architecture and reliability
 
+- Rebuild the 0.17.0 ZIP with all refactored modules. Validate referenced assets,
+  package/manifest versions, root manifest, and every archived file's SHA-256
+  before replacing the previous release; cover missing assets, corrupted archive
+  contents, and safe cleanup with isolated packaging regressions.
 - Skip unchanged settings attributes, sidebar/navigation markers, and volume text.
 - Batch timestamp formatting and avoid rewriting unchanged shortened labels.
 - Detect uncaught startup and asynchronous page errors in the Chrome harness;
