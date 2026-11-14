@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Native sidebar list expansion</title>
+<style>
+  body { margin: 0; font: 14px Arial, sans-serif; }
+  .side-nav { width: 240px; height: 650px; }
+  .side-nav-card__link { display: flex; min-height: 50px; }
+  .tw-avatar { width: 40px; height: 40px; }
+</style>
+<script src="native-sidebar.js" defer></script>
+<!-- twitch-min:production -->
+</head><body>
+<aside id="sidebar-shell" class="side-nav side-nav--expanded" data-a-target="side-nav-bar">
+  <button data-a-target="side-nav-arrow" aria-label="Collapse Side Nav">Collapse</button>
+</aside>
+<button id="outside-more" data-a-target="side-nav-show-more-button">Show more elsewhere</button>
+<script>
+  window.__moreClicks = [];
+  window.__lessClicks = 0;
+  window.__morePending = new Map();
+  window.__finishMore = id => __morePending.get(id)();
+  window.__mountMore = (id, { pages = 1, wrapper = false, link = false, disabled = false } = {}) => {
+    const side = document.querySelector('#sidebar-shell');
+    const section = document.createElement('section');
+    section.id = id;
+    section.className = 'side-nav-section';
+    section.setAttribute('aria-label', id === 'followed' ? 'Followed Channels' : 'Recommended Channels');
+    const row = (suffix, offline = false) => `<a id="${id}-${suffix}" class="side-nav-card__link${offline ? ' side-nav-card__link--offline' : ''}" href="/example"><div class="tw-avatar">Avatar</div><div><div><div data-a-target="side-nav-card-metadata"><div class="side-nav-card__title">Example channel</div><div class="side-nav-card__metadata"><p>Just Chatting</p></div></div><div data-a-target="side-nav-live-status">123</div></div></div></a>`;
+    section.innerHTML = `<header>${section.getAttribute('aria-label')}</header>${row('live')}${row('offline', true)}`;
+    const button = document.createElement(link ? 'a' : 'button');
+    if (link) button.href = '#';
+    button.id = `${id}-more`;
+    button.textContent = 'Show more';
+    button.setAttribute('aria-disabled', String(disabled));
+    const control = wrapper ? document.createElement('div') : button;
+    if (wrapper) control.append(button);
+    // Both selector variants can describe the same native button.
+    button.setAttribute('data-a-target', 'side-nav-show-more-button');
+    const attribute = wrapper ? 'data-test-selector' : 'data-a-target';
+    const more = wrapper ? 'ShowMore' : 'side-nav-show-more-button';
+    const less = wrapper ? 'ShowLess' : 'side-nav-show-less-button';
+    control.setAttribute(attribute, more);
+    let page = 0;
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      if (page === pages) {
+        __lessClicks++;
+        section.querySelectorAll('[data-loaded]').forEach(node => node.remove());
+        page = 0;
+        control.setAttribute(attribute, more);
+        button.setAttribute('data-a-target', 'side-nav-show-more-button');
+        button.textContent = 'Show more';
+        return;
+      }
+      __moreClicks.push({ id, offline: section.querySelector(`#${id}-offline`).checkVisibility({checkVisibilityCSS:true}),
+        title: section.querySelector('.side-nav-card__title').checkVisibility({checkVisibilityCSS:true}),
+        heading: getComputedStyle(section.querySelector('header'), '::before').content,
+        visible: button.checkVisibility({checkVisibilityCSS:true}), ready: side.hasAttribute('data-tq-sidebar-ready') });
+      __morePending.set(id, () => {
+        __morePending.delete(id);
+        page++;
+        const rows = document.createElement('div');
+        rows.setAttribute('data-loaded', '');
+        rows.innerHTML = row(`loaded-${page}`) + row(`loaded-offline-${page}`, true);
+        control.before(rows);
+        if (page === pages) {
+          control.setAttribute(attribute, less);
+          button.setAttribute('data-a-target', 'side-nav-show-less-button');
+          button.textContent = 'Show less';
+        }
+      });
+    });
+    section.append(control);
+    side.append(section);
+    return section;
+  };
+  __mountMore('followed', { pages: 2 });
+  __mountMore('recommended', { wrapper: true });
+</script>
+</body></html>

@@ -69,11 +69,11 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
   await t.test('saved disabled state and read failure leave Twitch usable', async () => {
     await navigate('tests/fixtures/twitch.html', '__stored.enabled = false;');
     assert.equal(await isVisible('composer'), true);
-    await evaluate(`document.querySelector('#chat-emote').click()`);
+    await evaluate(`document.querySelector('#chat-emote').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}))`);
     assert.equal(await isVisible('twitch-min-emote-preview'), false);
     await navigate('tests/fixtures/twitch.html', '__readError = true;');
     assert.equal(await isVisible('composer'), true);
-    await evaluate(`document.querySelector('#chat-emote').click()`);
+    await evaluate(`document.querySelector('#chat-emote').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}))`);
     assert.equal(await isVisible('twitch-min-emote-preview'), false, 'unknown preferences leave native emotes alone');
     assert.equal(await evaluate(`document.documentElement.hasAttribute('data-tq-enabled')`), false);
   });

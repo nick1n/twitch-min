@@ -6,15 +6,20 @@ const { randomUUID } = require('node:crypto');
 const withBrowser = require('./support/chrome.cjs');
 const { intercept, initSource, manifest, root } = require('./support/production.cjs');
 
+function trackProfiles(t) {
+  const profiles = [];
+  const mkdir = fs.mkdirSync;
+  const mkdirMock = mock.method(fs, 'mkdirSync', (directory, options) => {
+    if (path.dirname(directory) === path.join(root, '.browser-tests')) profiles.push(directory);
+    return mkdir(directory, options);
+  });
+  t.after(() => mkdirMock.mock.restore());
+  return profiles;
+}
+
 for (const failure of ['missing executable', 'early process exit']) {
   test(`Chrome harness reports ${failure} promptly and removes its profile`, { timeout: 5000 }, async t => {
-    const profiles = [];
-    const mkdir = fs.mkdirSync;
-    const mkdirMock = mock.method(fs, 'mkdirSync', (directory, options) => {
-      if (path.dirname(directory) === path.join(root, '.browser-tests')) profiles.push(directory);
-      return mkdir(directory, options);
-    });
-    t.after(() => mkdirMock.mock.restore());
+    const profiles = trackProfiles(t);
     const chromePath = failure === 'missing executable'
       ? path.join(root, '.browser-tests', `missing-chrome-${randomUUID()}.exe`) : process.execPath;
     await assert.rejects(withBrowser(() => assert.fail('a failed launch must not run feature checks'), { chromePath }), error => {
@@ -29,6 +34,38 @@ for (const failure of ['missing executable', 'early process exit']) {
     });
     assert.equal(profiles.length, 1);
     assert.equal(fs.existsSync(profiles[0]), false, 'failed startup leaves no test profile behind');
+  });
+}
+
+for (const stage of ['target response', 'target body', 'WebSocket handshake']) {
+  test(`Chrome harness bounds a stalled ${stage} and removes its profile`, { timeout: 5000 }, async t => {
+    const profiles = trackProfiles(t);
+    let signal, socket;
+    const fetchMock = mock.method(globalThis, 'fetch', async (_url, options) => {
+      signal = options.signal;
+      const stalled = () => new Promise((resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+      if (stage === 'target response') return stalled();
+      return { json: stage === 'target body' ? stalled : async () => [{ type: 'page', webSocketDebuggerUrl: 'ws://127.0.0.1:1/stalled' }] };
+    });
+    t.after(() => fetchMock.mock.restore());
+    if (stage === 'WebSocket handshake') {
+      const WebSocket = globalThis.WebSocket;
+      globalThis.WebSocket = class extends EventTarget {
+        static OPEN = 1;
+        constructor() { super(); this.readyState = 0; socket = this; }
+        close() { this.readyState = 3; }
+      };
+      t.after(() => { globalThis.WebSocket = WebSocket; });
+    }
+    const message = stage === 'WebSocket handshake' ? /Chrome debugging WebSocket connection timed out/
+      : /Chrome debugging target request timed out/;
+    await assert.rejects(withBrowser(() => assert.fail('stalled startup must not run feature checks'), { connectionTimeoutMs: 100 }), message);
+    if (socket) assert.equal(socket.readyState, 3, 'the stalled socket is closed');
+    else assert.equal(signal.aborted, true, 'the stalled request or body is aborted');
+    assert.equal(profiles.length, 1);
+    assert.equal(fs.existsSync(profiles[0]), false, 'connection failure leaves no test profile behind');
   });
 }
 

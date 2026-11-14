@@ -10,6 +10,7 @@
   let state = null;
   let ready = false;
   let pendingWrites = 0;
+  let pendingSave = null;
   let initialChanges = {};
   const groupControls = new Map();
 
@@ -108,6 +109,7 @@
 
   async function save(changes, previousState) {
     const focusedId = document.activeElement?.id;
+    const attempt = pendingSave = { observed: {}, recovery: null };
     pendingWrites += 1;
     setBusy(true);
     showStatus('');
@@ -117,9 +119,10 @@
       // while saving may contain newer values, so completion must keep them.
       render();
     } catch (error) {
-      // Re-read rather than discard preferences another popup changed while
-      // this write was pending. Fall back to rolling back only our own fields.
+      // Merge notifications received during the recovery read over its snapshot.
+      // If that read also fails, roll back only fields without newer notifications.
       try {
+        attempt.recovery = {};
         const stored = await new Promise((resolve, reject) => {
           chrome.storage.local.get(settingsApi.DEFAULTS, (raw) => {
             const readError = chrome.runtime && chrome.runtime.lastError;
@@ -127,14 +130,17 @@
             else resolve(raw);
           });
         });
-        state = normalize(stored);
+        state = normalize({ ...stored, ...attempt.recovery });
       } catch {
-        const rollback = Object.fromEntries(Object.keys(changes).map(key => [key, previousState[key]]));
+        const rollback = Object.fromEntries(Object.keys(changes)
+          .filter(key => !Object.hasOwn(attempt.observed, key))
+          .map(key => [key, previousState[key]]));
         state = normalize({ ...state, ...rollback });
       }
       showStatus(`Couldn't save that change. ${error.message || 'Check extension storage and try again.'}`);
       render();
     } finally {
+      pendingSave = null;
       pendingWrites = Math.max(0, pendingWrites - 1);
       setBusy(pendingWrites > 0);
       const focused = document.getElementById(focusedId);
@@ -174,6 +180,10 @@
         if (!ready) {
           initialChanges = { ...initialChanges, ...patch };
           return;
+        }
+        if (pendingSave) {
+          Object.assign(pendingSave.observed, patch);
+          if (pendingSave.recovery) Object.assign(pendingSave.recovery, patch);
         }
         state = normalize({ ...state, ...patch });
         render();

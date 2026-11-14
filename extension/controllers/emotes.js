@@ -1,11 +1,11 @@
-/* One delegated handler covers live chat, VOD chat, and later messages. */
+/* Delegated hover/focus previews inside Twitch's own live and replay tooltips. */
 (() => {
   "use strict";
 
   const CHAT = '.chat-room, .video-chat, .chat-line__message, .video-chat__message, [data-a-target="chat-scroller"], [data-a-target="video-chat-message"]';
   const EMOTE = 'img[data-a-target="emote-name"], img.chat-line__message--emote, img.chat-image';
   const BUTTON = 'button, [role="button"], [data-test-selector="emote-button"], .chat-line__message--emote-button, [tabindex="0"]';
-  const TOOLTIP = '.tw-tooltip-layer [role="tooltip"] .tw-tooltip-wrapper';
+  const TOOLTIP = globalThis.TwitchMinSelectors.tooltip;
   const ID = "twitch-min-emote-preview";
   let enabled = false;
   let active = null;
@@ -22,14 +22,17 @@
     return image;
   }
 
-  function tooltipName(wrapper) {
-    // Our add-on must never become part of the native emote-name match.
-    return [...wrapper.childNodes].filter(node => node !== active?.popup)
-      .map(node => node.textContent).join('').replace(/\s+/g, ' ').trim();
+  function tooltipHasName(node, name) {
+    // Rich tooltips can include an author/provider beneath the emote name.
+    // Match an intact native label, excluding our own image/status subtree.
+    if (node === active?.popup) return false;
+    const normalize = text => (text || '').replace(/\s+/g, ' ').trim();
+    if (normalize(node.textContent) === normalize(name)) return true;
+    return [...node.childNodes].some(child => tooltipHasName(child, name));
   }
 
   function usableTooltip(wrapper, name) {
-    return wrapper?.isConnected && wrapper.matches(TOOLTIP) && tooltipName(wrapper) === name &&
+    return wrapper?.isConnected && wrapper.matches(TOOLTIP) && tooltipHasName(wrapper, name) &&
       !wrapper.closest('[aria-hidden="true"], [data-popper-reference-hidden="true"]') &&
       wrapper.checkVisibility({ checkVisibilityCSS: true });
   }
@@ -55,11 +58,6 @@
   function attachNative(wrapper) {
     if (!active || !usableTooltip(wrapper, active.name)) return;
     const { popup, label, observer, resizeObserver } = active;
-    if (typeof popup.hidePopover === 'function' && popup.matches(':popover-open')) popup.hidePopover();
-    popup.removeAttribute('popover');
-    popup.removeAttribute('role'); // Twitch's enclosing content already owns role=tooltip.
-    popup.style.removeProperty('left');
-    popup.style.removeProperty('top');
     popup.setAttribute('data-tq-native-emote', '');
     label.hidden = !active.failed;
     if (active.failed) label.textContent = 'Image unavailable';
@@ -79,7 +77,7 @@
       active.addedDescription = descriptionId;
     }
     active.image.setAttribute('aria-describedby', descriptions.join(' '));
-    wrapper.append(popup);
+    wrapper.prepend(popup);
     resizeObserver.disconnect();
     resizeObserver.observe(wrapper);
     if (active.positioner) {
@@ -149,8 +147,7 @@
   }
 
   function position() {
-    if (!active) return;
-    if (active.host) {
+    if (active?.host) {
       const { positioner, shift } = active;
       if (!positioner) return;
       const r = positioner.getBoundingClientRect();
@@ -161,16 +158,7 @@
       if (x !== shift.x) positioner.style.setProperty('--tq-emote-shift-x', `${x}px`);
       if (y !== shift.y) positioner.style.setProperty('--tq-emote-shift-y', `${y}px`);
       active.shift = { x, y };
-      return;
     }
-    const { image, popup } = active;
-    const anchor = image.getBoundingClientRect();
-    const bubble = popup.getBoundingClientRect();
-    const left = Math.max(8, Math.min(anchor.left + (anchor.width - bubble.width) / 2, innerWidth - bubble.width - 8));
-    const above = anchor.top - bubble.height - 8;
-    const top = Math.max(8, Math.min(above >= 8 ? above : anchor.bottom + 8, innerHeight - bubble.height - 8));
-    popup.style.left = `${left}px`;
-    popup.style.top = `${top}px`;
   }
 
   function open(image) {
@@ -181,27 +169,20 @@
 
     const popup = document.createElement("div");
     popup.id = ID;
-    popup.setAttribute("role", "tooltip");
     const label = document.createElement("span");
     const name = image.alt || image.getAttribute("aria-label") || image.title || "Emote";
-    label.textContent = name;
+    label.textContent = 'Image unavailable';
+    label.hidden = true;
     const preview = document.createElement("img");
     preview.alt = "";
     // 3 times the displayed size, independent of screen pixel density.
     const scale = Math.min(3, (innerWidth - 40) / rect.width, (innerHeight - 80) / rect.height);
     preview.style.width = `${rect.width * scale}px`;
     preview.style.height = `${rect.height * scale}px`;
-    popup.append(label, preview);
+    popup.append(preview, label);
 
     const titles = [];
-    for (let element = image; element && !element.matches(CHAT); element = element.parentElement) {
-      if (element.hasAttribute("title")) {
-        titles.push([element, element.getAttribute("title")]);
-        element.removeAttribute("title");
-      }
-    }
     const describedBy = image.getAttribute("aria-describedby");
-    image.setAttribute("aria-describedby", [describedBy, ID].filter(Boolean).join(" "));
     const href = location.href;
     const observer = new MutationObserver(records => {
       if (!active || active.popup !== popup) return;
@@ -212,10 +193,11 @@
         if (!relevant) return;
         if (!usableTooltip(active.host, name)) { close(); return; }
         // React may replace the name's text children while keeping the wrapper.
-        if (!popup.isConnected) active.host.append(popup);
+        if (popup.parentElement !== active.host) active.host.prepend(popup);
         position();
       } else if (records.some(record => {
-        if (record.target.parentElement?.closest('.tw-tooltip-layer')) return true;
+        const element = record.target instanceof Element ? record.target : record.target.parentElement;
+        if (element?.closest('.tw-tooltip-layer')) return true;
         return [...record.addedNodes].some(node => node instanceof Element &&
           (node.matches('.tw-tooltip-layer, .tw-tooltip-wrapper') || node.querySelector('.tw-tooltip-layer, .tw-tooltip-wrapper')));
       })) {
@@ -224,35 +206,36 @@
       }
     });
     const resizeObserver = new ResizeObserver(position);
-    active = { popup, image, name, label, titles, describedBy, observer, resizeObserver, host: null, positioner: null, failed: false };
-    // Fullscreen elements contain the overlay too; otherwise use the page body.
-    (document.fullscreenElement || document.body).appendChild(popup);
+    const owner = image.closest(BUTTON);
+    const source = owner && !owner.matches(CHAT) ? owner : image;
+    active = { popup, image, source, name, label, titles, describedBy, observer, resizeObserver, host: null, positioner: null, failed: false };
+    // Keep pending content detached until Twitch mounts its matching tooltip.
+    // Register ownership before suppressing titles or starting observation.
+    for (let element = image; element && !element.matches(CHAT); element = element.parentElement) {
+      if (element.hasAttribute("title")) {
+        titles.push([element, element.getAttribute("title")]);
+        element.removeAttribute("title");
+      }
+    }
     observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['aria-hidden', 'data-popper-reference-hidden'] });
     const wrapper = nativeTooltip(image, name);
     if (wrapper) attachNative(wrapper);
-    else {
-      if (typeof popup.showPopover === "function") {
-        popup.setAttribute("popover", "manual");
-        popup.showPopover();
-      }
-      resizeObserver.observe(popup);
-    }
     document.addEventListener("scroll", closeOnScroll, true);
     window.addEventListener("resize", close);
     window.addEventListener("popstate", close);
     window.addEventListener("hashchange", close);
     window.addEventListener("pagehide", close);
-    preview.addEventListener("load", position);
+    preview.addEventListener("load", () => { if (active?.popup === popup) position(); });
     let triedOriginal = false;
     preview.addEventListener("error", () => {
+      if (active?.popup !== popup) return;
       if (!triedOriginal && preview.src !== original) {
         triedOriginal = true;
         preview.src = original;
       } else {
-        if (active?.popup === popup) active.failed = true;
+        active.failed = true;
         preview.hidden = true;
         label.hidden = false;
-        label.textContent = active?.host ? 'Image unavailable' : `${name} — image unavailable`;
       }
       position();
     });
@@ -260,45 +243,35 @@
     position();
   }
 
-  function activate(event, image) {
-    // Avoid a second Twitch emote card or insertion into the composer.
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if (active?.image === image) close();
-    else open(image);
+  function onEnter(event) {
+    if (!enabled) return;
+    const image = emoteAt(event.target);
+    if (image && active?.image !== image) open(image);
   }
 
-  function onClick(event) {
-    if (active?.popup.contains(event.target)) return;
-    if (!enabled || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
-      close();
-      return;
-    }
-    const image = emoteAt(event.target);
-    if (image) activate(event, image);
-    else close();
+  function onLeave(event) {
+    if (!active) return;
+    const inside = node => node instanceof Node &&
+      (active.source.contains(node) || active.host?.contains(node));
+    if (event.type === 'pointerout' && active.source.contains(document.activeElement)) return;
+    if (inside(event.target) && !inside(event.relatedTarget)) close();
   }
 
   function onKeydown(event) {
-    if (event.key === "Escape" && active) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      close();
-    } else if (enabled && !event.repeat && (event.key === "Enter" || event.key === " ")) {
-      const image = emoteAt(event.target);
-      if (image) activate(event, image);
-    }
+    if (event.key === "Escape") close();
   }
 
   globalThis.TwitchMinEmotes = globalThis.TwitchMinRuntime.create({
     attach() {
       enabled = true;
-      document.addEventListener("click", onClick, true);
+      for (const type of ['pointerover', 'focusin']) document.addEventListener(type, onEnter, true);
+      for (const type of ['pointerout', 'focusout']) document.addEventListener(type, onLeave, true);
       document.addEventListener("keydown", onKeydown, true);
     },
     dispose() {
       enabled = false;
-      document.removeEventListener("click", onClick, true);
+      for (const type of ['pointerover', 'focusin']) document.removeEventListener(type, onEnter, true);
+      for (const type of ['pointerout', 'focusout']) document.removeEventListener(type, onLeave, true);
       document.removeEventListener("keydown", onKeydown, true);
       close();
     }

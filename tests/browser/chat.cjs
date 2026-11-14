@@ -1,9 +1,113 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const { root } = require('../support/production.cjs');
 
-module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
+module.exports = async (t, { navigate, evaluate, isVisible, send, waitFor }) => {
+    await t.test('replay message menus hide as a whole, cover later rows and restore native actions on pause', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await evaluate(`(()=>{
+        const menu=document.createElement('div');menu.className='video-chat__message-menu';menu.id='message-menu';
+        menu.innerHTML='<div><div><button id="message-menu-button" aria-label="Message Actions Menu">⋮</button></div></div>';
+        document.querySelector('#tint-blue').append(menu);
+        window.messageActions=0;document.querySelector('#message-menu-button').addEventListener('click',()=>messageActions++);
+        const outside=document.createElement('button');outside.id='outside-message-action';outside.setAttribute('aria-label','Message Actions Menu');outside.textContent='Other actions';document.body.append(outside);
+      })()`);
+      assert.equal(await isVisible('message-menu'), false);
+      assert.equal(await isVisible('message-menu-button'), false);
+      assert.equal(await evaluate(`document.querySelector('#message-menu').getBoundingClientRect().height`), 0, 'the entire wrapper leaves no menu space');
+      assert.equal(await isVisible('outside-message-action'), true, 'matching labels outside chat stay native');
+      assert.equal(await evaluate(`document.querySelector('#message-menu-button').getAttribute('aria-label')`), 'Message Actions Menu');
+      assert.equal(await isVisible('actual-replay-message'), true);
+      assert.equal(await isVisible('actual-replay-time'), true);
+      await evaluate(`__storagePatch({enabled:false})`);
+      for (const id of ['message-menu','message-menu-button']) assert.equal(await isVisible(id), true, `${id} restores`);
+      await evaluate(`document.querySelector('#message-menu-button').click()`);
+      assert.equal(await evaluate(`messageActions`), 1, 'the native handler remains attached');
+      await evaluate(`__storagePatch({enabled:true});history.pushState({},'', '?later-replay');const row=document.createElement('div');row.className='vod-message';row.innerHTML='<span>Later message</span><div id="later-message-menu" class="video-chat__message-menu"><div><button aria-label="Message Actions Menu">⋮</button></div></div>';document.querySelector('#messages').append(row)`);
+      for (const id of ['message-menu','later-message-menu']) assert.equal(await isVisible(id), false, `${id} hides after navigation`);
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await isVisible('later-message-menu'), true);
+    });
+
+    await t.test('live and replay chat hide scrollbars, keep native scrolling and restore on pause', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await evaluate(`(()=>{
+        const live=document.querySelector('#messages');live.style.cssText='height:120px;overflow-y:scroll';live.tabIndex=0;
+        const filler=document.createElement('div');filler.style.height='1500px';live.append(filler);
+        const replay=document.createElement('div');replay.id='scroll-replay';replay.className='video-chat__message-list-wrapper';replay.style.cssText='width:220px;height:120px;overflow-y:scroll';replay.innerHTML='<div style="height:1500px">Replay messages</div>';
+        document.body.append(replay);
+        const outside=replay.cloneNode(true);outside.id='scroll-outside';outside.className='scrollable-area';document.body.append(outside);
+      })()`);
+      const scrollbars = () => evaluate(`['messages','scroll-replay','scroll-outside'].map(id=>{const node=document.getElementById(id);return {width:getComputedStyle(node).scrollbarWidth,webkit:getComputedStyle(node,'::-webkit-scrollbar').display,overflow:getComputedStyle(node).overflowY}})`);
+      const hidden = { width: 'none', webkit: 'none', overflow: 'scroll' };
+      assert.deepEqual((await scrollbars()).slice(0,2), [hidden,hidden]);
+      assert.equal((await scrollbars())[2].width, 'auto', 'unrelated scroll areas keep their scrollbar');
+      assert.equal(await evaluate(`(()=>{const node=document.querySelector('#scroll-replay');node.scrollTop=80;return node.scrollTop})()`), 80);
+      const point = await evaluate(`(()=>{const node=document.querySelector('#messages');node.scrollIntoView();node.scrollTop=0;const r=node.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+      await send('Input.dispatchMouseEvent', { type: 'mouseWheel', ...point, deltaX: 0, deltaY: 80 });
+      await waitFor(`document.querySelector('#messages').scrollTop>0`);
+      await evaluate(`document.querySelector('#messages').focus();document.querySelector('#messages').scrollTop=0`);
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'PageDown', code: 'PageDown', windowsVirtualKeyCode: 34 });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'PageDown', code: 'PageDown', windowsVirtualKeyCode: 34 });
+      await waitFor(`document.querySelector('#messages').scrollTop>0`);
+      await evaluate(`__storagePatch({enabled:false})`);
+      for (const style of await scrollbars()) {
+        assert.equal(style.width, 'auto', 'pause restores native scrollbars');
+        assert.equal(style.overflow, 'scroll');
+        assert.notEqual(style.webkit, 'none');
+      }
+      await evaluate(`__storagePatch({enabled:true});const old=document.querySelector('#scroll-replay');old.replaceWith(old.cloneNode(true))`);
+      assert.deepEqual((await scrollbars()).slice(0,2), [hidden,hidden], 'later chat mounts inherit the rule');
+    });
+
+    await t.test('replay timestamps follow the first text baseline with badges, emotes and wrapped messages', async () => {
+      await navigate('tests/fixtures/chat-alignment.html');
+      const offsets = () => evaluate(`['plain','badge','emote','continuation','wrapped'].map(id=>{
+        const text=document.getElementById(id+'-text'),range=document.createRange();
+        range.setStart(text.firstChild,1);range.setEnd(text.firstChild,2);
+        return range.getBoundingClientRect().top-document.getElementById(id+'-time').getBoundingClientRect().top;
+      })`);
+      const assertAligned = async () => {
+        const values = await offsets();
+        for (const value of values) assert.ok(Math.abs(value - values[0]) < 1, `timestamp/text offsets stay consistent: ${values}`);
+      };
+      await assertAligned();
+      await evaluate(`window.seekClicks=0;document.querySelector('#emote-time').parentElement.addEventListener('click',()=>seekClicks++);document.querySelector('#emote-time').click()`);
+      assert.equal(await evaluate(`seekClicks`), 1, 'native timestamp seek handler remains');
+      await evaluate(`__storagePatch({enabled:false})`);
+      const native = await offsets();
+      assert.ok(Math.abs(native[2] - native[0]) > 2, 'pause restores the native emote-dependent offset');
+      assert.equal(await evaluate(`document.querySelector('#emote-time').textContent`), '3:39:00');
+      await evaluate(`__storagePatch({enabled:true})`);
+      await assertAligned();
+      await evaluate(`const rows=document.querySelector('#alignment-rows');rows.remove();history.pushState({},'', '?another-video');document.querySelector('.video-chat').append(rows.cloneNode(true))`);
+      await assertAligned();
+    });
+
+    await t.test('live and VOD sender groups have black top borders that restore on pause', async () => {
+      await navigate('tests/fixtures/chat-sequences.html');
+      const continuations = new Set(['k2', 'k3', 'k4', 'a2', 'l2', 'l5']);
+      const borders = () => evaluate(`[...document.querySelectorAll('.vod-message, .chat-line__message')].map(row=>({id:row.id,border:getComputedStyle(row).borderTop}))`);
+      const assertBorders = async () => {
+        const styles = await borders();
+        assert.ok(styles.length > 0);
+        for (const { id, border } of styles) {
+          if (continuations.has(id)) assert.match(border, /^0px none /, `${id} continues without a border`);
+          else assert.equal(border, '1px solid rgb(0, 0, 0)', `${id} starts a bordered group`);
+        }
+      };
+      await assertBorders();
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('#live-status')).borderTopWidth`), '0px', 'status notices stay unchanged');
+      await evaluate(`document.querySelector('#live-items').insertAdjacentHTML('beforeend','<div class="chat-line__message">Later live message</div>');document.querySelector('#vod-items').insertAdjacentHTML('beforeend','<li><div class="vod-message">Later VOD message</div></li>')`);
+      await assertBorders();
+      await evaluate(`__storagePatch({enabled:false})`);
+      for (const { border } of await borders()) assert.match(border, /^0px none /, 'pause restores native borders');
+      await evaluate(`__storagePatch({enabled:true})`);
+      await assertBorders();
+      await evaluate(`document.querySelector('#k1').closest('li').remove();document.querySelector('#l1').remove()`);
+      continuations.delete('k2');
+      continuations.delete('l2');
+      await assertBorders();
+    });
+
     await t.test('BetterTTV stripes do not change equal sender backgrounds and restore on pause', async () => {
       await navigate('tests/fixtures/chat-sequences.html');
       const backgrounds = () => evaluate(`['k1','k2'].map(id=>{const style=getComputedStyle(document.getElementById(id));return [style.backgroundColor,style.backgroundImage]})`);

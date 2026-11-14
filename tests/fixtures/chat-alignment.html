@@ -1,0 +1,34 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Replay timestamp alignment</title>
+<style>
+body{font:14px/1.5 Arial,sans-serif;background:#18181b;color:#eee}
+p{margin:0}button{border:0;padding:0;background:none;color:inherit;font:inherit}
+.video-chat{width:300px}.vod-message{display:flex;align-items:flex-start;padding:2px 8px}
+.vod-message__header{flex:none;margin-right:8px}.vod-message__header p{font-size:12px}
+.message-content{flex:1;min-width:0}.message-text,.video-chat__message{display:inline}
+.chat-badge{width:18px;height:18px;vertical-align:middle}
+.chat-line__message--emote{width:28px;height:28px;vertical-align:middle}
+</style>
+<!-- Sanitized replay layout: timestamps and inline message content are separate flex items. -->
+<!-- twitch-min:production -->
+</head><body><div class="video-chat"><div class="video-chat__message-list-wrapper" id="alignment-rows">
+<div class="vod-message" id="plain-row">
+  <div class="vod-message__header"><button><p id="plain-time">3:37:00</p></button></div>
+  <div class="message-content"><a class="video-chat__message-author" href="/plain"><span data-a-target="chat-message-username">Plain</span></a><div class="video-chat__message"><span>:</span><span class="message-text" id="plain-text"> Short message.</span></div></div>
+</div>
+<div class="vod-message" id="badge-row">
+  <div class="vod-message__header"><button><p id="badge-time">3:38:00</p></button></div>
+  <div class="message-content"><span><a data-a-target="chat-badge"><img class="chat-badge" src="../../extension/icons/icon16.png" alt="Badge"></a></span><a class="video-chat__message-author" href="/badge"><span data-a-target="chat-message-username">Badge</span></a><div class="video-chat__message"><span>:</span><span class="message-text" id="badge-text"> Short message.</span></div></div>
+</div>
+<div class="vod-message" id="emote-row">
+  <div class="vod-message__header"><button><p id="emote-time">3:39:00</p></button></div>
+  <div class="message-content"><a class="video-chat__message-author" href="/emote"><span data-a-target="chat-message-username">Emote</span></a><div class="video-chat__message"><span>:</span><span class="message-text" id="emote-text"> Hello <img class="chat-line__message--emote" src="../../extension/icons/icon16.png" alt="Emote"></span></div></div>
+</div>
+<div class="vod-message" id="continuation-row">
+  <div class="vod-message__header"><button><p id="continuation-time">3:40:00</p></button></div>
+  <div class="message-content"><a class="video-chat__message-author" href="/emote"><span data-a-target="chat-message-username">Emote</span></a><div class="video-chat__message"><span>:</span><span class="message-text" id="continuation-text"> Another <img class="chat-line__message--emote" src="../../extension/icons/icon16.png" alt="Emote"></span></div></div>
+</div>
+<div class="vod-message" id="wrapped-row">
+  <div class="vod-message__header"><button><p id="wrapped-time">3:41:00</p></button></div>
+  <div class="message-content"><a class="video-chat__message-author" href="/wrapped"><span data-a-target="chat-message-username">Wrapped</span></a><div class="video-chat__message"><span>:</span><span class="message-text" id="wrapped-text"> A longer message with <img class="chat-line__message--emote" src="../../extension/icons/icon16.png" alt="Emote"> that wraps onto multiple lines in this narrow replay panel.</span></div></div>
+</div>
+</div></div></body></html>

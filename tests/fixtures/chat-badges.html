@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><title>Compact chat badges</title>
+<style>
+body{font:14px Arial,sans-serif;background:#18181b;color:#eee}
+.badge-layout{display:inline-flex;margin-right:4px}.chat-badge{width:18px;height:18px}
+button{padding:0}a{color:inherit}
+</style>
+<!-- Sanitized live/replay badge wrappers; no Twitch requests or account data. -->
+<div class="chat-room" id="live-root"><div class="chat-scrollable-area__message-container">
+  <div class="chat-line__message" id="live-badges">
+    <span id="live-badge-slot"><div class="badge-layout" id="live-first-layout"><button id="live-first" data-a-target="chat-badge" aria-label="Moderator"><img id="live-first-image" class="chat-badge" alt="Moderator badge" src="../../extension/icons/icon16.png"></button></div><div class="badge-layout" id="live-second-layout"><button id="live-second" data-a-target="chat-badge"><img class="chat-badge" alt="3-Month Subscriber badge" src="../../extension/icons/icon16.png"></button></div><div class="badge-layout" id="live-third-layout"><button id="live-third" data-a-target="chat-badge"><img class="chat-badge" alt="Prime badge" src="../../extension/icons/icon16.png"></button></div></span>
+    <span class="chat-line__username" role="button" tabindex="0"><span data-a-target="chat-message-username" data-a-user="sample_live">SampleLive</span></span><span class="chat-line__message--colon">:</span><span data-a-target="chat-message-text" id="live-body">Hello <img class="chat-image" id="body-emote" alt="Emote" src="../../extension/icons/icon16.png"></span>
+  </div>
+  <div class="chat-line__message" id="continuation">
+    <span><div class="badge-layout"><button data-a-target="chat-badge"><img id="continuation-first" class="chat-badge" alt="Moderator badge" src="../../extension/icons/icon16.png"></button></div><div class="badge-layout"><button data-a-target="chat-badge"><img id="continuation-second" class="chat-badge" alt="Prime badge" src="../../extension/icons/icon16.png"></button></div></span>
+    <span class="chat-line__username"><span data-a-target="chat-message-username" data-a-user="sample_live">SampleLive</span></span><span class="chat-line__message--colon">:</span><span id="continuation-body">Another message</span>
+  </div>
+  <div class="chat-line__message" id="single-badge"><img id="single-image" class="chat-badge" alt="VIP badge" title="Original single title" src="../../extension/icons/icon16.png"><span data-a-target="chat-message-username">SingleUser</span><span>One badge</span></div>
+</div></div>
+<div class="video-chat" id="vod-root"><div class="video-chat__message-list-wrapper">
+  <div class="vod-message" id="vod-badges">
+    <div class="vod-message__header"><button id="vod-time">1:32:56</button></div>
+    <div><div><span><div class="badge-layout"><a id="vod-first" data-a-target="chat-badge" href="#prime" title="Prime"><img id="vod-first-image" class="chat-badge" alt="Prime badge" title="Image title" src="../../extension/icons/icon16.png"></a></div><div class="badge-layout" id="vod-second-layout"><a data-a-target="chat-badge" href="#bits" title="Bits Leader 3"><img id="vod-second-image" class="chat-badge" alt="Bits Leader 3 badge" src="../../extension/icons/icon16.png"></a></div></span><a class="video-chat__message-author" href="/sample_vod"><span data-a-target="chat-message-username">SampleVod</span></a><div class="video-chat__message"><span>:</span><span data-a-target="chat-message-text" id="vod-body">Replay message</span></div></div><button id="vod-actions">Message actions</button></div>
+  </div>
+</div></div>
+<div id="outside-badges"><img class="chat-badge" id="outside-first" alt="Outside one" src="../../extension/icons/icon16.png"><img class="chat-badge" id="outside-second" alt="Outside two" src="../../extension/icons/icon16.png"></div>
+<!-- twitch-min:production -->

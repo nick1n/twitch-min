@@ -7,7 +7,40 @@ const { randomUUID } = require('node:crypto');
 const root = path.resolve(__dirname, '../..');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-module.exports = async function withBrowser(run, { intercept, initSource = '', chromePath: configuredChromePath = process.env.CHROME_PATH } = {}) {
+async function debuggerTargets(port, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/json/list`, { signal: controller.signal });
+    return await response.json();
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('Chrome debugging target request timed out.', { cause: error });
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function waitForSocket(socket, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const finish = error => {
+      clearTimeout(timer);
+      socket.removeEventListener('open', onOpen);
+      socket.removeEventListener('error', onError);
+      socket.removeEventListener('close', onClose);
+      error ? reject(error) : resolve();
+    };
+    const onOpen = () => finish();
+    const onError = () => finish(new Error('Chrome debugging WebSocket connection failed.'));
+    const onClose = () => finish(new Error('Chrome debugging WebSocket closed before connecting.'));
+    const timer = setTimeout(() => finish(new Error('Chrome debugging WebSocket connection timed out.')), timeoutMs);
+    socket.addEventListener('open', onOpen, { once: true });
+    socket.addEventListener('error', onError, { once: true });
+    socket.addEventListener('close', onClose, { once: true });
+  });
+}
+
+module.exports = async function withBrowser(run, { intercept, initSource = '', chromePath: configuredChromePath = process.env.CHROME_PATH, connectionTimeoutMs = 10000 } = {}) {
   const chromePath = configuredChromePath || [
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
     'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
@@ -44,11 +77,11 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
     }
     if (!fs.existsSync(portFile)) throw startupError('Chrome timed out before exposing its test debugging endpoint.');
     const port = fs.readFileSync(portFile, 'utf8').split('\n')[0].trim();
-    const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    const targets = await debuggerTargets(port, connectionTimeoutMs);
     const page = targets.find(target => target.type === 'page');
     assert.ok(page);
     socket = new WebSocket(page.webSocketDebuggerUrl);
-    await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', reject, { once: true }); });
+    await waitForSocket(socket, connectionTimeoutMs);
     let sequence = 0;
     const pending = new Map();
     closeProtocol = () => {

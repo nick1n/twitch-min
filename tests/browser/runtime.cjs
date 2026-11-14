@@ -96,6 +96,53 @@ module.exports = async (t, { navigate, evaluate, waitFor }) => {
     assert.equal(await evaluate(`leaf.hasAttribute('data-tq-time')`), false);
   });
 
+  await t.test('timestamps moved outside their formatting context restore and can be formatted again', async () => {
+    await navigate('tests/fixtures/twitch.html');
+    await evaluate(`window.movedTime=document.querySelector('#actual-replay-time p');window.timeHome=movedTime.parentElement;document.body.append(movedTime)`);
+    assert.equal(await evaluate(`movedTime.hasAttribute('data-tq-time')`), false, 'moving outside chat releases the marker');
+    assert.equal(await evaluate(`movedTime.textContent`), '1:32:56', 'the native text is unchanged');
+    await evaluate(`__storagePatch({enabled:false})`);
+    assert.equal(await evaluate(`movedTime.hasAttribute('data-tq-time')`), false);
+    await evaluate(`__storagePatch({enabled:true});timeHome.append(movedTime)`);
+    assert.equal(await evaluate(`movedTime.getAttribute('data-tq-time')`), '1:32', 'reinserting into chat reacquires formatting');
+    await evaluate(`document.querySelector('.chat-room__content').append(movedTime)`);
+    assert.equal(await evaluate(`movedTime.hasAttribute('data-tq-time')`), false, 'moving into ordinary chat content also restores native text');
+    await evaluate(`timeHome.append(movedTime)`);
+    assert.equal(await evaluate(`movedTime.getAttribute('data-tq-time')`), '1:32');
+  });
+
+  for (const sourceFirst of [true, false]) {
+    await t.test(`timestamp ownership transfers between regions with the ${sourceFirst ? 'source' : 'destination'} observer first`, async () => {
+      await navigate('tests/fixtures/twitch.html', '__stored.enabled=false;');
+      await evaluate(`
+        document.querySelector('.chat-room').remove();
+        const source='<div class="video-chat" id="time-source"><div class="vod-message__header"><a id="time-link" data-a-target="video-chat-timestamp" href="/videos/123?t=1h32m56s"><span id="time-leaf">1:32:56</span></a></div></div>';
+        const destination='<div class="video-chat" id="time-destination"><div class="vod-message__header" id="time-target"></div></div>';
+        document.body.insertAdjacentHTML('beforeend',${sourceFirst} ? source+destination : destination+source);
+        window.timeLink=document.querySelector('#time-link');window.timeLeaf=document.querySelector('#time-leaf');window.seekClicks=0;
+        timeLink.addEventListener('click',event=>{event.preventDefault();seekClicks++});
+        __storagePatch({enabled:true});
+      `);
+      assert.equal(await evaluate(`timeLeaf.getAttribute('data-tq-time')`), '1:32');
+      await evaluate(`document.querySelector('#time-target').append(timeLink)`);
+      assert.equal(await evaluate(`timeLeaf.getAttribute('data-tq-time')`), '1:32', 'the receiving observer retains its marker');
+      await evaluate(`document.querySelector('#time-source').remove();timeLeaf.textContent='5:26';history.pushState({},'', '?moved-timestamp')`);
+      assert.equal(await evaluate(`timeLeaf.getAttribute('data-tq-time')`), '0:05', 'source teardown leaves the destination active');
+      await evaluate(`document.body.insertAdjacentHTML('beforeend','<div class="video-chat" id="time-later"></div>');document.querySelector('#time-later').append(timeLink)`);
+      assert.equal(await evaluate(`timeLeaf.getAttribute('data-tq-time')`), '0:05', 'a later region takes ownership');
+      await evaluate(`document.querySelector('#time-destination').remove();timeLink.click()`);
+      assert.equal(await evaluate(`seekClicks`), 1, 'the native click handler remains');
+      assert.equal(await evaluate(`timeLink.getAttribute('href')`), '/videos/123?t=1h32m56s');
+      assert.equal(await evaluate(`timeLeaf.getAttribute('data-tq-time')`), '0:05');
+      await evaluate(`document.body.append(timeLink);__storagePatch({chatTimestamps:false})`);
+      assert.equal(await evaluate(`timeLeaf.hasAttribute('data-tq-time')`), false, 'pause cleans a move before observer delivery');
+      await evaluate(`__storagePatch({chatTimestamps:true});document.querySelector('#time-later').append(timeLink)`);
+      assert.equal(await evaluate(`timeLeaf.getAttribute('data-tq-time')`), '0:05');
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await evaluate(`timeLeaf.hasAttribute('data-tq-time')`), false);
+    });
+  }
+
   await t.test('unrelated and unchanged settings produce no root attribute writes', async () => {
     await navigate('tests/fixtures/twitch.html');
     await evaluate(`window.rootWrites=0;const original=document.documentElement.setAttribute;document.documentElement.setAttribute=function(...args){rootWrites++;return original.apply(this,args)};__storagePatch({unrelated:true});__storagePatch({enabled:true});__storagePatch({chatComposer:true})`);
@@ -133,7 +180,7 @@ module.exports = async (t, { navigate, evaluate, waitFor }) => {
 
   await t.test('native preview skips unrelated chat geometry reads and closes when an ancestor hides', async () => {
     await navigate('tests/fixtures/twitch.html');
-    await evaluate(`document.body.insertAdjacentHTML('beforeend','<div class="tw-tooltip-layer" id="preview-layer"><div data-popper-placement="top" id="preview-positioner"><div role="tooltip"><div class="tw-tooltip-wrapper">eyesonbHmm</div></div></div></div>');document.querySelector('#chat-emote').click()`);
+    await evaluate(`document.body.insertAdjacentHTML('beforeend','<div class="tw-tooltip-layer" id="preview-layer"><div data-popper-placement="top" id="preview-positioner"><div role="tooltip"><div class="tw-tooltip-wrapper">eyesonbHmm</div></div></div></div>');document.querySelector('#chat-emote').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}))`);
     await waitFor(`document.querySelector('#twitch-min-emote-preview[data-tq-native-emote] img').naturalWidth > 0`);
     await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
     await evaluate(`window.previewReads=0;const positioner=document.querySelector('#preview-positioner');const measure=positioner.getBoundingClientRect;positioner.getBoundingClientRect=function(){previewReads++;return measure.call(this)};document.querySelector('#messages').append(document.createTextNode('Unrelated chat update'))`);

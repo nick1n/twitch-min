@@ -2,8 +2,16 @@
 (() => {
   "use strict";
   const TIME = '.video-chat .vod-message__header p, .video-chat__message-time, .video-chat [data-a-target="video-chat-timestamp"], .video-chat__message a[href^="/videos/"][href*="?t="], [data-a-target="video-chat-message"] a[href^="/videos/"][href*="?t="]';
+  const owners = new WeakMap();
   function attachTimes(root, onCleanup) {
     const marked = new Set();
+
+    function release(leaf) {
+      marked.delete(leaf);
+      if (owners.get(leaf) !== marked) return;
+      owners.delete(leaf);
+      leaf.removeAttribute('data-tq-time');
+    }
 
     function shortTime(text) {
       const value = text.trim();
@@ -17,16 +25,23 @@
 
     function update(candidate, visited) {
       // A previously formatted leaf can become a wrapper after a React update.
-      if (candidate.childElementCount && marked.delete(candidate)) candidate.removeAttribute('data-tq-time');
+      if (candidate.childElementCount && marked.has(candidate)) release(candidate);
       const leaves = candidate.childElementCount ? [...candidate.querySelectorAll("*")].filter(x => !x.childElementCount) : [candidate];
       for (const leaf of leaves) {
         if (visited.has(leaf)) continue;
         visited.add(leaf);
         const value = shortTime(leaf.textContent);
         if (value !== null) {
+          // A receiving region takes ownership before an older observer or
+          // teardown can clear its formatting, regardless of callback order.
+          const previous = owners.get(leaf);
+          if (previous !== marked) {
+            previous?.delete(leaf);
+            owners.set(leaf, marked);
+          }
           marked.add(leaf);
           if (leaf.getAttribute('data-tq-time') !== value) leaf.setAttribute('data-tq-time', value);
-        } else if (marked.delete(leaf)) leaf.removeAttribute("data-tq-time");
+        } else if (marked.has(leaf)) release(leaf);
       }
     }
 
@@ -44,9 +59,11 @@
     }
 
     function releaseRemoved(node) {
-      if (!(node instanceof Element) || root.contains(node)) return;
+      if (!(node instanceof Element)) return;
       const leaves = node.matches('[data-tq-time]') ? [node, ...node.querySelectorAll('[data-tq-time]')] : node.querySelectorAll('[data-tq-time]');
-      for (const leaf of leaves) if (marked.delete(leaf) && !leaf.isConnected) leaf.removeAttribute('data-tq-time');
+      for (const leaf of leaves) {
+        if (marked.has(leaf) && (!root.contains(leaf) || !leaf.closest(TIME))) release(leaf);
+      }
     }
 
     const observer = new MutationObserver(records => {
@@ -65,8 +82,7 @@
     });
     onCleanup(() => {
       observer.disconnect();
-      for (const leaf of marked) if (!leaf.isConnected || root.contains(leaf)) leaf.removeAttribute('data-tq-time');
-      marked.clear();
+      for (const leaf of marked) release(leaf);
     });
     const initial = new Set();
     visit(root, initial);

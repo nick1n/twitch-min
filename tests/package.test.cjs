@@ -6,7 +6,8 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
-const version = JSON.parse(fs.readFileSync(path.join(root, 'extension/manifest.json'), 'utf8')).version;
+const manifest = JSON.parse(fs.readFileSync(path.join(root, 'extension/manifest.json'), 'utf8'));
+const version = manifest.version;
 const archiveName = `twitch-min-${version}.zip`;
 const oldRelease = Buffer.from('previous release must survive failed packaging');
 
@@ -87,8 +88,21 @@ test('packaging replaces stale output with all source files at ZIP root, byte fo
   assertPreserved(dir);
 });
 
-for (const asset of ['shared/selectors.js', 'shared/runtime.js', 'shared/regions.js', 'styles/rules-sidebar.js', 'styles/rules-navigation.js',
-  'styles/rules-player.js', 'styles/rules-chat.js', 'styles/emotes.css', 'popup/popup.html', 'popup/popup.js', 'popup/popup.css', 'icons/icon128.png', 'icons/logo.svg']) {
+function referencedAssets(manifest) {
+  const popup = manifest.action.default_popup;
+  const html = fs.readFileSync(path.join(root, 'extension', popup), 'utf8');
+  const popupAssets = [...html.matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)]
+    .map(match => match[1])
+    .filter(asset => !/^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(asset))
+    .map(asset => path.posix.normalize(path.posix.join(path.posix.dirname(popup), asset)));
+  const icons = value => typeof value === 'string' ? [value] : Object.values(value || {});
+  return [...new Set([
+    ...manifest.content_scripts.flatMap(script => [...(script.js || []), ...(script.css || [])]),
+    popup, ...icons(manifest.icons), ...icons(manifest.action.default_icon), ...popupAssets,
+  ])];
+}
+
+for (const asset of referencedAssets(manifest)) {
   test('packaging rejects missing ' + asset + ' and preserves the previous release', t => {
     const dir = fixture(t);
     fs.unlinkSync(path.join(dir, 'extension', asset));

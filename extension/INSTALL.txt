@@ -36,6 +36,9 @@ Restore everything pauses hiding immediately in open Twitch tabs.
 The top chat header bar and its collapse control are hidden, freeing space for
 messages in live and replay chat. A collapsed chat can still be expanded.
 The master switch restores the header bar.
+Replay chat's per-message actions menu is hidden. The master switch restores it.
+Live and replay chat scrollbars are hidden; wheel, trackpad, and keyboard scrolling
+still work. The master switch restores the scrollbars.
 
 Chat rows have a very subtle tint based on each author's name color. Native
 highlight backgrounds remain underneath it. Live chat uses the inner colored
@@ -43,15 +46,19 @@ display name, so clickable username wrappers do not give every row a gray tint.
 The search field's white border is
 removed, with a muted purple indicator on focus.
 Consecutive messages from the same user show the username only on the first
-message. Timestamps, badges, emotes, and text remain visible on every message.
+message. Timestamps, emotes, and text remain visible on every message.
 Another speaker or a system notice starts a new run with a visible username.
 The master switch restores all usernames and native backgrounds.
+Only the first badge in Twitch's existing order is shown beside each sender label.
+Hover or focus it to list the other badge names in Twitch's own tooltip, keeping
+its theme and arrow. The first badge keeps its native click action. The master
+switch restores every badge and removes the added tooltip details.
 
-Click an emote in live or replay chat to show its name and a 3x image in a
-small bubble beside it. Click again, click away, or press Escape to dismiss.
-When Twitch's native emote-name tooltip is available, the image is inserted into
-that tooltip, preserving its name, theme, and arrow. A later tooltip adopts the
-existing preview; the standalone bubble is only a fallback.
+Hover an emote in live or replay chat to add a 3x image above the name in Twitch's
+own tooltip on the first hover. Move away or press Escape to dismiss. Native
+click and keyboard actions stay intact. Existing native
+name/details, theme, and arrow stay intact. If the tooltip mounts later, the image
+waits for it; no separate custom popup appears.
 The master switch also pauses these emote previews.
 
 Scroll up over the video to raise volume, or down to lower it. A normal wheel

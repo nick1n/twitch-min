@@ -3,7 +3,82 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { root } = require('../support/production.cjs');
 
-module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
+module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
+    await t.test('Show more finishes every native list page before sidebar filtering or title changes', async () => {
+      await navigate('tests/fixtures/sidebar-more.html', 'window.__initialSidebarCollapsed=true;');
+      await waitFor(`__moreClicks.length === 2`);
+      assert.equal(await evaluate(`__nativeSidebarClicks`), 1, 'expand a collapsed sidebar before finding its lists');
+      assert.equal(await isVisible('followed-offline'), true, 'native offline rows remain during loading');
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').getBoundingClientRect().width`), 240);
+      await evaluate(`document.querySelector('#followed-live .side-nav-card__metadata').textContent='Updated game';__storagePatch({topNavigation:false})`);
+      assert.equal(await evaluate(`__moreClicks.length`), 2, 'unrelated edits and settings do not double-click pending controls');
+      await evaluate(`__finishMore('followed')`);
+      await waitFor(`__moreClicks.length === 3`);
+      assert.equal(await isVisible('followed-loaded-1'), true, 'native handler reveals later live channels');
+      assert.equal(await isVisible('followed-loaded-offline-1'), true, 'pagination finishes before filtering new offline channels');
+      await evaluate(`__finishMore('followed');__finishMore('recommended')`);
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
+      assert.deepEqual(await evaluate(`__moreClicks`), ['followed','recommended','followed'].map(id => ({ id, offline: true, title: true, heading: 'none', visible: true, ready: false })));
+      for (const id of ['followed-offline','followed-loaded-offline-1','followed-loaded-offline-2','recommended-loaded-offline-1','followed-more','recommended-more']) {
+        assert.equal(await isVisible(id), false, `${id} hides only after list expansion`);
+      }
+      for (const id of ['followed-loaded-1','followed-loaded-2','recommended-loaded-1','outside-more']) assert.equal(await isVisible(id), true);
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('#followed header'),'::before').content`), '"Followed"');
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').getBoundingClientRect().width`), 144);
+      await evaluate(`__storagePatch({enabled:false})`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed')`);
+      assert.equal(await evaluate(`document.querySelector('[data-tq-sidebar-ready], [data-tq-section], [data-tq-section-title]')`), null, 'pause releases layout markers');
+      await evaluate(`document.querySelector('#followed-more').click()`);
+      assert.equal(await evaluate(`__lessClicks`), 1, 'native Show less handler remains usable on pause');
+      await evaluate(`__storagePatch({enabled:true})`);
+      await waitFor(`__moreClicks.length === 4`);
+    });
+
+    await t.test('late list controls, disabled links and sidebar replacements expand before restyling', async () => {
+      await navigate('tests/fixtures/sidebar-more.html');
+      await evaluate(`__finishMore('followed');__finishMore('recommended')`);
+      await waitFor(`__moreClicks.length === 3`);
+      await evaluate(`__finishMore('followed')`);
+      await waitFor(`document.querySelector('[data-tq-sidebar-ready]') !== null`);
+      await evaluate(`history.pushState({},'', '?another-channel');__mountMore('late', {link:true,disabled:true})`);
+      assert.equal(await isVisible('late-offline'), true, 'a disabled native expansion keeps the sidebar usable');
+      assert.equal(await evaluate(`__moreClicks.length`), 3);
+      await evaluate(`document.querySelector('#late-more').setAttribute('aria-disabled','false')`);
+      await waitFor(`__moreClicks.length === 4`);
+      assert.deepEqual(await evaluate(`__moreClicks[3]`), { id: 'late', offline: true, title: true, heading: 'none', visible: true, ready: false });
+      await evaluate(`__finishMore('late')`);
+      await waitFor(`document.querySelector('[data-tq-sidebar-ready]') !== null`);
+      assert.equal(await isVisible('late-loaded-1'), true);
+      assert.equal(await isVisible('late-loaded-offline-1'), false);
+      await evaluate(`window.oldSide=document.querySelector('#sidebar-shell');const replacement=document.createElement('aside');replacement.id='sidebar-shell';replacement.className='side-nav side-nav--expanded';oldSide.replaceWith(replacement);__mountMore('replacement')`);
+      await waitFor(`__moreClicks.length === 5`);
+      assert.equal(await evaluate(`oldSide.querySelector('[data-tq-section], [data-tq-section-title]') || (oldSide.hasAttribute('data-tq-sidebar-ready') ? true : null)`), null, 'detached sidebar markers are released');
+      await evaluate(`__finishMore('replacement')`);
+      await waitFor(`document.querySelector('[data-tq-sidebar-ready]') !== null`);
+      assert.equal(await isVisible('replacement-loaded-offline-1'), false);
+    });
+
+    await t.test('sidebar expansion obeys both preferences and pause during a pending request', async () => {
+      await navigate('tests/fixtures/sidebar-more.html', '__stored.sidebarSections=false;__stored.sidebarLabels=false;window.__initialSidebarCollapsed=true;');
+      assert.equal(await evaluate(`__moreClicks.length`), 0, 'inactive sidebar features do not click native lists');
+      assert.equal(await evaluate(`__nativeSidebarClicks`), 0, 'inactive sidebar features retain native collapse');
+      await evaluate(`__storagePatch({sidebarSections:true})`);
+      await waitFor(`__moreClicks.length === 2`);
+      assert.equal(await evaluate(`__nativeSidebarClicks`), 1, 'section filtering alone expands the sidebar to reach Show more');
+      await evaluate(`__storagePatch({enabled:false});__finishMore('followed');__finishMore('recommended')`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed')`);
+      assert.equal(await evaluate(`__moreClicks.length`), 2, 'pause does not request the next page');
+      assert.equal(await isVisible('followed-offline'), true);
+      assert.equal(await isVisible('followed-more'), true);
+      await evaluate(`__storagePatch({enabled:true,sidebarSections:false,sidebarLabels:true})`);
+      await waitFor(`__moreClicks.length === 3`);
+      await evaluate(`__finishMore('followed')`);
+      await waitFor(`document.querySelector('[data-tq-sidebar-ready]') !== null`);
+      assert.equal(await isVisible('followed-offline'), true, 'compact rows alone retain offline channels');
+      assert.equal(await evaluate(`document.querySelector('#followed-live .side-nav-card__title').checkVisibility({checkVisibilityCSS:true})`), false);
+      assert.equal(await isVisible('followed-more'), true, 'section filtering alone owns control hiding');
+    });
+
     await t.test('sidebar scrollbar hides while scrolling works, replay times retain minutes and seeking', async () => {
       await navigate('tests/fixtures/twitch.html');
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('.side-nav__scrollable_content')).scrollbarWidth`), 'none');

@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { root } = require('../support/production.cjs');
 
-module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
+module.exports = async (t, { navigate, evaluate, isVisible }) => {
   const sessionFile = path.join(root, '.browser-tests', 'test.html');
   const liveSessionFile = path.join(root, '.browser-tests', 'live.html');
     await t.test('provided logged-in HTML: real notification, Turbo, VOD card and timestamp markup', { skip: !fs.existsSync(sessionFile) }, async () => {
@@ -32,6 +32,9 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
         nav.querySelector('button[aria-label="Shouts"]').id='snapshot-shouts';
         const turbo=[...nav.querySelectorAll('button')].find(x=>x.textContent.replace(/\\s+/g,' ').trim()==='Gift Turbo'); turbo.id='snapshot-turbo';
         const side=clean(snapshot.querySelector('.side-nav'));side.id='snapshot-sidebar';
+        // Inert snapshots have no React pagination handler or additional pages.
+        // Check their materialized rows; sidebar-more.html covers native paging.
+        side.querySelectorAll(TwitchMinSelectors.sidebarShowMore).forEach(node=>node.remove());
         side.querySelector('.side-nav__title').id='snapshot-for-you';
         side.querySelector('[role="group"][aria-label="Watch Streaks at risk"]').id='snapshot-streaks';
         const composite=[...side.querySelectorAll('.side-nav-card__link .tw-avatar')].find(x=>!x.closest('.side-nav-card__avatar'));

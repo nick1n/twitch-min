@@ -2,13 +2,43 @@
 
 Historical changes and verification notes, in release order.
 
-## Unreleased
+## 0.19.0 - Twitch layout, chat, and reliability improvements
 
+- Expand native Show More lists before sidebar filtering and compact styling,
+  including later mounts and paginated lists.
+- Align replay timestamps with the first message baseline, add black borders
+  between sender groups, and keep reward cards in three columns across zoom levels.
+- Hide the replay chat message-menu wrapper and restore its native actions when
+  paused.
+- Refresh the extension description to reflect its viewing, chat, and player features.
+- Cancel superseded CI runs per ref and test Windows with the latest Node.js LTS
+  selected directly in the workflow; require Node 26 or newer for development checks.
+- Add an optional offline soak command covering message churn, region remounts,
+  pause cleanup, and player modes, with explicit reporting of unavailable checks.
+- Put the 3x emote image above the name in Twitch's native tooltip, retaining
+  existing detail labels and removing the separate popup fallback. Show it on
+  the first hover without a click; preserve native click and keyboard actions.
+- Hide live and replay chat scrollbars without changing native scrolling;
+  restore them when paused.
+- Release timestamp markers when nodes leave their formatting context, transfer
+  ownership between chat regions, and restore moved nodes on pause before
+  observer delivery without changing native text or seek targets.
+- Guard browser feature registration and local documentation links in the unit
+  suite, including encoded paths and exclusions for code examples.
+- Show only the first chat badge in Twitch's order, adding the other badge names
+  to Twitch's native hover/focus tooltip; restore native badges and tooltips when
+  paused.
 - Preserve newer popup storage updates when an earlier save callback finishes.
+- Preserve newer notifications and removed keys during failed-save recovery;
+  if recovery also fails, roll back only fields without newer notifications.
 - Retry a failed initial preference read on the next relevant storage event,
   retaining queued changes and keeping native Twitch UI usable until recovery.
 - Report failed Chrome launches and early exits with executable and stderr
   details; verify cleanup of profiles from failed launches.
+- Bound debugging-target requests and WebSocket connection setup, with offline
+  stall regressions verifying cancellation and profile cleanup.
+- Remove unused browser-test imports and helpers, and derive missing-asset
+  packaging checks from the manifest and popup references.
 - Separate test ownership, share rule loading, guard focused test coverage, and
   add Windows CI for the full suite and packaging.
 

@@ -2,7 +2,7 @@
 (() => {
   "use strict";
 
-  const SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar})`;
+  const SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar})[data-tq-sidebar-ready]`;
   const PROMOTED = `${SIDEBAR} .side-nav-card__link--promoted-followed`;
 
   globalThis.TwitchMinSidebarRules = Object.freeze([
@@ -10,7 +10,7 @@
       key: "sidebarSections",
       selectors: [
         '.side-nav-section[data-tq-section="other"]',
-        '.side-nav-card__link--offline',
+        '.side-nav-card__link.side-nav-card__link--offline',
         '.side-nav-card:has(.side-nav-card__link--offline)',
         '.tw-transition:has(.side-nav-card__link--offline)',
         '.side-nav-card:has(.side-nav-card__avatar--offline)',
@@ -20,9 +20,8 @@
         '.side-nav-card__link div:has(> p[title^="Watch Streak" i])',
         '.collapse-toggle',
         '[data-a-target="side-nav-arrow"]',
-        '[data-a-target="side-nav-show-more-button"]',
+        `:is(${globalThis.TwitchMinSelectors.sidebarShowMore})`,
         '[data-a-target="side-nav-show-less-button"]',
-        '[data-test-selector="ShowMore"]',
         '[data-test-selector="ShowLess"]',
         '[data-a-target*="streak" i]',
         '[data-test-selector*="streak" i]',
@@ -50,7 +49,7 @@
     }],
     [10, {
       key: "sidebarLabels",
-      selectors: ['.side-nav', '[data-a-target="side-nav-bar"]', '[data-a-target="side-nav-bar-collapsed"]'],
+      selectors: [SIDEBAR],
       // Only the horizontal layout owner gets a fixed width. In particular,
       // never set flex-basis on the overlay: its parent can be a column.
       declaration: "width: 144px !important; min-width: 144px !important; max-width: 144px !important;"

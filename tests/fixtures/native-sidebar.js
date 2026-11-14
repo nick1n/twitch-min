@@ -14,6 +14,12 @@
     for (const row of side.querySelectorAll('a.side-nav-card, a.side-nav-card__link')) if (row.children[1]) row.children[1].hidden = !expanded;
   }
   window.__mountNativeSidebar = side => {
+    side.querySelector('#show-more')?.addEventListener('click', event => {
+      setTimeout(() => {
+        event.target.setAttribute('data-a-target', 'side-nav-show-less-button');
+        event.target.textContent = 'Show Less';
+      }, 10);
+    });
     side.querySelector('[data-a-target="side-nav-arrow"]').addEventListener('click', () => {
       window.__nativeSidebarClicks++;
       const next = side.classList.contains('side-nav--collapsed');

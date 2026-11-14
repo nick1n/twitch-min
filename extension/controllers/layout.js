@@ -3,10 +3,12 @@
   "use strict";
 
   const SIDE = globalThis.TwitchMinSelectors.sidebar;
+  const MORE = globalThis.TwitchMinSelectors.sidebarShowMore;
   const NAV = globalThis.TwitchMinSelectors.topNav;
   const EXTRA = /^(?:gift turbo|get bits|buy bits|turbo|get ad-free|try 1-month ad-free|go ad-free for free|try 1 month free|try free|luna|prime offers|prime gaming|shouts)$/i;
   let enabled = false;
   let compact = false;
+  let sections = false;
   let stopSides = null;
   let stopNavigation = null;
   let stoppingSides = false;
@@ -46,13 +48,43 @@
   function attachSide(side, onCleanup) {
     let restore = false;
     let pending = null;
+    const moreClicks = new Map();
+    function ready(value) {
+      if (side.hasAttribute('data-tq-sidebar-ready') !== value) side.toggleAttribute('data-tq-sidebar-ready', value);
+    }
+    function expandSections() {
+      const buttons = [...new Set([...side.querySelectorAll(MORE)].map(control =>
+        control.matches('button, a, [role="button"]') ? control : control.querySelector('button, a, [role="button"]')
+      ).filter(Boolean))];
+      for (const button of moreClicks.keys()) {
+        if (!buttons.includes(button)) moreClicks.delete(button);
+      }
+      if (!buttons.length) return true;
+      // Unmask native controls and titles before invoking Twitch's handlers.
+      ready(false);
+      let waiting = false;
+      for (const button of buttons) {
+        if (!button.checkVisibility({ checkVisibilityCSS: true })) continue;
+        waiting = true;
+        if (button.matches(':disabled, [aria-disabled="true"], [aria-busy="true"]')) continue;
+        const section = button.closest('.side-nav-section') || side;
+        const count = section.querySelectorAll('.side-nav-card__link, a.side-nav-card').length;
+        const previous = moreClicks.get(button);
+        // React may retain the same Show more button for several pages. Only
+        // request another page after new rows arrive, never on unrelated edits.
+        if (previous && previous.section === section && count <= previous.count) continue;
+        moreClicks.set(button, { section, count });
+        button.click();
+      }
+      return !waiting;
+    }
     function expanded() {
       if (side.matches('.side-nav--collapsed, [data-a-target="side-nav-bar-collapsed"]')) return false;
       if (side.matches('.side-nav--expanded, [data-a-target="side-nav-bar"]')) return true;
       const label = side.querySelector('[data-a-target="side-nav-arrow"]')?.getAttribute('aria-label') || '';
       return /collapse/i.test(label) ? true : /expand/i.test(label) ? false : null;
     }
-    function sync() {
+    function syncCollapse() {
       if (!side.isConnected) return;
       const current = expanded();
       const button = side.querySelector('[data-a-target="side-nav-arrow"]');
@@ -63,14 +95,25 @@
         if (pending.expanded !== current) return;
         pending = null;
       }
-      if (compact && !current) {
+      if ((compact || sections) && !current) {
         restore = true;
         pending = { button, expanded: true };
         button.click();
-      } else if (!compact && restore) {
+      } else if (!compact && !sections && restore) {
         if (!current) restore = false;
         else { pending = { button, expanded: false }; button.click(); }
       }
+    }
+    function sync() {
+      if (!side.isConnected) return;
+      syncCollapse();
+      if (!enabled || (!compact && !sections) || pending || expanded() === false) {
+        ready(false);
+        return;
+      }
+      const settled = expandSections();
+      if (settled) markSections(side);
+      ready(settled);
     }
     const state = {
       sync,
@@ -78,12 +121,13 @@
     };
     const observer = new MutationObserver(() => {
       sync();
-      if (enabled) markSections(side);
       finishPause();
     });
     onCleanup(() => {
       observer.disconnect();
       sides.delete(state);
+      moreClicks.clear();
+      ready(false);
       for (const node of side.querySelectorAll('[data-tq-section], [data-tq-section-title]')) {
         node.removeAttribute('data-tq-section');
         node.removeAttribute('data-tq-section-title');
@@ -91,8 +135,7 @@
       finishPause();
     });
     sides.add(state);
-    observer.observe(side, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'data-a-target', 'aria-label'] });
-    if (enabled) markSections(side);
+    observer.observe(side, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'data-a-target', 'data-test-selector', 'aria-label', 'disabled', 'aria-disabled', 'aria-busy', 'hidden'] });
     sync();
   }
 
@@ -109,6 +152,7 @@
   function update(settings) {
     enabled = true;
     compact = settings.sidebarLabels === true;
+    sections = settings.sidebarSections === true;
     if (!stopSides) stopSides = globalThis.TwitchMinRegions.watch(SIDE, attachSide, stop => { stopSides = stop; });
     if (!stopNavigation) stopNavigation = globalThis.TwitchMinRegions.watch(NAV, attachNavigation, stop => { stopNavigation = stop; });
     for (const state of sides) state.sync();
@@ -118,7 +162,7 @@
     attach: update,
     update,
     dispose() {
-      enabled = compact = false;
+      enabled = compact = sections = false;
       stopNavigation?.();
       stopNavigation = null;
       for (const state of sides) state.sync();

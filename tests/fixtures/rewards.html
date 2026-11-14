@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Reward center columns</title>
+  <style>
+    html { font-size: 10px; }
+    body { margin: 16px; color: #efeff1; background: #0e0e10; font: 13px Arial, sans-serif; }
+    * { box-sizing: border-box; }
+    p, h2 { margin: 0; }
+    button { color: inherit; font: inherit; cursor: pointer; }
+    #reward-dialog { width: 320px; border: 1px solid #35353b; background: #18181b; }
+    .rewards-popover-header, [role="radiogroup"], .balance { padding: 8px; }
+    h2 { font-size: 16px; }
+    [role="radiogroup"] { display: flex; gap: 8px; }
+    .scrollable-area { height: 300px; overflow-y: scroll; }
+    /* Representative native sizing: fixed cards and a thin scrollbar leave
+       insufficient space for the third card at narrow/fractional widths.
+       Only the supplied DOM structure is reproduced; these are fixture styles. */
+    .rewards-list { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; }
+    .rewards-list > .section, .rewards-list > .spacer, .rewards-list > .streak { width: 100%; }
+    .bitsRewardListItem--fixture, .reward-cell, .rewardListItem--fixture { width: 94px; flex-shrink: 0; }
+    .bitsRewardListItem--fixture { border-radius: 4px; background: #303036; }
+    .bitsRewardListItem--fixture > button { width: 94px; padding: 0; border: 0; background: transparent; }
+    .bitsRewardListItemImage--fixture { height: 50px; background: #772ce8; border-radius: 4px 4px 0 0; }
+    .power-up-details { padding: 4px; }
+    .power-up-title { min-height: 40px; white-space: normal; font-size: 12px; font-weight: bold; }
+    .power-up-cost { height: 30px; padding: 6px 0; border-radius: 4px; background: #404048; }
+    .rewardListItem--fixture { text-align: center; white-space: normal; }
+    .rewardListItem--fixture > button { width: 80px; padding: 0; border: 0; border-radius: 4px; background: #9147ff; }
+    .reward-icon--large { width: 80px; height: 80px; padding-top: 8px; }
+    .reward-icon__image img { width: 32px; height: 32px; }
+    .reward-icon__cost { margin-top: 8px; }
+    .rewardListItem--fixture p { margin-top: 4px; }
+    .streak { padding: 8px; border: 1px solid #53535f; }
+    .balance button, [role="radiogroup"] button { border: 0; border-radius: 4px; background: #35353b; }
+  </style>
+  <!-- twitch-min:production -->
+</head>
+<body>
+  <!-- Sanitized from the supplied reward-center HTML; no account data or CDN assets. -->
+  <div id="reward-dialog" role="dialog" aria-labelledby="channel-points-reward-center-header">
+    <div style="min-width: 0; white-space: nowrap;">
+      <div class="reward-center__content reward-center__content__with-bits-rewards">
+        <div class="rewards-popover-header"><h2 id="channel-points-reward-center-header">Power-ups &amp; Rewards</h2></div>
+        <div role="radiogroup" aria-label="Filter rewards by type">
+          <button data-a-target="reward-filter-all" role="radio" aria-checked="true">All</button>
+          <button data-a-target="reward-filter-power-ups" role="radio" aria-checked="false">Power-Ups</button>
+          <button data-a-target="reward-filter-rewards" role="radio" aria-checked="false">Rewards</button>
+        </div>
+        <div class="scrollable-area" style="overflow-x: hidden; scrollbar-width: thin;">
+          <div style="height: 100%;">
+            <div class="rewards-list">
+              <div id="power-ups-heading" class="section"><p>Power-ups</p></div>
+              <div id="power-up-1" class="bitsRewardListItem--fixture"><button class="tw-interactable">
+                <div class="bitsRewardListItemImage--fixture"></div>
+                <div class="power-up-details"><div class="power-up-title"><p>Gigantify an Emote</p></div><div class="power-up-cost">25</div></div>
+              </button></div>
+              <div id="power-up-2" class="bitsRewardListItem--fixture"><button class="tw-interactable">
+                <div class="bitsRewardListItemImage--fixture"></div>
+                <div class="power-up-details"><div class="power-up-title"><p>Message Effects</p></div><div class="power-up-cost">50</div></div>
+              </button></div>
+              <div id="power-up-3" class="bitsRewardListItem--fixture"><button class="tw-interactable">
+                <div class="bitsRewardListItemImage--fixture"></div>
+                <div class="power-up-details"><div class="power-up-title"><p>On-Screen Celebration</p></div><div class="power-up-cost">100</div></div>
+              </button></div>
+              <div id="rewards-heading" class="section"><div><p>Channel Rewards</p></div></div>
+              <div class="spacer"></div>
+              <div id="watch-streak" class="streak"><div class="watchStreakFooter--fixture">Your Watch Streak: 1 <button aria-label="Open watch streaks menu">Open</button></div></div>
+              <div id="reward-1" class="reward-cell"><div class="rewardListItem--fixture"><button class="tw-interactable"><div class="reward-icon reward-icon--large">
+                <div class="reward-icon__image"><div><img alt="First!" src="../../extension/icons/icon32.png"></div></div><div class="reward-icon__cost" data-test-selector="cost">100</div>
+              </div></button><div><p title="First!">First!</p></div></div></div>
+              <div id="reward-2" class="reward-cell"><div class="rewardListItem--fixture"><button class="tw-interactable"><div class="reward-icon reward-icon--large">
+                <div class="reward-icon__image"><div><img alt="Highlight My Message" src="../../extension/icons/icon32.png"></div></div><div class="reward-icon__cost" data-test-selector="cost">100</div>
+              </div></button><div><p title="Highlight My Message">Highlight My Message</p></div></div></div>
+              <div id="reward-3" class="reward-cell"><div class="rewardListItem--fixture"><button class="tw-interactable"><div class="reward-icon reward-icon--large">
+                <div class="reward-icon__image"><div><img alt="Unlock a Random Sub Emote" src="../../extension/icons/icon32.png"></div></div><div class="reward-icon__cost" data-test-selector="cost">320</div>
+              </div></button><div><p title="Unlock a Random Sub Emote">Unlock a Random Sub Emote</p></div></div></div>
+              <div id="reward-4" class="reward-cell"><div class="rewardListItem--fixture"><button class="tw-interactable"><div class="reward-icon reward-icon--large">
+                <div class="reward-icon__image"><div><img alt="Gift a Subscription" src="../../extension/icons/icon32.png"></div></div><div class="reward-icon__cost" data-test-selector="cost">500,000</div>
+              </div></button><div><p title="Gift a Subscription">Gift a Subscription</p></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="balance"><button aria-label="You have 1,000 Channel Points">1,000</button></div>
+      </div>
+    </div>
+  </div>
+  <div id="outside-rewards" class="rewards-list"><div class="bitsRewardListItem--fixture">Unrelated card</div></div>
+</body>
+</html>

@@ -56,9 +56,12 @@ the extension uses Twitch's own expand control, then lays out the existing rows
 as avatar + count + game. Counts and games update directly with Twitch's DOM.
 Long game names truncate visually but retain Twitch's full-name hover title.
 Only horizontal widths change; overlay flex sizing and sidebar height stay native.
-Disabling the option restores the original width and names, and re-collapses the
-sidebar if it was initially collapsed. Streak prompts and Show More/Less are
-unavailable while their group is on; pause hiding to use them.
+Disabling the option restores the original width and names. Pausing both sidebar
+features also re-collapses the sidebar if it was initially collapsed.
+Before filtering offline rows or changing
+sidebar titles, the extension clicks Twitch's Show More controls and waits for
+their lists to expand. Streak prompts and Show More/Less are unavailable while
+their group is on; pause hiding to use them.
 
 **Sidebar sections** replaces the old header-hiding switch and defaults on even
 if the old switch was off. Headers keep their native markup with short visible
@@ -113,6 +116,12 @@ collapse control, is hidden to free vertical space for messages. This includes
 the replay header. The expand control remains available when chat is collapsed.
 The master switch or **Restore everything** brings the header back.
 
+Replay chat's per-message actions menu is hidden, including its wrapper. The
+master switch restores the menu and its native actions.
+
+Live and replay chat scrollbars are hidden while wheel, trackpad, and keyboard
+scrolling stay native. The master switch restores the scrollbars.
+
 Chat rows receive a **6% tint** of the author's displayed username color, using
 `color-mix` with a translucent fallback. The tint overlays Twitch's existing
 background instead of replacing its background color, preserving native highlight
@@ -123,10 +132,17 @@ The master switch pauses tints and restores the native row backgrounds.
 
 In live and replay chat, consecutive messages from the same account show the
 username only on the first message. Later messages hide the repeated username
-and its colon while retaining timestamps, badges, emotes, text, and author-color
+and its colon while retaining timestamps, emotes, text, and author-color
 tints. Another speaker or a system notice starts a new run with a visible name.
 New messages, deleted rows, and loaded history update the grouping automatically.
 The master switch restores every username and its native click behavior.
+
+Chat shows only the first badge in Twitch's existing order for each sender label.
+Hover or focus that badge to see the other badge names beneath its name in
+Twitch's own tooltip. The popup keeps Twitch's theme and arrow. New badges and
+changed names update automatically; the first badge keeps its native click
+behavior and accessible name. The master switch restores all badges and removes
+the added tooltip details.
 
 The top navigation search field has a transparent border instead of the white
 outline, with a subdued purple inset indicator while focused. Its native typing,
@@ -134,14 +150,15 @@ suggestions, and search controls remain intact.
 
 ## Emote previews
 
-Click a chat emote in a live stream or video replay to add an image at **3 times
-its displayed chat size** to Twitch's own emote-name tooltip. The original name,
-theme, arrow, and Popper placement are retained. If Twitch hasn't mounted its
-tooltip yet, a standalone white bubble appears and moves into the native tooltip
-when its matching name becomes available.
-Click the same emote again, click elsewhere, or press Escape to dismiss it.
-Existing emote buttons also work with Enter or Space. Clicking a different emote
-replaces the bubble. Scrolling or navigating away closes it.
+Hover a chat emote in a live stream or video replay to add an image at **3 times
+its displayed chat size** above the name in Twitch's own emote tooltip. Existing
+name and detail labels, theme, arrow, and Popper placement are retained. If Twitch
+hasn't mounted its matching tooltip yet, the image waits for it; no separate
+popup is shown.
+The image appears on the first hover; moving away or pressing Escape dismisses
+it. Focusing a native emote button also supports the preview. Native click and
+Enter/Space behavior stay intact. Hovering another emote replaces the image;
+scrolling or navigating away closes it.
 Twitch dismissing or reusing its tooltip also closes the enlarged image. Closing
 the extension preview removes only its image and temporary attributes, leaving
 the native wrapper, name, arrow, and original inline styles intact. Tooltip IDs
@@ -151,8 +168,8 @@ The preview uses a larger supplied image variant, or Twitch's existing
 [emote CDN format](https://dev.twitch.tv/docs/irc/emotes/#emote-cdn-url-format),
 without changing its animation format or theme. If that variant is unavailable,
 the original image is enlarged instead. Chat messages keep their original sizes.
-The bubble replaces the emote-name title tooltip while open; the original title
-and click behavior are restored when previews are paused with the master switch
+The preview suppresses browser title bubbles while active; original titles
+are restored when previews are paused with the master switch
 or **Restore everything**. Badges, images outside chat, and composer emotes are
 left to Twitch. Third-party extension emote markup is not specifically supported.
 
@@ -199,7 +216,8 @@ and refresh Twitch. **Remove** uninstalls it and removes its stored preferences.
 
 Coding-agent instructions are in [AGENTS.md](AGENTS.md).
 
-Node 22 or newer is needed for tests. Browser checks also require an installed
+Use the latest Node.js LTS for development. CI selects it directly with `lts/*`.
+Browser checks also require an installed
 Chrome, and packaging checks require Windows PowerShell.
 On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`.
 
@@ -215,10 +233,23 @@ npm.cmd run package
 | `npm.cmd run test:unit` | Settings, content startup/storage, lifecycle, manifest, and CSS contracts | Node |
 | `npm.cmd run test:browser` | Offline Chrome feature fixtures, popup, and harness failures | Node and Chrome |
 | `npm.cmd run test:package` | ZIP contents, missing assets, and preservation on failure in temporary fixtures | Node and Windows PowerShell |
+| `npm.cmd run test:soak` | Optional two-minute message, remount, pause/resume, and player-mode stress check | Node and Chrome |
 
 The [CI workflow](.github/workflows/ci.yml) runs the full suite and packaging on
-Windows with Node 22 for pushes and pull requests. The architecture checks ensure
-the focused commands cover every root test file exactly once.
+Windows with the latest Node.js LTS for pushes and pull requests. Newer runs cancel
+superseded runs for the same ref. The architecture checks ensure
+the focused commands cover every root test file and the browser runner registers
+every feature module exactly once. They also check local inline file links in
+root and `docs/` Markdown files; see [architecture.md](docs/architecture.md#test-organization)
+for the link check's scope.
+
+The optional soak check runs 60 cycles with 200 new messages per cycle, retaining
+at most 300 live and 300 replay rows. It checks cleanup on every pause and remounts
+chat regions periodically. Set `TWITCH_MIN_SOAK_CYCLES` to a positive integer to
+change the run length. Results go to ignored `.browser-tests/soak-results.json`;
+unavailable fullscreen permission is reported separately. This is offline
+resource-cleanup validation, not a measurement of signed-in Twitch performance.
+See [validation notes](docs/validation.md) for the latest checks and their limits.
 
 Packaging requires Windows PowerShell and its built-in .NET ZIP support; no
 additional dependencies are needed. It uses the manifest version and rebuilds the
@@ -229,6 +260,8 @@ manifest and every source file's SHA-256 content, then replaces the release ZIP
 only after validation succeeds. Missing assets or validation failures fail the
 command and preserve the previous release. Packaging tests use isolated temporary
 fixtures and preserve unrelated outputs and private `.browser-tests` HTML files.
+Missing-asset cases are derived from the manifest and the popup's local asset
+references, so new production scripts and styles are covered automatically.
 Packaging does not publish or change extension permissions or Twitch-only scope.
 
 Set `CHROME_PATH` if Chrome is not at a standard location. Browser tests create
@@ -249,7 +282,7 @@ extension/
     regions.js        Shared region discovery and remount notifications
   controllers/
     layout.js         Native sidebar state and text-only navigation controls
-    emotes.js         Click previews for chat emotes and their anchored bubble
+    emotes.js         Hover previews inside Twitch's native emote tooltip
     timestamps.js     Replay timestamp formatting without changing seek targets
     player.js         Wheel volume control and fitted VOD portal sizing
     chat.js           Author-color tints and consecutive-sender labels

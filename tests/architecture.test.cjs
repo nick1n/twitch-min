@@ -7,10 +7,44 @@ const { root, manifest, content, marker, fixtureHTML } = require('./support/prod
 const { loadRules } = require('./support/rules.cjs');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
-test('package and extension versions agree and Node 22 is the declared minimum', () => {
+// Handles inline Markdown destinations (including angle-wrapped paths and titles),
+// not reference links, HTML, nested parentheses, or Markdown escape sequences.
+function localLinks(markdown) {
+  let fence = null;
+  const prose = markdown.split(/\r?\n/).map(line => {
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (marker && (!fence || (marker[1][0] === fence[0] && marker[1].length >= fence.length))) {
+      fence = fence ? null : marker[1];
+      return '';
+    }
+    return fence ? '' : line;
+  }).join('\n').replace(/(`+)([\s\S]*?)\1/g, '');
+  const links = [];
+  const inline = /!?\[[^\]\n]*\]\(\s*(?:<([^>\n]+)>|([^\s()]+))(?:\s+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?\s*\)/g;
+  for (const match of prose.matchAll(inline)) {
+    const destination = match[1] || match[2];
+    if (/^(?:[a-z][a-z\d+.-]*:|#|\/\/)/i.test(destination)) continue;
+    const target = destination.split(/[?#]/, 1)[0];
+    if (target) links.push(decodeURIComponent(target));
+  }
+  return links;
+}
+
+function documentationFiles(directory, prefix = '') {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    if (entry.name.startsWith('.') || entry.name === 'node_modules') return [];
+    const relative = path.join(prefix, entry.name);
+    if (entry.isDirectory()) return documentationFiles(path.join(directory, entry.name), relative);
+    return entry.isFile() && /\.md$/i.test(entry.name) ? [relative] : [];
+  });
+}
+
+test('package and extension versions agree and the test runtime meets the declared Node minimum', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.equal(pkg.version, manifest.version);
-  assert.equal(pkg.engines.node, '>=22');
+  const minimum = /^>=(\d+)$/.exec(pkg.engines.node);
+  assert.ok(minimum, 'declare the minimum Node major in engines.node');
+  assert.ok(Number(process.versions.node.split('.')[0]) >= Number(minimum[1]), `Tests require Node ${minimum[1]} or newer`);
 });
 
 test('focused test commands cover every root test exactly once', () => {
@@ -28,6 +62,39 @@ test('focused test commands cover every root test exactly once', () => {
   assert.equal(new Set(listed).size, listed.length, 'focused test paths must not be duplicated');
   assert.deepEqual(listed.sort(), files, 'focused test paths must match root test files');
   assert.equal(scripts.test, 'node --test tests/*.test.cjs', 'full test command must include every root test');
+});
+
+test('browser runner registers every feature module exactly once', () => {
+  const files = fs.readdirSync(path.join(root, 'tests/browser'))
+    .filter(file => file.endsWith('.cjs')).sort();
+  const registered = [...read('tests/browser.test.cjs').matchAll(/\brequire\(\s*['"]\.\/browser\/([^'"]+\.cjs)['"]\s*\)/g)]
+    .map(match => match[1]);
+  assert.equal(new Set(registered).size, registered.length, 'browser modules must not be registered twice');
+  assert.deepEqual(registered.sort(), files, 'browser registrations must match feature modules');
+});
+
+test('local Markdown links resolve to existing files', () => {
+  const files = [
+    ...fs.readdirSync(root, { withFileTypes: true })
+      .filter(entry => entry.isFile() && /\.md$/i.test(entry.name)).map(entry => entry.name),
+    ...documentationFiles(path.join(root, 'docs'), 'docs')
+  ];
+  for (const file of files) {
+    for (const target of localLinks(read(file))) {
+      assert.ok(fs.existsSync(path.resolve(root, path.dirname(file), target)), `${file}: missing ${target}`);
+    }
+  }
+});
+
+test('local Markdown link extraction ignores code and remote destinations', () => {
+  const sample = [
+    '[broken](missing.md#section) ![image](<folder/a%20b.png> "title")',
+    '[space](<folder/a b.md?raw=1>) [remote](https://example.com) [anchor](#section)',
+    '`[inline](ignored.md)`',
+    '```md', '[fenced](ignored-too.md)', '```',
+    '~~~', '![fenced image](ignored.png)', '~~~'
+  ].join('\n');
+  assert.deepEqual(localLinks(sample), ['missing.md', 'folder/a b.png', 'folder/a b.md']);
 });
 
 test('manifest is Twitch-only, storage-only, with unique local assets', () => {

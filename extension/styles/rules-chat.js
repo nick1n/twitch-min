@@ -3,6 +3,11 @@
   "use strict";
 
   const COMPOSER = globalThis.TwitchMinSelectors.composer;
+  const CHAT_SCROLLERS = ['[data-a-target="chat-scroller"]', '.video-chat__message-list-wrapper'];
+  const REWARDS = '.reward-center__content .rewards-list';
+  const POWER_UP = '[class*="bitsRewardListItem--"]';
+  const REWARD = '[class*="rewardListItem--"]';
+  const REWARD_CELL = `${REWARDS} > :is(${POWER_UP}, :has(> ${REWARD}))`;
 
 
   globalThis.TwitchMinChatRules = Object.freeze([
@@ -17,6 +22,22 @@
       // state's expand control available so chat can still be reopened.
       declaration: 'display: none !important;'
     }],
+    [1.5, {
+      key: 'enabled',
+      selectors: CHAT_SCROLLERS,
+      // Hide only the scrollbar chrome; keep native overflow and scrolling.
+      declaration: 'scrollbar-width: none !important;'
+    }],
+    [1.6, {
+      key: 'enabled',
+      selectors: CHAT_SCROLLERS.map(selector => `${selector}::-webkit-scrollbar`),
+      declaration: 'display: none !important; width: 0 !important; height: 0 !important;'
+    }],
+    [1.7, {
+      key: 'enabled',
+      selectors: ['.vod-message .video-chat__message-menu'],
+      declaration: 'display: none !important;'
+    }],
     [4, {
       key: 'enabled',
       selectors: ['[data-tq-chat-tint]'],
@@ -29,10 +50,32 @@
       // BetterTTV zebra stripes otherwise change the base under equal tints.
       declaration: 'background-color: transparent !important;'
     }],
+    [4.75, {
+      key: 'enabled',
+      selectors: ['.vod-message:not([data-tq-chat-continuation])', '.chat-line__message:not([data-tq-chat-continuation])'],
+      declaration: 'border-top: 1px solid #000 !important;'
+    }],
+    [4.8, {
+      key: 'enabled',
+      selectors: ['.vod-message'],
+      // Inline badges and emotes raise the first text baseline, independently
+      // of the timestamp column's height. Follow that baseline, even on wraps.
+      declaration: 'align-items: baseline !important;'
+    }],
     [5, {
       key: 'enabled',
       selectors: ['[data-tq-chat-continuation] [data-tq-chat-author]', '[data-tq-chat-continuation] [data-tq-chat-separator]', '[data-tq-chat-continuation] :is(.chat-badge, [data-a-target="chat-badge"], .chat-line__message--flair, .chat-author__flair)'],
       declaration: 'display: none !important;'
+    }],
+    [5.5, {
+      key: 'enabled',
+      selectors: ['[data-tq-chat-badge-hidden]'],
+      declaration: 'display: none !important;'
+    }],
+    [5.6, {
+      key: 'enabled',
+      selectors: ['[data-tq-chat-badge-details]'],
+      declaration: 'display: block; white-space: pre-line;'
     }],
     [43, {
       key: "chatLeaderboard",
@@ -87,6 +130,35 @@
       key: "chatComposer",
       selectors: [`${COMPOSER} [data-tq-chat-toggle]:focus-visible`],
       declaration: 'outline: 2px solid var(--color-border-input-focus, #a970ff); outline-offset: 2px;'
+    }],
+    [51, {
+      key: 'enabled',
+      selectors: [REWARDS],
+      // Fixed native card widths can wrap the third card after zoom rounding
+      // and scrollbar space. Let three tracks share the actual available width.
+      declaration: 'display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px !important;'
+    }],
+    [52, {
+      key: 'enabled',
+      selectors: [`${REWARDS} > *`],
+      // Section headings, spacers, and watch-streak content keep their own rows.
+      declaration: 'grid-column: 1 / -1 !important; min-width: 0 !important;'
+    }],
+    [53, {
+      key: 'enabled',
+      selectors: [REWARD_CELL],
+      // Power-ups are direct children; channel rewards have an extra wrapper.
+      declaration: 'grid-column: auto !important; width: 100% !important; min-width: 0 !important; margin: 0 !important; box-sizing: border-box !important;'
+    }],
+    [54, {
+      key: 'enabled',
+      selectors: [`${REWARD_CELL} > ${REWARD}`],
+      declaration: 'width: 100% !important; min-width: 0 !important;'
+    }],
+    [55, {
+      key: 'enabled',
+      selectors: [`${REWARDS} :is(${POWER_UP}, ${REWARD}) > button`, `${REWARDS} .reward-icon--large`],
+      declaration: 'max-width: 100% !important; min-width: 0 !important; box-sizing: border-box !important;'
     }]
   ].map(([order, rule]) => Object.freeze([order, Object.freeze({ ...rule, selectors: Object.freeze(rule.selectors) })])));
 })();

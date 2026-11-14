@@ -9,8 +9,10 @@ test('real Chrome: production features and failures', { timeout: 120000 }, async
     await require('./browser/composer.cjs')(t, browser);
     await require('./browser/player.cjs')(t, browser);
     await require('./browser/chat.cjs')(t, browser);
+    await require('./browser/badges.cjs')(t, browser);
     await require('./browser/layout.cjs')(t, browser);
     await require('./browser/visibility.cjs')(t, browser);
+    await require('./browser/rewards.cjs')(t, browser);
     await require('./browser/popup.cjs')(t, browser);
     await require('./browser/snapshots.cjs')(t, browser);
     await require('./browser/runtime.cjs')(t, browser);
