@@ -11,14 +11,24 @@ conditions that would justify a sidebar state machine or DOM compatibility layer
 
 `extension/shared/settings.js` declares each stable storage key, default, HTML attribute, popup
 title, and description once in `DEFINITIONS`. `DEFAULTS`, `ATTRIBUTES`, and the
-existing eight-entry `GROUPS` popup API are derived from it. The master preference
+`GROUPS` popup API are derived from it. The master preference
 is declared alongside the groups but remains a separate popup control.
+
+The `wheelVolume`, `emotePreviews`, `chatTints`, and `chatGrouping` preferences
+default on, preserving behavior for existing saved settings. Emote previews use
+a feature-specific lifecycle predicate. The player releases its wheel listener
+and volume indicator independently of VOD fitting. Chat tracks the two preferences
+per controller and refreshes only attached regions when either changes; ordinary
+message mutations still visit affected rows and neighbors. Tint and grouping CSS
+use their corresponding preference attributes. Disabling grouping restores
+sender names, separators, and header badges and removes the group borders;
+independent compact-badge behavior remains active until the master is paused.
 
 Feature rule files in `extension/styles/` expose frozen `[cascadeSlot, rule]`
 entries. `extension/styles/rules.js` sorts
 those slots and retains the `TwitchMinRules.RULES` / `buildCSS()` API. The slots
 preserve the existing cross-feature cascade, including interleaved master-switch
-rules. `tests/rules-baseline.json` records the original rule count and SHA-256 of
+rules. `tests/rules-baseline.json` records the reviewed rule count and SHA-256 of
 the complete CSS; an intentional cosmetic change requires reviewing and updating
 that baseline. Shared selectors can be comma-separated lists; descendant rules
 wrap those lists in `:is(...)` so every alternative stays scoped. VOD rules add
@@ -37,7 +47,22 @@ their feature; promote selectors shared across controllers/rules to
 The production dependency order is defined by `extension/manifest.json`.
 `extension/content.js` applies saved preferences and coordinates the controllers.
 The popup's HTML, CSS, and script live in `extension/popup/` and load the same
-shared settings declaration. See [README.md](../README.md#development) for the
+shared settings declaration. Each setting is a native checkbox inside its text
+label, with balanced descriptions referenced by `aria-describedby` and titles
+referenced by `aria-labelledby`. The branded header holds the master pause/resume
+control and a secondary enable-all action, shown only when available. Its hidden
+state reserves the same space to prevent layout shifts. The settings
+list scrolls independently so the header controls remain
+visible. Its native scrollbar is hidden; a bottom navigation control appears
+when the list overflows. At the bottom it becomes Back to top. Activating the
+control scrolls to the corresponding end while retaining focus on the button,
+without highlighting a setting.
+It is hidden when the whole list fits. Scoped scroll events and a ResizeObserver on the list
+and labels keep it current without polling or changing the popup's height.
+The popup supports light/dark colors; status text is reserved for storage
+errors. Blurbs wrap in balanced lines without truncation. Interactive controls
+have subtle hover backgrounds and visible keyboard focus, without motion or
+layout changes. See [README.md](../README.md#development) for the
 repository folder map.
 
 ## Lifecycle recovery
@@ -111,7 +136,10 @@ Chat styling observes affected rows, author changes, and adjacent messages; it
 deduplicates affected rows within each mutation batch and cleans up removed
 subtrees without scanning every retained row. Disabling the
 master switch removes tint variables and temporary grouping attributes.
-The same row pass compacts badges, hiding only their empty layout wrappers.
+The same row pass compacts badges by hiding their empty layout wrappers.
+The first row of a sender run retains one badge; continuation rows hide all badge
+wrappers. When an identity wrapper contains badges, grouping hides the inner name
+and leaves badge visibility to the compactor.
 Delegated hover/focus handlers add the other badge names beneath Twitch's original
 text in its native tooltip, using native titles or image alt names as metadata.
 Tooltip discovery prefers native `aria-describedby` links, with exact-name and
@@ -147,11 +175,17 @@ context unless a content test supplies its own context with DOM and storage mock
 Browser feature modules live in `tests/browser/`. `visibility.cjs` checks page
 visibility, layout, and preference changes, while `popup.cjs` owns popup controls
 and storage failures. `tests/browser.test.cjs` registers the modules sequentially.
+`preferences.cjs` covers independent enhancement restoration and remounts.
 Harness failures have their own suite in `tests/harness.test.cjs`, and ZIP checks
 live in `tests/package.test.cjs`. See [README.md](../README.md#development) for
 full and focused test commands and their requirements.
 
 ## Browser test harness
+
+Both Chrome harnesses use `tests/support/chrome-path.cjs` for executable discovery:
+an explicit path takes precedence over `CHROME_PATH`, followed by the shared list
+of standard installation paths. Invalid overrides reach the launch diagnostics
+instead of silently selecting a different browser.
 
 The browser harness launches one Chrome child and one UUID profile per run,
 reuses their CDP connection for sequential feature modules, and removes only that
@@ -173,3 +207,20 @@ The debugging-target HTTP response and JSON body share a timeout, and WebSocket
 connection setup has its own timeout. Both default to ten seconds. Failure aborts
 the pending request or closes the socket, releases connection listeners and
 timers, and follows the same browser/profile cleanup path.
+Interception failures include the request URL. A stale interception ID is ignored
+only after Chrome confirms that the corresponding network request was cancelled;
+other invalid IDs remain failures. Pending interception handlers settle before
+the final error check so late local responses cannot escape validation.
+
+`tests/extension.test.cjs` uses `tests/support/installed.cjs` for a separate
+installed-extension smoke check. Chrome starts with a temporary profile and a
+debugging pipe, and `Extensions.loadUnpacked` reads the real extension directory.
+The manifest alone registers content scripts in Chrome's isolated world, with
+real `chrome.storage.local`. Requests to the two supported Twitch origins and a
+nonmatching origin are fulfilled from a sanitized fixture with its production
+injection marker removed; other page requests are blocked. The actual extension
+popup page controls two tabs, preserving individual choices through page reload,
+pause/resume, and a full browser restart using the same temporary profile. The
+profile is removed after shutdown, including launch failures. This requires a
+recent Chrome supporting the experimental Extensions debugging domain and does
+not validate authenticated Twitch layouts or the browser action's popup lifetime.

@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const withBrowser = require('./support/chrome.cjs');
+const withInstalledBrowser = require('./support/installed.cjs');
 const { intercept, initSource, manifest, root } = require('./support/production.cjs');
 
 function trackProfiles(t) {
@@ -15,6 +16,49 @@ function trackProfiles(t) {
   });
   t.after(() => mkdirMock.mock.restore());
   return profiles;
+}
+
+test('Chrome harness accepts confirmed cancellation before an intercepted image response', { timeout: 10000 }, async () => {
+  let release, paused;
+  const responseReady = new Promise(resolve => { release = resolve; });
+  const requestPaused = new Promise(resolve => { paused = resolve; });
+  await withBrowser(async ({ navigate, evaluate }) => {
+    await navigate(`extension/${manifest.action.default_popup}`);
+    await evaluate(`window.cancelledImage=new Image();cancelledImage.src='https://fixture.invalid/cancelled-image';document.body.append(cancelledImage)`);
+    await requestPaused;
+    await evaluate(`cancelledImage.removeAttribute('src');cancelledImage.remove()`);
+    release();
+  }, { initSource, intercept: async (params, send) => {
+    if (params.request.url === 'https://fixture.invalid/cancelled-image') {
+      paused();
+      await responseReady;
+      return send('Fetch.fulfillRequest', { requestId: params.requestId, responseCode: 200, body: '' });
+    }
+    return intercept(params, send);
+  } });
+});
+
+test('Chrome harness still rejects an invalid interception ID without a confirmed cancellation', { timeout: 10000 }, async () => {
+  await assert.rejects(withBrowser(async ({ navigate }) => {
+    await navigate(`extension/${manifest.action.default_popup}`);
+  }, { initSource, intercept: (_params, send) =>
+    send('Fetch.fulfillRequest', { requestId: 'not-a-real-interception', responseCode: 200, body: '' })
+  }), /Fixture request failed:[\s\S]*Invalid InterceptionId/);
+});
+
+for (const failure of ['missing executable', 'early process exit']) {
+  test(`installed-extension harness cleans its profile after ${failure}`, { timeout: 5000 }, async t => {
+    const profiles = trackProfiles(t);
+    const chromePath = failure === 'missing executable'
+      ? path.join(root, '.browser-tests', `missing-installed-chrome-${randomUUID()}.exe`) : process.execPath;
+    await assert.rejects(withInstalledBrowser(() => assert.fail('failed launch must not run checks'), { chromePath }), error => {
+      assert.ok(error.message.includes(chromePath), 'launch diagnostics identify the executable');
+      assert.match(error.message, failure === 'missing executable' ? /ENOENT/ : /Chrome debugging pipe closed/);
+      return true;
+    });
+    assert.equal(profiles.length, 1);
+    assert.equal(fs.existsSync(profiles[0]), false, 'the failed run removes only its isolated profile');
+  });
 }
 
 for (const failure of ['missing executable', 'early process exit']) {

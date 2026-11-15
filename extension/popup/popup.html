@@ -9,44 +9,31 @@
   <script src="popup.js" defer></script>
 </head>
 <body>
-  <main class="popup" aria-labelledby="app-title">
-    <header class="header">
-      <img class="brand-mark" src="../icons/logo.svg" width="39" height="39" alt="" aria-hidden="true">
-      <div class="brand-copy">
-        <p class="eyebrow">A calmer Twitch</p>
-        <h1 id="app-title">twitch-min</h1>
+  <main aria-labelledby="app-title">
+    <header>
+      <div class="brand">
+        <img src="../icons/logo.svg" width="28" height="28" alt="" aria-hidden="true">
+        <div>
+          <h1 id="app-title">twitch-min</h1>
+          <p class="subtitle">A cleaner Twitch</p>
+        </div>
       </div>
-      <label class="switch master-switch" for="master-toggle">
-        <span class="sr-only">Enable twitch-min</span>
-        <input id="master-toggle" type="checkbox" role="switch" aria-label="Enable twitch-min" disabled>
-        <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-      </label>
+      <div class="controls">
+        <label title="Pause or resume without changing your choices">
+          <input id="master-toggle" type="checkbox" disabled>
+          Enabled
+        </label>
+        <button id="enable-all-button" type="button" title="Turn every setting on and resume" disabled hidden>Enable all settings</button>
+      </div>
     </header>
-    <p id="mode-note" class="mode-note" role="status"></p>
 
-    <section class="settings" aria-labelledby="settings-title">
-      <div class="section-heading">
-        <h2 id="settings-title">Hide on Twitch</h2>
-        <span class="section-caption">Choose what stays out of view</span>
-      </div>
-      <div id="groups" class="group-list" aria-live="polite" aria-busy="true">
-        <p class="loading">Loading your preferences…</p>
-      </div>
-    </section>
-
-    <div id="status" class="status" role="status" aria-live="polite" hidden></div>
-
-    <div class="actions">
-      <button id="restore-button" class="button button-secondary" type="button" disabled>Restore everything</button>
-      <button id="preset-button" class="button button-primary" type="button" disabled>
-        <span aria-hidden="true">✦</span> Use screenshot preset
-      </button>
+    <div id="groups" role="group" aria-label="Preferences" aria-busy="true">
+      <p>Loading…</p>
     </div>
+    <p id="scroll-cue"><button id="more-settings" type="button" hidden>More settings ↓</button></p>
 
-    <footer class="footer">
-      <span class="footer-icon" aria-hidden="true">◉</span>
-      <p>Preferences apply to open Twitch tabs. Your page content is never sent anywhere.</p>
-    </footer>
+    <p id="status" role="status" hidden></p>
+
   </main>
 </body>
 </html>

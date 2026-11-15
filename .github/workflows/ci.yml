@@ -22,3 +22,15 @@ jobs:
           package-manager-cache: false
       - run: npm.cmd test
       - run: npm.cmd run package
+      - name: Identify validated package
+        id: package
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          "path=dist/twitch-min-$version.zip" >> $env:GITHUB_OUTPUT
+      - name: Upload validated package
+        uses: actions/upload-artifact@v7
+        with:
+          name: twitch-min-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.package.outputs.path }}
+          if-no-files-found: error

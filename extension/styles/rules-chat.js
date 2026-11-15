@@ -4,6 +4,7 @@
 
   const COMPOSER = globalThis.TwitchMinSelectors.composer;
   const CHAT_SCROLLERS = ['[data-a-target="chat-scroller"]', '.video-chat__message-list-wrapper'];
+  const NON_CAROUSEL = `${globalThis.TwitchMinSelectors.chatRoot}, ${COMPOSER}, .sticky-community-highlight`;
   const REWARDS = '.reward-center__content .rewards-list';
   const POWER_UP = '[class*="bitsRewardListItem--"]';
   const REWARD = '[class*="rewardListItem--"]';
@@ -39,19 +40,19 @@
       declaration: 'display: none !important;'
     }],
     [4, {
-      key: 'enabled',
+      key: 'chatTints',
       selectors: ['[data-tq-chat-tint]'],
       // Overlay the native background so mentions and moderation highlights stay.
       declaration: 'background-image: linear-gradient(var(--tq-chat-tint), var(--tq-chat-tint)) !important; background-image: linear-gradient(color-mix(in srgb, var(--tq-chat-color) 6%, transparent), color-mix(in srgb, var(--tq-chat-color) 6%, transparent)) !important; border-radius: 2px;'
     }],
     [4.5, {
-      key: 'enabled',
+      key: 'chatTints',
       selectors: ['[data-tq-chat-tint].bttv-split-chat-alt-bg'],
       // BetterTTV zebra stripes otherwise change the base under equal tints.
       declaration: 'background-color: transparent !important;'
     }],
     [4.75, {
-      key: 'enabled',
+      key: 'chatGrouping',
       selectors: ['.vod-message:not([data-tq-chat-continuation])', '.chat-line__message:not([data-tq-chat-continuation])'],
       declaration: 'border-top: 1px solid #000 !important;'
     }],
@@ -63,8 +64,8 @@
       declaration: 'align-items: baseline !important;'
     }],
     [5, {
-      key: 'enabled',
-      selectors: ['[data-tq-chat-continuation] [data-tq-chat-author]', '[data-tq-chat-continuation] [data-tq-chat-separator]', '[data-tq-chat-continuation] :is(.chat-badge, [data-a-target="chat-badge"], .chat-line__message--flair, .chat-author__flair)'],
+      key: 'chatGrouping',
+      selectors: ['[data-tq-chat-continuation] [data-tq-chat-author]', '[data-tq-chat-continuation] [data-tq-chat-separator]'],
       declaration: 'display: none !important;'
     }],
     [5.5, {
@@ -83,6 +84,9 @@
         // Remove the whole strip, including its carousel arrows and fixed height.
         '.chat-room__content > :has([data-test-selector="leaderboard-item-name-test-selector"])',
         '.chat-room__content > :has(button[aria-label^="Expand Top"][aria-label$="Leaderboard"])',
+        // Goal slides have no ranking labels. Match their progress indicator
+        // inside the carousel transition group, excluding native chat regions.
+        `.chat-room__content > :has(.tw-transition-group :is([role="progressbar"], .tw-progress-bar)):not(:is(${NON_CAROUSEL})):not(:has(:is(${NON_CAROUSEL})))`,
         '.chat-room__content > .channel-leaderboard',
         '.chat-room__content > [data-test-selector="channel-leaderboard"]'
       ],
@@ -92,12 +96,26 @@
       key: "chatTimestamps",
       selectors: ['[data-tq-time]'],
       // Keep Twitch's original text and seek handler; change visual formatting.
-      declaration: "font-size: 0 !important;"
+      declaration: 'font-size: 0 !important; display: inline-block !important; position: relative; width: max-content !important; width: calc-size(max-content, round(up, size, 1px)) !important; min-width: 0 !important; max-width: none !important; padding-inline: 0 !important; white-space: nowrap !important; text-align: right !important; font-variant-numeric: tabular-nums; font-kerning: none;'
+    }],
+    [44.1, {
+      key: 'chatTimestamps',
+      selectors: ['[data-tq-time]::before'],
+      // Measure the actual four digits and colon in the timestamp font. 5ch
+      // would reserve a fifth digit's width instead of the narrower colon.
+      declaration: 'content: "00:00"; font-size: 12px !important; line-height: inherit; visibility: hidden;'
+    }],
+    [44.2, {
+      key: 'chatTimestamps',
+      selectors: ['.vod-message__header:has([data-tq-time])', '.vod-message__header :is(button, a, div):has([data-tq-time])'],
+      // Round intrinsic sizing up in current Chrome; retain the content-width
+      // fallback for older versions. Native wrappers add no padding or width.
+      declaration: 'flex: 0 0 auto !important; width: max-content !important; width: calc-size(max-content, round(up, size, 1px)) !important; min-width: 0 !important; max-width: none !important; padding-inline: 0 !important; border-inline-width: 0 !important;'
     }],
     [45, {
       key: "chatTimestamps",
       selectors: ['[data-tq-time]::after'],
-      declaration: 'content: attr(data-tq-time); font-size: 12px !important; line-height: inherit;'
+      declaration: 'content: attr(data-tq-time); font-size: 12px !important; line-height: inherit; position: absolute; top: 0; right: 0; text-align: right;'
     }],
     [46, {
       key: "chatComposer",

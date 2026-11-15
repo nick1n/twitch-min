@@ -2,6 +2,36 @@
 
 Historical changes and verification notes, in release order.
 
+## Unreleased
+
+- Share Chrome executable discovery between both browser harnesses and preserve
+  the popup's intended text size against Chrome extension-page defaults.
+- Keep compact popup branding and balanced, wrapping descriptions in a scrollable
+  list. Consolidate pause/resume into the master control and retain a secondary
+  Enable all settings action, shown only when available without changing layout.
+- Add pointer cursors and subtle hover/focus feedback to popup controls, with
+  straight inset separators and rounded hover backgrounds.
+- Hide the popup scrollbar and show a bottom More settings action while additional
+  options remain below view. It switches to Back to top at the bottom; either
+  direction scrolls while keeping focus on the button, preserving native
+  scrolling and keyboard navigation without highlighting settings.
+- Handle confirmed image-request cancellations in the browser harness without
+  hiding genuine interception errors.
+- Add independent switches for wheel volume, enlarged emote previews, chat author
+  tints, and consecutive-message grouping, preserving current defaults and saved choices.
+- Verify real unpacked installation, Chrome storage, isolated content scripts,
+  cross-tab popup updates, Twitch-only scope, page reload, and browser restart
+  with offline fixtures in a temporary Chrome profile.
+- Retain the validated installable ZIP as a GitHub Actions artifact after packaging.
+- Hide goal slides in the chat leaderboard carousel on refresh and later mounts,
+  without waiting for a rankings slide to appear; restore the strip when paused.
+- Right-align shortened replay timestamps in a column sized to 00:00 and rounded
+  up to the next whole CSS pixel in current Chrome,
+  preserving native seek targets and restoring native sizing when paused.
+- Keep one badge beside each visible username in live and replay chat. Hide
+  repeated badge wrappers on continuation messages along with the name and colon;
+  preserve shared identity wrappers and restore all badges when paused.
+
 ## 0.19.0 - Twitch layout, chat, and reliability improvements
 
 - Expand native Show More lists before sidebar filtering and compact styling,

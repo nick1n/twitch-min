@@ -46,6 +46,45 @@ module.exports = async (t, { navigate, evaluate, isVisible }) => {
     assert.equal(await details('vod-tooltip'), 'Bits Leader 3');
   });
 
+  await t.test('live and replay sender runs show one header badge and hide continuation badge wrappers', async () => {
+    await navigate('tests/fixtures/chat-badge-groups.html');
+    const first = ['vod-start-first','vod-single-first','vod-inline-first','live-start-first','live-inline-first'];
+    const extras = ['vod-start-extra','vod-inline-extra','live-start-extra','live-inline-extra'];
+    const names = ['vod-single-author','vod-inline-author','live-inline-author'];
+    const assertCompact = async () => {
+      const rows = await evaluate(`[...document.querySelectorAll('.vod-message, .chat-line__message')].map(row=>({id:row.id,continuation:row.hasAttribute('data-tq-chat-continuation'),visible:[...row.querySelectorAll('.chat-badge')].filter(node=>node.checkVisibility({checkVisibilityCSS:true})).length,nameVisible:row.querySelector('[data-a-target="chat-message-username"]').checkVisibility({checkVisibilityCSS:true})}))`);
+      for (const row of rows) {
+        assert.equal(row.visible, row.continuation ? 0 : 1, `${row.id}: only a visible username gets a badge`);
+        assert.equal(row.nameVisible, !row.continuation, `${row.id}: grouping and badges stay aligned`);
+      }
+    };
+    await assertCompact();
+    await nativeTooltip('6-Month Subscriber', { source: 'vod-start-first' });
+    await hover('vod-start-first');
+    assert.equal(await details(), 'Prime', 'the retained badge still lists the hidden badge in Twitch\'s tooltip');
+    await evaluate(`window.nativeBadgeClicks=0;document.querySelector('#live-inline-control').addEventListener('click',()=>nativeBadgeClicks++);__storagePatch({enabled:false})`);
+    assert.equal(await details(), null, 'pause removes added tooltip details');
+    for (const id of [...first,...extras,...names]) assert.equal(await isVisible(id), true, `${id} restores`);
+    await evaluate(`document.querySelector('#live-inline-control').click()`);
+    assert.equal(await evaluate(`nativeBadgeClicks`), 1, 'pause restores the original badge handler');
+    await evaluate(`window.laterBadgeRow=document.querySelector('#vod-inline').cloneNode(true);for(const node of [laterBadgeRow,...laterBadgeRow.querySelectorAll('[id]')])node.removeAttribute('id');laterBadgeRow.id='later-badge-row';laterBadgeRow.querySelector('.chat-badge').id='later-first';laterBadgeRow.querySelectorAll('.chat-badge')[1].id='later-extra';laterBadgeRow.querySelector('[data-a-target="chat-message-username"]').id='later-author';__storagePatch({enabled:true})`);
+    await assertCompact();
+    await evaluate(`document.querySelector('#grouped-vod .video-chat__message-list-wrapper').append(laterBadgeRow)`);
+    for (const id of ['later-first','later-extra','later-author']) assert.equal(await isVisible(id), false, 'later continuation badges stay hidden');
+    await evaluate(`document.querySelector('#vod-start').remove()`);
+    assert.equal(await isVisible('vod-single-first'), true, 'trimming history restores the new leading row\'s single badge');
+    assert.equal(await isVisible('vod-single-author'), true);
+    await evaluate(`document.querySelector('#vod-single').remove()`);
+    assert.equal(await isVisible('vod-inline-first'), true, 'the new leading shared identity wrapper keeps one badge');
+    assert.equal(await isVisible('vod-inline-extra'), false);
+    await assertCompact();
+    await evaluate(`window.oldBadgeRegion=document.querySelector('#grouped-vod');oldBadgeRegion.remove();history.pushState({},'', '?another-video')`);
+    assert.equal(await evaluate(`oldBadgeRegion.querySelector('[data-tq-chat-badge-hidden], [data-tq-chat-author]')`), null, 'navigation restores detached rows');
+    await evaluate(`document.body.prepend(oldBadgeRegion)`);
+    await assertCompact();
+    assert.equal(await isVisible('later-first'), false, 'remounted continuation badges stay hidden');
+  });
+
   await t.test('native badge popup retains its text nodes, theme, arrow, role and placement; late and reused tooltips stay safe', async () => {
     await navigate('tests/fixtures/chat-badges.html');
     await evaluate(`document.querySelector('#live-first-image').alt='Founder badge';document.querySelector('#live-first').setAttribute('aria-label','Founder')`);

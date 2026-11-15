@@ -10,6 +10,8 @@
   const TOOLTIP = globalThis.TwitchMinSelectors.tooltip;
   const badgeOwners = new WeakMap();
   const BARRIER = Symbol('chat boundary');
+  let preferences = {};
+  const refreshRegions = new Set();
   function attachChat(root, onCleanup) {
     const marked = new Set();
     const grouped = new Set();
@@ -146,7 +148,8 @@
       const badges = [...row.querySelectorAll(BADGE)].filter(node =>
         node.closest(ROW) === row && !node.parentElement.closest(BADGE) &&
         !node.closest('.text-fragment, [data-a-target="chat-message-text"], .video-chat__message'));
-      if (badges.length < 2) { clearBadges(row); return; }
+      const continuation = row.hasAttribute('data-tq-chat-continuation');
+      if (!badges.length || (badges.length === 1 && !continuation)) { clearBadges(row); return; }
       let state = badgeRows.get(row);
       if (!state) {
         state = { hidden: new Set(), release: () => clearBadges(row) };
@@ -159,7 +162,9 @@
         return badgeName(badge.getAttribute('title') || image?.getAttribute('title') ||
           image?.getAttribute('alt') || badge.getAttribute('aria-label') || badge.textContent);
       };
-      const hidden = new Set(badges.slice(1).map(badge => {
+      // Badge labels belong to the visible sender header, not every message in
+      // its run. Hide entire badge wrappers when the repeated name is hidden.
+      const hidden = new Set((continuation ? badges : badges.slice(1)).map(badge => {
         // Remove the badge's empty layout wrappers too, without hiding names,
         // timestamps, other badges or any unrelated text/control.
         let node = badge;
@@ -276,7 +281,9 @@
       const key = sender(row, author);
       if (!key || !previous?.matches(ROW) || sender(previous) !== key) { clearGroup(row); return; }
       const container = author.closest('.video-chat__message-author, .chat-line__username, .chat-line__username-container, button');
-      const identity = container && row.contains(container) ? container : author;
+      // Some native identity wrappers also contain badges. Hide only the name
+      // in that case, leaving badge visibility to compactBadges.
+      const identity = container && row.contains(container) && !container.querySelector(BADGE) ? container : author;
       const separators = [...row.querySelectorAll('.chat-line__message--colon, [data-a-target="chat-message-separator"], .chat-line__username-container + span[aria-hidden="true"], .video-chat__message > span:first-child')]
         .filter(node => node.closest(ROW) === row && node.textContent.trim() === ':' &&
           !node.matches('.text-fragment, [data-a-target="chat-message-text"]') &&
@@ -293,8 +300,9 @@
 
     function update(row) {
       const author = authorFor(row);
-      tint(row, author);
-      group(row, author);
+      tint(row, preferences.chatTints === false ? null : author);
+      if (preferences.chatGrouping === false) clearGroup(row);
+      else group(row, author);
       compactBadges(row);
     }
 
@@ -376,7 +384,14 @@
       flush(dirty, neighbors);
     });
 
+    const refresh = () => {
+      const dirty = new Set();
+      const neighbors = new Set();
+      visit(root, dirty, neighbors);
+      flush(dirty, neighbors);
+    };
     onCleanup(() => {
+      refreshRegions.delete(refresh);
       closeBadgeHint();
       for (const type of ['pointerover', 'focusin']) root.removeEventListener(type, openBadgeHint, true);
       for (const type of ['pointerout', 'focusout']) root.removeEventListener(type, leaveBadgeHint, true);
@@ -395,16 +410,22 @@
     document.addEventListener('scroll', dismissBadgeHint, true);
     document.addEventListener('keydown', dismissBadgeHint, true);
     for (const type of ['popstate', 'hashchange', 'pagehide', 'resize']) window.addEventListener(type, dismissBadgeHint);
-    const dirty = new Set();
-    const neighbors = new Set();
-    visit(root, dirty, neighbors);
-    flush(dirty, neighbors);
+    refreshRegions.add(refresh);
+    refresh();
     observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['style', 'class', 'data-a-user', 'data-user-id', 'data-a-user-id', 'href', 'alt', 'title', 'aria-label', 'data-a-target'] });
   }
 
   let stopRegions = null;
   globalThis.TwitchMinChat = globalThis.TwitchMinRuntime.create({
-    attach() { stopRegions = globalThis.TwitchMinRegions.watch(LIST, attachChat, stop => { stopRegions = stop; }); },
+    attach(settings) {
+      preferences = settings;
+      stopRegions = globalThis.TwitchMinRegions.watch(LIST, attachChat, stop => { stopRegions = stop; });
+    },
+    update(settings) {
+      const changed = preferences.chatTints !== settings.chatTints || preferences.chatGrouping !== settings.chatGrouping;
+      preferences = settings;
+      if (changed) for (const refresh of refreshRegions) refresh();
+    },
     dispose() { stopRegions?.(); stopRegions = null; }
   });
 })();

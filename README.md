@@ -1,7 +1,7 @@
 # twitch-min
 
-A small Manifest V3 Chrome extension that hides the Twitch controls highlighted
-in the supplied screenshot. Vanilla JavaScript and CSS; no build or npm install
+A small Manifest V3 Chrome extension for a calmer Twitch, with cosmetic changes
+and interactive enhancements. Vanilla JavaScript and CSS; no build or npm install
 is required to use it.
 
 ## Install locally
@@ -22,12 +22,13 @@ ZIP when Chrome loads this repository's `extension` folder directly: reload the
 extension at `chrome://extensions` and refresh Twitch after changes. Packaging
 does not publish the extension. See [Chrome's preparation guide](https://developer.chrome.com/docs/webstore/prepare).
 
-All eight groups are enabled initially. Toggle any group independently, use the
-master switch or **Restore everything** to pause hiding, and choose **Use screenshot
-preset** to enable all groups again. Restoring preserves your individual choices.
+All settings are enabled initially. Use **Enabled** to pause or resume without
+changing your individual choices. **Enable all settings** selects every setting
+and resumes the extension; it only appears when available. **More settings ↓**
+jumps to the bottom of the settings list, then becomes **Back to top ↑**.
 Preferences update open Twitch tabs without a reload after the first installation.
 
-## What it hides
+## Cosmetic switches
 
 | Switch | Hides | Preserves |
 | --- | --- | --- |
@@ -36,7 +37,7 @@ Preferences update open Twitch tabs without a reload after the first installatio
 | Top navigation extras | Luna/Prime offers including its badge, Shouts, Gift Turbo (including text-only buttons), Bits | Notification bell and badge, search, browsing, whispers, and account controls |
 | Channel action extras | Share (including VOD pages), channel notification bell, Bits, Gift a Sub, visible Subscribe/Resubscribe labels | Follow, subscription icons and dropdown arrow, title, tags, and viewer count |
 | About & lower channel section | About/panels, the VOD channel card, and recommendations; the player fills available space above its details | Video title, category, views, and chat; native theatre/fullscreen sizing |
-| Chat leaderboard | Gift/cheer ranking strip and its carousel arrows | Chat messages |
+| Chat leaderboard | Gift/cheer ranking strip, goal slides, and carousel arrows | Chat messages |
 | Chat message composer | Input strip and its inline tools until Chat is clicked; native Send button | Points, settings, and a Chat toggle to show/hide the editor |
 | Short video chat times | Seconds in replay timestamp labels: `1:32:56` becomes `1:32`, `5:26` becomes `0:05` | Visible hours:minutes, original seek targets, and message text |
 
@@ -47,7 +48,7 @@ A separate button replaces the visible native Send control, so the toggle works
 even when Twitch disables Send for an empty draft. It supports mouse, Enter,
 and Space activation, with an accessible expanded state. The open/closed state
 is local to the current composer and does not change your saved preferences.
-Turning off **Chat message composer**, the master switch, or **Restore everything**
+Turning off **Chat message composer** or the master switch
 restores Twitch's original editor and Send button. Hidden controls use `display: none`.
 
 The compact sidebar keeps Twitch's expanded metadata mounted, because Twitch
@@ -76,6 +77,10 @@ Rows are 38px tall, with 12px section headers and 26px avatars.
 Replay time formatting uses a visual label over Twitch's unchanged timestamp text,
 so clicking a time still seeks to the original second. Turn off **Short video chat
 times** to show the full native timestamps.
+Short labels are right-aligned in a fixed column measuring `00:00` in the timestamp
+font, rounded up to the next whole CSS pixel in current Chrome, with tabular
+digits and no extra width from native button padding. Older Chrome versions
+without intrinsic-size rounding retain the exact content-width fallback.
 
 **Channel action extras** also covers the live action row when Twitch places it
 outside `.channel-info-content`, including its reused navigation-style Bits
@@ -98,7 +103,7 @@ notch changes volume by 5%; smaller trackpad deltas make smaller adjustments.
 The level is clamped to 0–100%, and scrolling up unmutes the video. A short volume
 indicator appears, and Twitch's volume slider is updated too. Scrolling in chat,
 the sidebar, or player menus keeps its normal behavior; Ctrl+wheel still zooms.
-The master switch pauses wheel volume control.
+Turn off **Wheel volume** or pause the extension to restore normal wheel behavior.
 
 With **About & lower channel section** enabled on a VOD, the player and its metadata
 fill the available main-column height. The player portal follows the actual video
@@ -114,7 +119,7 @@ starts; disabling it restores native sizing and removes the extension's height.
 The top chat header bar, including its title, community button, and floating
 collapse control, is hidden to free vertical space for messages. This includes
 the replay header. The expand control remains available when chat is collapsed.
-The master switch or **Restore everything** brings the header back.
+The master switch brings the header back.
 
 Replay chat's per-message actions menu is hidden, including its wrapper. The
 master switch restores the menu and its native actions.
@@ -128,16 +133,18 @@ background instead of replacing its background color, preserving native highligh
 colors. New messages, reused rows, and changed username colors update automatically.
 Live chat reads the inner colored display name before falling back to its
 clickable username wrapper, which can inherit the ordinary gray text color.
-The master switch pauses tints and restores the native row backgrounds.
+Turn off **Chat author tints** or pause the extension to restore native row backgrounds.
 
 In live and replay chat, consecutive messages from the same account show the
 username only on the first message. Later messages hide the repeated username
 and its colon while retaining timestamps, emotes, text, and author-color
 tints. Another speaker or a system notice starts a new run with a visible name.
 New messages, deleted rows, and loaded history update the grouping automatically.
-The master switch restores every username and its native click behavior.
+Turn off **Group consecutive messages** or pause the extension to restore every
+username and its native click behavior. This also removes the sender-group borders.
 
-Chat shows only the first badge in Twitch's existing order for each sender label.
+Each visible username keeps the first badge in Twitch's existing order.
+Continuation messages hide their badges along with the repeated username.
 Hover or focus that badge to see the other badge names beneath its name in
 Twitch's own tooltip. The popup keeps Twitch's theme and arrow. New badges and
 changed names update automatically; the first badge keeps its native click
@@ -169,9 +176,9 @@ The preview uses a larger supplied image variant, or Twitch's existing
 without changing its animation format or theme. If that variant is unavailable,
 the original image is enlarged instead. Chat messages keep their original sizes.
 The preview suppresses browser title bubbles while active; original titles
-are restored when previews are paused with the master switch
-or **Restore everything**. Badges, images outside chat, and composer emotes are
-left to Twitch. Third-party extension emote markup is not specifically supported.
+are restored when **Enlarged emote previews** is turned off or the extension is
+paused. Badges, images outside chat, and composer emotes are left to Twitch.
+Third-party extension emote markup is not specifically supported.
 
 ## Verification and current limits
 
@@ -184,8 +191,15 @@ insertions, same-document navigation, restoration, failures, and the actual popu
 It also checks emote preview dimensions, image source selection, keyboard controls,
 dismissal, late messages, viewport edges, and image-load fallback. Emote image
 requests in tests are intercepted and fulfilled locally, without contacting Twitch.
-It does **not** claim to install the extension into your Chrome profile or verify
-all signed-in Twitch UI variants. When `.browser-tests/test.html` or
+An additional smoke test loads the actual unpacked extension in a temporary
+Chrome profile. It uses real local storage and content-script isolation, checks
+popup changes across two Twitch-origin tabs, page reload and browser restart,
+and verifies that a non-Twitch page is untouched. These pages are local fixtures
+served through Chrome's request interception; no Twitch page or account is used.
+The test needs a recent Chrome with the experimental
+[Extensions.loadUnpacked debugging command](https://chromedevtools.github.io/devtools-protocol/tot/Extensions/#method-loadUnpacked).
+It never loads the extension into your everyday Chrome profile or verifies
+signed-in Twitch UI variants. When `.browser-tests/test.html` or
 `.browser-tests/live.html` exists, additional tests parse that supplied HTML
 inertly, block HTTP requests, and import sanitized UI fragments to check the
 actual selectors. The private HTML stays ignored and is not included in the
@@ -231,7 +245,7 @@ npm.cmd run package
 | Command | Checks | Requirements |
 | --- | --- | --- |
 | `npm.cmd run test:unit` | Settings, content startup/storage, lifecycle, manifest, and CSS contracts | Node |
-| `npm.cmd run test:browser` | Offline Chrome feature fixtures, popup, and harness failures | Node and Chrome |
+| `npm.cmd run test:browser` | Offline Chrome fixtures, installed-extension smoke check, popup, and harness failures | Node and recent Chrome |
 | `npm.cmd run test:package` | ZIP contents, missing assets, and preservation on failure in temporary fixtures | Node and Windows PowerShell |
 | `npm.cmd run test:soak` | Optional two-minute message, remount, pause/resume, and player-mode stress check | Node and Chrome |
 
@@ -242,6 +256,10 @@ the focused commands cover every root test file and the browser runner registers
 every feature module exactly once. They also check local inline file links in
 root and `docs/` Markdown files; see [architecture.md](docs/architecture.md#test-organization)
 for the link check's scope.
+
+After packaging succeeds, CI retains the validated ZIP as a workflow artifact.
+Download it from the run's **Artifacts** section and extract the artifact wrapper
+to get the installable `twitch-min-<version>.zip`. The workflow does not publish a release.
 
 The optional soak check runs 60 cycles with 200 new messages per cycle, retaining
 at most 300 live and 300 replay rows. It checks cleanup on every pause and remounts
@@ -304,6 +322,7 @@ tests/
   settings.test.cjs    Stable preference API and malformed-value normalization
   runtime.test.cjs     Lifecycle failure cleanup and retry checks
   browser.test.cjs     One browser run, sequential feature registration
+  extension.test.cjs   Installed extension, real storage, tabs, reload, restart, and scope
   harness.test.cjs     Chrome launch failures, profile cleanup, and page exception reporting
   package.test.cjs     ZIP contents and packaging failure recovery
   browser/*.cjs        Independent feature checks and optional snapshot imports
@@ -311,6 +330,7 @@ tests/
   browser/popup.cjs    Popup controls, saved settings, and storage failures
   browser/runtime.cjs  Integration lifecycle, region, timestamp, and no-op regressions
   support/chrome.cjs   Reusable Chrome/CDP resource lifecycle and page helpers
+  support/installed.cjs Isolated installed-extension Chrome profile and debugging pipe
   support/production.cjs Manifest-driven fixture scripts/styles and local network policy
   support/rules.cjs    Shared VM loader for settings and rules in manifest order
   support/mock-storage.cjs Shared Chrome storage mock injected into browser pages

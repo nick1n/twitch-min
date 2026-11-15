@@ -1,6 +1,48 @@
 const assert = require('node:assert/strict');
 
 module.exports = async (t, { navigate, evaluate, isVisible, send, waitFor }) => {
+    await t.test('short replay times round the 00:00 column up to whole pixels with right-aligned labels and native seek targets', async () => {
+      await navigate('tests/fixtures/chat-alignment.html');
+      await evaluate(`document.querySelector('#plain-time').textContent='0:07:09';document.querySelector('#badge-time').textContent='12:34:56';document.querySelector('#emote-time').textContent='1:11:10';window.timeSeeks=0;document.querySelector('#plain-time').parentElement.addEventListener('click',()=>timeSeeks++)`);
+      const measure = () => evaluate(`(()=>{
+        const ids=['plain-time','badge-time','emote-time','continuation-time','wrapped-time'];
+        return ids.map(id=>{
+          const node=document.getElementById(id),sizing=getComputedStyle(node,'::before'),label=getComputedStyle(node,'::after');
+          const sample=document.createElement('span');sample.textContent='00:00';sample.style.cssText='position:absolute;visibility:hidden;white-space:nowrap';
+          for(const property of ['font-family','font-size','font-weight','font-style','font-variant-numeric','font-kerning','letter-spacing'])sample.style.setProperty(property,sizing.getPropertyValue(property));
+          document.body.append(sample);const expected=Math.ceil(sample.getBoundingClientRect().width);sample.remove();
+          return {id,width:node.getBoundingClientRect().width,headerWidth:node.closest('.vod-message__header').getBoundingClientRect().width,expected,right:label.right,align:getComputedStyle(node).textAlign,placeholder:sizing.content,label:label.content};
+        });
+      })()`);
+      const assertColumns = async () => {
+        const times=await measure();
+        for(const time of times) {
+          assert.equal(time.width,time.expected, `${time.id}: label width rounds 00:00 up to a whole pixel`);
+          assert.ok(Number.isInteger(time.headerWidth), `${time.id}: the native wrapper width is also a whole pixel`);
+          assert.ok(Math.abs(time.headerWidth-time.expected)<0.02, `${time.id}: wrappers add no width`);
+          assert.equal(time.right,'0px');assert.equal(time.align,'right');assert.equal(time.placeholder,'"00:00"');
+        }
+        assert.equal(times[0].label,'"0:07"');assert.equal(times[1].label,'"12:34"');
+      };
+      await assertColumns();
+      await evaluate(`document.querySelector('.video-chat').style.letterSpacing='0.123px'`);
+      await assertColumns();
+      await evaluate(`document.querySelector('.video-chat').style.letterSpacing=''`);
+      await assertColumns();
+      await evaluate(`document.querySelector('#plain-time').click()`);
+      assert.equal(await evaluate(`timeSeeks`), 1);
+      assert.equal(await evaluate(`document.querySelector('#plain-time').textContent`), '0:07:09');
+      await evaluate(`__storagePatch({chatTimestamps:false})`);
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('#plain-time'),'::before').content`), 'none');
+      assert.equal(await evaluate(`document.querySelector('#plain-time').hasAttribute('data-tq-time')`), false);
+      await evaluate(`__storagePatch({chatTimestamps:true})`);
+      await assertColumns();
+      await evaluate(`const rows=document.querySelector('#alignment-rows');rows.replaceWith(rows.cloneNode(true));history.pushState({},'', '?later-times')`);
+      await assertColumns();
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('#badge-time'),'::before').content`), 'none');
+    });
+
     await t.test('replay message menus hide as a whole, cover later rows and restore native actions on pause', async () => {
       await navigate('tests/fixtures/twitch.html');
       await evaluate(`(()=>{
@@ -164,7 +206,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, send, waitFor }) => 
       assert.notEqual(colors[0].image, colors[1].image, 'different name colors produce different backgrounds');
       for (const color of colors) assert.match(color.image, /0\.06/, 'tints stay subtle');
       assert.equal(colors[1].background, 'rgb(40, 40, 40)', 'native highlights remain under the tint');
-      assert.equal(await isVisible('live-repeat-badge'), false);
+      assert.equal(await isVisible('live-repeat-badge'), false, 'badges follow the hidden repeated username');
       for (const id of ['live-repeat-wrapper','live-repeat-colon']) assert.equal(await isVisible(id), false, `${id} stays grouped`);
       for (const id of ['live-repeat-body','live-repeat-emote']) assert.equal(await isVisible(id), true, `${id} stays visible`);
       await evaluate(`document.querySelector('#live-repeat-name').style.color='rgb(10, 180, 90)'`);

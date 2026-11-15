@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
-  await t.test('default screenshot preset hides targets and preserves intended UI', async () => {
+  await t.test('default settings hide targets and preserve intended UI', async () => {
     await navigate('tests/fixtures/twitch.html');
     await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
     for (const id of ['top-bits','top-turbo','top-turbo-gift','top-turbo-test','top-turbo-text','luna-offers','shouts','sidebar-for-you','sidebar-arrow','sidebar-streak','sidebar-channel-name','sidebar-hype','stray-avatar-text','stray-nested-text','offline-transition','offline-channel','other-section','show-more','channel-bell','channel-bits','channel-gift','video-share','video-share-label','vod-channel-card','vod-recommendations','about','panels','chat-header','leaderboard','composer','chat-send','player-clip','player-clip-subscribe','player-speed-display','player-follow','player-gift','player-subscribe']) {

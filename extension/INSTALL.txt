@@ -12,7 +12,11 @@ Creating the ZIP does not publish the extension.
 5. Refresh any Twitch tabs that were already open.
 6. Pin twitch-min from Chrome's Extensions menu to reach its switches easily.
 
-All eight hiding groups are on initially. The compact sidebar keeps avatars,
+All settings are on initially. Enabled pauses or resumes the extension while
+retaining your choices. Enable all settings turns every setting on and resumes
+the extension; it only appears when available. More settings jumps to the bottom
+of the settings list, then becomes Back to top.
+The compact sidebar keeps avatars,
 viewer counts, and the current game below each count, while hiding channel names.
 Only Followed, Recommended, and Similar sections remain, with short headers. Offline
 channels, other sections, and all third-line promotional captions are hidden.
@@ -27,12 +31,14 @@ The live action row also hides Bits. Subscribe/Resubscribe show only their icons
 and dropdown arrow, keeping their accessible names and native click behavior.
 Turn off Channel action extras to restore these buttons and full labels.
 Replay chat times show hours:minutes without seconds; clicking still seeks normally.
+Their column fits 00:00 rounded up to the next whole pixel in current Chrome, with
+right-aligned text and equal-width digits.
 The composer switch initially hides the message box. Click Chat to show and
 focus it; click Chat again to hide it. Chat never sends a message, and hiding
 keeps your draft. Enter inside the editor still sends normally. Channel points
 and settings stay visible. Turning off this switch restores Twitch's native
 message box and Send button.
-Restore everything pauses hiding immediately in open Twitch tabs.
+Clearing Enabled restores native appearance and behavior in open Twitch tabs.
 The top chat header bar and its collapse control are hidden, freeing space for
 messages in live and replay chat. A collapsed chat can still be expanded.
 The master switch restores the header bar.
@@ -48,8 +54,10 @@ removed, with a muted purple indicator on focus.
 Consecutive messages from the same user show the username only on the first
 message. Timestamps, emotes, and text remain visible on every message.
 Another speaker or a system notice starts a new run with a visible username.
-The master switch restores all usernames and native backgrounds.
-Only the first badge in Twitch's existing order is shown beside each sender label.
+Turn off Group consecutive messages to restore usernames and remove sender-group
+borders, or Chat author tints to restore native backgrounds. Pausing restores both.
+Each visible username keeps the first badge in Twitch's existing order.
+Messages whose repeated username is hidden also hide their badges.
 Hover or focus it to list the other badge names in Twitch's own tooltip, keeping
 its theme and arrow. The first badge keeps its native click action. The master
 switch restores every badge and removes the added tooltip details.
@@ -59,11 +67,12 @@ own tooltip on the first hover. Move away or press Escape to dismiss. Native
 click and keyboard actions stay intact. Existing native
 name/details, theme, and arrow stay intact. If the tooltip mounts later, the image
 waits for it; no separate custom popup appears.
-The master switch also pauses these emote previews.
+Turn off Enlarged emote previews or pause the extension to remove these previews.
 
 Scroll up over the video to raise volume, or down to lower it. A normal wheel
 notch changes volume by about 5%; trackpad gestures adjust it smoothly.
 Chat/sidebar scrolling, player menu scrolling, and Ctrl+wheel zoom are preserved.
+Turn off Wheel volume or pause the extension to restore normal wheel behavior.
 Inside the player, Clip, the middle speed display, Follow, Gift a Sub, and
 Subscribe/Resubscribe are hidden. The decrease/increase speed buttons remain.
 Playback, volume, settings, theatre, fullscreen, and speed selection inside

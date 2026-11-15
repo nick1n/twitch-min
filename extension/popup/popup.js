@@ -4,8 +4,8 @@
   const settingsApi = globalThis.TwitchMinSettings;
   const master = document.getElementById('master-toggle');
   const groupList = document.getElementById('groups');
-  const restoreButton = document.getElementById('restore-button');
-  const presetButton = document.getElementById('preset-button');
+  const moreSettings = document.getElementById('more-settings');
+  const enableAllButton = document.getElementById('enable-all-button');
   const status = document.getElementById('status');
   let state = null;
   let ready = false;
@@ -14,43 +14,39 @@
   let initialChanges = {};
   const groupControls = new Map();
 
+  function updateScrollCue() {
+    moreSettings.hidden = !ready || groupList.scrollHeight - groupList.clientHeight <= 1;
+    moreSettings.textContent = groupList.scrollHeight - groupList.clientHeight - groupList.scrollTop <= 1
+      ? 'Back to top ↑' : 'More settings ↓';
+  }
+
   function buildGroupControls() {
     if (!settingsApi || groupControls.size) return;
     groupList.replaceChildren();
     settingsApi.GROUPS.forEach((group) => {
-      const row = document.createElement('div');
-      row.className = 'group-row';
-      const copy = document.createElement('div');
-      copy.className = 'group-copy';
+      const label = document.createElement('label');
+      label.className = 'setting';
+      const copy = document.createElement('span');
+      copy.className = 'setting-copy';
       const title = document.createElement('span');
-      title.className = 'group-title';
       title.id = `group-title-${group.key}`;
+      title.className = 'setting-title';
       title.textContent = group.title;
       const description = document.createElement('span');
-      description.className = 'group-description';
+      description.className = 'setting-description';
       description.id = `group-description-${group.key}`;
       description.textContent = group.description;
-      copy.append(title, description);
-      const label = document.createElement('label');
-      label.className = 'switch';
-      label.setAttribute('for', `group-${group.key}`);
       const input = document.createElement('input');
       input.id = `group-${group.key}`;
       input.type = 'checkbox';
-      input.role = 'switch';
       input.setAttribute('aria-labelledby', title.id);
       input.setAttribute('aria-describedby', description.id);
       input.addEventListener('change', () => updateField(group.key, input.checked));
-      const track = document.createElement('span');
-      track.className = 'switch-track';
-      track.setAttribute('aria-hidden', 'true');
-      const thumb = document.createElement('span');
-      thumb.className = 'switch-thumb';
-      track.append(thumb);
-      label.append(input, track);
-      row.append(copy, label);
-      groupList.append(row);
-      groupControls.set(group.key, { row, input });
+      copy.append(title, description);
+      label.append(copy, input);
+      groupList.append(label);
+      sizeObserver.observe(label);
+      groupControls.set(group.key, input);
     });
   }
 
@@ -61,9 +57,9 @@
 
   function setBusy(busy) {
     master.disabled = busy || !ready;
-    restoreButton.disabled = busy || !ready;
-    presetButton.disabled = busy || !ready;
-    for (const { input } of groupControls.values()) {
+    enableAllButton.disabled = busy || !ready || Object.values(state).every(value => value === true);
+    enableAllButton.hidden = enableAllButton.disabled;
+    for (const input of groupControls.values()) {
       input.disabled = busy || !ready;
     }
   }
@@ -72,21 +68,17 @@
     if (!state || !settingsApi) return;
     const focusedId = document.activeElement?.id;
     master.checked = Boolean(state.enabled);
-    master.setAttribute('aria-checked', String(master.checked));
     buildGroupControls();
     settingsApi.GROUPS.forEach((group) => {
-      const { row, input } = groupControls.get(group.key);
-      row.classList.toggle('is-off', !state[group.key]);
+      const input = groupControls.get(group.key);
       input.checked = Boolean(state[group.key]);
     });
 
     groupList.setAttribute('aria-busy', 'false');
     setBusy(pendingWrites > 0);
-    document.getElementById('mode-note').textContent = state.enabled
-      ? 'Hiding is on. Changes apply instantly.'
-      : 'Hiding is paused. Twitch controls are restored.';
     const focused = document.getElementById(focusedId);
     if (focused && !focused.disabled) focused.focus();
+    updateScrollCue();
   }
 
   function normalize(raw) {
@@ -157,14 +149,13 @@
   }
 
   master.addEventListener('change', () => updateField('enabled', master.checked));
-  restoreButton.addEventListener('click', () => updateField('enabled', false));
-  presetButton.addEventListener('click', () => {
+  enableAllButton.addEventListener('click', () => {
     if (!ready || pendingWrites) return;
     const previousState = state;
-    const preset = { ...settingsApi.DEFAULTS, enabled: true };
-    state = normalize(preset);
+    const enabledSettings = { ...settingsApi.DEFAULTS, enabled: true };
+    state = normalize(enabledSettings);
     render();
-    save(preset, previousState);
+    save(enabledSettings, previousState);
   });
 
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
@@ -222,5 +213,18 @@
     }
   }
 
+  const sizeObserver = new ResizeObserver(updateScrollCue);
+  moreSettings.addEventListener('click', () => {
+    const atBottom = groupList.scrollHeight - groupList.clientHeight - groupList.scrollTop <= 1;
+    groupList.scrollTop = atBottom ? 0 : groupList.scrollHeight;
+    moreSettings.focus({ preventScroll: true });
+    updateScrollCue();
+  });
+  window.addEventListener('pagehide', () => {
+    sizeObserver.disconnect();
+    groupList.removeEventListener('scroll', updateScrollCue);
+  }, { once: true });
+  groupList.addEventListener('scroll', updateScrollCue, { passive: true });
+  sizeObserver.observe(groupList);
   initialize();
 })();

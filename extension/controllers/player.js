@@ -160,6 +160,15 @@
 
   let stopFitRegions = null;
   function update(settings) {
+    const wheelEnabled = settings.wheelVolume !== false;
+    if (wheelEnabled !== enabled) {
+      enabled = wheelEnabled;
+      if (enabled) document.addEventListener('wheel', onWheel, { capture: true, passive: false });
+      else {
+        document.removeEventListener('wheel', onWheel, true);
+        clearHUD();
+      }
+    }
     if (settings.channelAbout && !stopFitRegions) {
       stopFitRegions = globalThis.TwitchMinRegions.watch('.root-scrollable__wrapper', attachFit, stop => { stopFitRegions = stop; });
     } else if (!settings.channelAbout && stopFitRegions) {
@@ -170,8 +179,6 @@
   }
   globalThis.TwitchMinPlayer = globalThis.TwitchMinRuntime.create({
     attach(settings) {
-      enabled = true;
-      document.addEventListener('wheel', onWheel, { capture: true, passive: false });
       update(settings);
     },
     update,
@@ -179,7 +186,7 @@
       enabled = false;
       document.removeEventListener('wheel', onWheel, true);
       clearHUD();
-      update({ channelAbout: false });
+      update({ channelAbout: false, wheelVolume: false });
     }
   });
 })();

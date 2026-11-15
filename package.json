@@ -2,11 +2,11 @@
   "name": "twitch-min",
   "version": "0.19.0",
   "private": true,
-  "description": "Local Twitch cosmetic-hiding extension and dependency-free checks",
+  "description": "Local Twitch cosmetic and interactive enhancements with dependency-free checks",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
     "test:unit": "node --test tests/architecture.test.cjs tests/content.test.cjs tests/runtime.test.cjs tests/settings.test.cjs",
-    "test:browser": "node --test tests/browser.test.cjs tests/harness.test.cjs",
+    "test:browser": "node --test tests/browser.test.cjs tests/extension.test.cjs tests/harness.test.cjs",
     "test:package": "node --test tests/package.test.cjs",
     "test:soak": "node scripts/soak.cjs",
     "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1"

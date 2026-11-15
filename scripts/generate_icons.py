@@ -7,8 +7,8 @@ output = Path(__file__).resolve().parents[1] / "extension" / "icons"
 output.mkdir(parents=True, exist_ok=True)
 
 # Same 32-unit geometry as logo.svg: a bare chat outline.
-outer = ((4, 4), (28, 4), (28, 22), (16, 22), (10, 28), (10, 22), (4, 22))
-inner = ((8, 8), (8, 18), (14, 18), (14, 19), (15, 18), (24, 18), (24, 8))
+outer = ((4, 2), (28, 2), (28, 24), (16, 24), (10, 30), (10, 24), (4, 24))
+inner = ((8, 6), (8, 20), (14, 20), (14, 21), (15, 20), (24, 20), (24, 6))
 
 
 def contains(x, y, polygon):

@@ -69,21 +69,22 @@ test('content isolates failures and retries only unsuccessful features with unch
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(calls, { first: 1, later: 1 });
   assert.match(warnings[0][0], /TwitchMinEmotes/);
-  assert.equal(writes, 9, 'initial settings are applied');
+  const settingCount = Object.keys(context.TwitchMinSettings.DEFAULTS).length;
+  assert.equal(writes, settingCount, 'initial settings are applied');
   fail = false;
   changeListener({ enabled: { newValue: true } }, 'local');
   assert.deepEqual(calls, { first: 2, later: 1 });
-  assert.equal(writes, 9, 'retry leaves unchanged attributes untouched');
+  assert.equal(writes, settingCount, 'retry leaves unchanged attributes untouched');
   changeListener({ enabled: { newValue: true } }, 'local');
   assert.deepEqual(calls, { first: 2, later: 1 });
   fail = true;
   changeListener({ chatComposer: { newValue: false } }, 'local');
   assert.deepEqual(calls, { first: 3, later: 2 }, 'a later update failure does not block the remaining feature');
-  assert.equal(writes, 10);
+  assert.equal(writes, settingCount + 1);
   fail = false;
   changeListener({ chatComposer: { newValue: false } }, 'local');
   assert.deepEqual(calls, { first: 4, later: 2 });
-  assert.equal(writes, 10);
+  assert.equal(writes, settingCount + 1);
 });
 
 test('content retries failed preference reads on relevant events and preserves changes during recovery', async () => {

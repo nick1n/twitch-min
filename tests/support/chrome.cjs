@@ -4,6 +4,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { spawn } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
+const findChrome = require('./chrome-path.cjs');
 const root = path.resolve(__dirname, '../..');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -40,12 +41,8 @@ function waitForSocket(socket, timeoutMs) {
   });
 }
 
-module.exports = async function withBrowser(run, { intercept, initSource = '', chromePath: configuredChromePath = process.env.CHROME_PATH, connectionTimeoutMs = 10000 } = {}) {
-  const chromePath = configuredChromePath || [
-    'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-    '/usr/bin/google-chrome', '/usr/bin/chromium', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-  ].find(file => fs.existsSync(file));
+module.exports = async function withBrowser(run, { intercept, initSource = '', chromePath: configuredChromePath, connectionTimeoutMs = 10000 } = {}) {
+  const chromePath = findChrome(configuredChromePath);
   assert.ok(chromePath, 'Install Chrome or set CHROME_PATH to run browser tests.');
   const profile = path.join(root, '.browser-tests', randomUUID());
   fs.mkdirSync(profile, { recursive: true });
@@ -111,6 +108,7 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
       });
     };
     let interceptionError;
+    const interceptions = new Map();
     const pageErrors = [];
     const checkPageErrors = () => {
       if (pageErrors.length) throw new Error(`Uncaught page exception:\n${pageErrors.join('\n\n')}`);
@@ -122,18 +120,41 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
         const location = details.url ? `\n${details.url}:${details.lineNumber + 1}:${details.columnNumber + 1}` : '';
         pageErrors.push(`${details.exception?.description || details.text}${location}`);
       }
+      if (message.method === 'Network.loadingFailed' && message.params.canceled) {
+        for (const request of interceptions.values()) {
+          if (request.networkId === message.params.requestId) request.cancel();
+        }
+      }
       if (message.method === 'Fetch.requestPaused') {
+        const { requestId, networkId } = message.params;
+        let cancelled;
+        const request = { networkId, cancelled: new Promise(resolve => { cancelled = resolve; }), cancel: () => cancelled(true) };
+        interceptions.set(requestId, request);
         const handle = intercept || (({ requestId }, send) => send('Fetch.continueRequest', { requestId }));
-        handle(message.params, send).catch(error => { interceptionError = error; send('Fetch.failRequest', { requestId: message.params.requestId, errorReason: 'Failed' }).catch(() => {}); });
+        request.done = Promise.resolve().then(() => handle(message.params, send)).catch(async error => {
+          // Removing an image or navigating can cancel it before a local response
+          // reaches Chrome. Ignore only IDs with a confirmed Network cancellation.
+          if (networkId && error.message === 'Invalid InterceptionId.') {
+            let timer;
+            const wasCancelled = await Promise.race([request.cancelled,
+              new Promise(resolve => { timer = setTimeout(() => resolve(false), 250); })]);
+            clearTimeout(timer);
+            if (wasCancelled) return;
+          }
+          interceptionError = new Error(`Fixture request failed: ${message.params.request.url}: ${error.message}`, { cause: error });
+          await send('Fetch.failRequest', { requestId, errorReason: 'Failed' }).catch(() => {});
+        }).finally(() => { interceptions.delete(requestId); });
       }
     });
 
     await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
+    await send('Network.enable');
     closeBrowser = () => send('Browser.close');
     // Subscribe before the first navigation so startup and async failures are
     // retained even if a later page replaces the failing execution context.
     await send('Runtime.enable');
     const evaluate = async expression => {
+      if (interceptionError) throw interceptionError;
       checkPageErrors();
       const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
       checkPageErrors();
@@ -166,6 +187,7 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
     await run({ send, evaluate, navigate, isVisible, waitFor });
     // A protocol round trip drains already-delivered page errors before teardown.
     await evaluate('0');
+    await Promise.all([...interceptions.values()].map(request => request.done));
     if (interceptionError) throw interceptionError;
 
   } finally {

@@ -154,10 +154,11 @@ module.exports = async (t, { navigate, evaluate, waitFor }) => {
 
   await t.test('sidebar metadata updates and small wheel deltas skip unchanged markers and HUD text', async () => {
     await navigate('tests/fixtures/twitch.html');
-    await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
+    await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
     await evaluate(`window.markerWrites=0;const original=Element.prototype.setAttribute;Element.prototype.setAttribute=function(name,...args){if(['data-tq-section','data-tq-section-title','data-tq-top-extra'].includes(name))markerWrites++;return original.call(this,name,...args)};document.querySelector('#viewer-count').textContent='19K';document.querySelector('.top-nav').append(document.createTextNode(' '))`);
     assert.equal(await evaluate('markerWrites'), 0);
     await evaluate(`window.section=document.querySelector('#sidebar-shell .side-nav-section');section.setAttribute('aria-label','Similar')`);
+    await waitFor(`section.getAttribute('data-tq-section') === 'Similar'`);
     assert.equal(await evaluate(`section.getAttribute('data-tq-section')`), 'Similar', 'changed labels are still applied');
     await evaluate(`window.video=document.querySelector('#stream-video');video.volume=0.5;video.dispatchEvent(new WheelEvent('wheel',{bubbles:true,cancelable:true,deltaY:-100}))`);
     await evaluate(`window.hudMutations=0;new MutationObserver(records=>hudMutations+=records.length).observe(document.querySelector('#twitch-min-volume'),{childList:true,characterData:true,subtree:true});video.dispatchEvent(new WheelEvent('wheel',{bubbles:true,cancelable:true,deltaY:-1}))`);

@@ -275,5 +275,5 @@
       document.removeEventListener("keydown", onKeydown, true);
       close();
     }
-  });
+  }, settings => settings.enabled === true && settings.emotePreviews !== false);
 })();

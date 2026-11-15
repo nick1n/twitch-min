@@ -81,6 +81,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
 
     await t.test('sidebar scrollbar hides while scrolling works, replay times retain minutes and seeking', async () => {
       await navigate('tests/fixtures/twitch.html');
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('.side-nav__scrollable_content')).scrollbarWidth`), 'none');
       assert.equal(await evaluate(`(()=>{const x=document.querySelector('.side-nav__scrollable_content');const filler=document.createElement('div');filler.style.height='1500px';x.append(filler);x.scrollTop=80;return x.scrollTop>0})()`), true);
       assert.equal(await evaluate(`document.querySelector('#replay-time').getAttribute('data-tq-time')`), '1:28');

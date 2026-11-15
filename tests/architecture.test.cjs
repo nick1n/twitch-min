@@ -116,7 +116,7 @@ test('manifest is Twitch-only, storage-only, with unique local assets', () => {
   assert.doesNotMatch(read(`extension/${manifest.action.default_popup}`), /<script(?![^>]*\bsrc=)/i);
 });
 
-test('feature rules preserve the complete pre-refactor CSS and cascade order', () => {
+test('feature rules preserve the reviewed CSS baseline and cascade order', () => {
   const context = loadRules();
   const api = context.TwitchMinRules;
   const baseline = JSON.parse(read('tests/rules-baseline.json'));

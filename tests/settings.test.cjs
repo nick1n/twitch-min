@@ -4,7 +4,7 @@ const { loadRules } = require('./support/rules.cjs');
 
 test('settings declaration derives the stable storage and popup API', () => {
   const { TwitchMinSettings: api } = loadRules();
-  const keys = ['enabled', 'sidebarSections', 'sidebarLabels', 'topNavigation', 'channelActions', 'channelAbout', 'chatLeaderboard', 'chatComposer', 'chatTimestamps'];
+  const keys = ['enabled', 'sidebarSections', 'sidebarLabels', 'topNavigation', 'channelActions', 'channelAbout', 'chatLeaderboard', 'chatComposer', 'chatTimestamps', 'wheelVolume', 'emotePreviews', 'chatTints', 'chatGrouping'];
   assert.deepEqual(Object.keys(api.DEFAULTS), keys);
   assert.deepEqual(Object.keys(api.ATTRIBUTES), keys);
   assert.deepEqual(Array.from(api.GROUPS, group => group.key), keys.slice(1));
@@ -31,6 +31,10 @@ test('settings reject malformed values and retain explicit false preferences', (
   assert.equal(Object.hasOwn(api.normalize({ unrelated: true }), 'unrelated'), false);
   assert.equal(api.normalize({ sidebarLabels: true, enabled: false }).channelAbout, true, 'old saved settings adopt the new default');
   assert.equal(api.normalize({ channelAbout: false }).channelAbout, false);
-  assert.equal(api.GROUPS.length, 8);
+  assert.equal(api.GROUPS.length, 12);
+  for (const key of ['wheelVolume', 'emotePreviews', 'chatTints', 'chatGrouping']) {
+    assert.equal(api.normalize({ enabled: false })[key], true, `${key}: existing installations retain the enhancement`);
+    assert.equal(api.normalize({ [key]: false })[key], false, `${key}: explicit opt-out persists`);
+  }
   assert.equal(api.normalize({ sidebarHeadings: false }).sidebarSections, true, 'old header-hiding preference does not disable new section labels');
 });
