@@ -1,226 +1,127 @@
 # Architecture
 
-Implementation details for contributors. Paths below are relative to the repository root.
-See [README.md](../README.md#development) for setup and commands and
-[AGENTS.md](../AGENTS.md) for coding-agent instructions.
+Contributor reference. See [README](../README.md#development) for commands,
+[AGENTS.md](../AGENTS.md) for working rules, and [ROADMAP.md](../ROADMAP.md) for
+validation priorities and deferred refactors. Paths below are repository-relative.
 
 ## Settings, rules, and ownership
 
-See [ROADMAP.md](../ROADMAP.md) for validation priorities, small follow-ups, and the
-conditions that would justify a sidebar state machine or DOM compatibility layer.
+| Owner | Responsibility |
+| --- | --- |
+| `extension/manifest.json` | Production script order and assets; tooling and fixtures derive their lists from it. |
+| `extension/shared/settings.js` | Stable keys, defaults, attributes, titles, and descriptions; derives the popup groups and normalization API. |
+| `extension/content.js` | Load saved preferences, mount CSS, and coordinate controllers. |
+| `extension/styles/rules-*.js` | Feature CSS; `rules.js` sorts frozen cascade-slot entries and builds the stylesheet. |
+| `extension/shared/runtime.js` | Feature attach/update/dispose lifecycle and failure recovery. |
+| `extension/shared/regions.js` | Shared region discovery, ownership, and cleanup. |
+| `extension/controllers/` | Scoped DOM behavior; shared selectors live in `shared/selectors.js`. |
+| `extension/popup/` | Settings UI, storage updates, and save-error recovery. |
 
-`extension/shared/settings.js` declares each stable storage key, default, HTML attribute, popup
-title, and description once in `DEFINITIONS`. `DEFAULTS`, `ATTRIBUTES`, and the
-`GROUPS` popup API are derived from it. The master preference
-is declared alongside the groups but remains a separate popup control.
+Rules scope comma-separated descendants with `:is(...)`; VOD fitting excludes
+native theatre/fullscreen layouts. `tests/rules-baseline.json` records the reviewed
+CSS count and hash. Update it only for an explained, intentional cosmetic change.
 
-The `wheelVolume`, `emotePreviews`, `chatTints`, and `chatGrouping` preferences
-default on, preserving behavior for existing saved settings. Emote previews use
-a feature-specific lifecycle predicate. The player releases its wheel listener
-and volume indicator independently of VOD fitting. Chat tracks the two preferences
-per controller and refreshes only attached regions when either changes; ordinary
-message mutations still visit affected rows and neighbors. Tint and grouping CSS
-use their corresponding preference attributes. Disabling grouping restores
-sender names, separators, and header badges and removes the group borders;
-independent compact-badge behavior remains active until the master is paused.
+Enhancement preferences default on for existing installations. Wheel volume is
+independent of player fitting; chat tinting and grouping refresh only attached
+regions when their preferences change. Disabling grouping restores sender headers
+and borders while independent badge compaction stays active until master pause.
 
-Feature rule files in `extension/styles/` expose frozen `[cascadeSlot, rule]`
-entries. `extension/styles/rules.js` sorts
-those slots and retains the `TwitchMinRules.RULES` / `buildCSS()` API. The slots
-preserve the existing cross-feature cascade, including interleaved master-switch
-rules. `tests/rules-baseline.json` records the reviewed rule count and SHA-256 of
-the complete CSS; an intentional cosmetic change requires reviewing and updating
-that baseline. Shared selectors can be comma-separated lists; descendant rules
-wrap those lists in `:is(...)` so every alternative stays scoped. VOD rules add
-the existing theatre exclusions to the shared VOD root.
-
-Runtime controllers in `extension/controllers/` own DOM discovery, observers,
-event handlers, and restoration; rule modules own cosmetic CSS. Shared region
-discovery belongs in `extension/shared/regions.js` and lifecycle support in
-`extension/shared/runtime.js`. Each feature supplies internal
-`attach(settings)`, `update(settings)`, and `dispose()` hooks to
-`TwitchMinRuntime.create`. The public controller API is `update(settings)` and
-`dispose()`; the adapter attaches on activation, updates an active feature, and
-disposes it on pause. Keep feature-specific selectors beside
-their feature; promote selectors shared across controllers/rules to
-`extension/shared/selectors.js`.
-The production dependency order is defined by `extension/manifest.json`.
-`extension/content.js` applies saved preferences and coordinates the controllers.
-The popup's HTML, CSS, and script live in `extension/popup/` and load the same
-shared settings declaration. Each setting is a native checkbox inside its text
-label, with balanced descriptions referenced by `aria-describedby` and titles
-referenced by `aria-labelledby`. The branded header holds the master pause/resume
-control and a secondary enable-all action, shown only when available. Its hidden
-state reserves the same space to prevent layout shifts. The settings
-list scrolls independently so the header controls remain
-visible. Its native scrollbar is hidden; a bottom navigation control appears
-when the list overflows. At the bottom it becomes Back to top. Activating the
-control scrolls to the corresponding end while retaining focus on the button,
-without highlighting a setting.
-It is hidden when the whole list fits. Scoped scroll events and a ResizeObserver on the list
-and labels keep it current without polling or changing the popup's height.
-The popup supports light/dark colors; status text is reserved for storage
-errors. Blurbs wrap in balanced lines without truncation. Interactive controls
-have subtle hover backgrounds and visible keyboard focus, without motion or
-layout changes. See [README.md](../README.md#development) for the
-repository folder map.
+The popup uses labelled native checkboxes and visible `aria-describedby` help.
+Its scroll control retains button focus, and the hidden enable-all action reserves
+its footprint. Scoped scroll events and a ResizeObserver keep the cue current
+without polling. Status text is reserved for storage errors.
 
 ## Lifecycle recovery
 
-Synchronous feature startup/update failures are reported in the console with the
-feature name and do not block the remaining features. A later relevant storage
-event retries failed features, even when its values are unchanged; healthy
-features and unchanged root attributes are skipped. Retries are event-driven,
-not a timer loop. Failed cleanup must succeed before a fresh attach can run.
+Controllers use `TwitchMinRuntime.create` with attach/update/dispose hooks. Failed
+setup rolls back; failed cleanup must succeed before reattachment. One failed
+feature does not block others. Relevant storage events retry failed features,
+even for unchanged settings; healthy features and unchanged attributes are skipped.
 
-If the initial preference read fails, the next relevant local storage event
-retries it. Only one read may be in flight. Changes received before or during
-recovery are retained, including removed keys and a saved pause; cosmetic rules
-stay inactive until preferences load successfully.
+Only one initial settings read may run at a time. Pending changes and removals,
+including a saved pause, survive failures; CSS stays inactive until preferences
+load. The next relevant storage event retries the read without a timer loop.
 
-The popup applies edits optimistically and merges storage notifications while a
-save is pending. A successful save callback keeps that current state, so it cannot
-overwrite a newer notification with the original edit.
-After a failed save, notifications received during the recovery read override
-that read's snapshot, including removed keys. If the read also fails, rollback
-only restores fields without notifications since the save began.
+Popup edits are optimistic. Save completion retains newer storage notifications.
+After a failed save, notifications during recovery override the reread snapshot;
+if the reread also fails, rollback touches only fields without newer notifications.
 
 ## Region cleanup
 
-Region attachments receive an `onCleanup` callback and register teardown before
-changing the DOM or connecting observers. `regions.watch(selector, attach, own)`
-passes unsubscribe to the feature's `own` callback before initial discovery, so
-it remains reachable even if initial setup and rollback both throw. Unsubscribe
-attempts every registered region cleanup and retains failures for another call.
-Normal asynchronous sidebar restoration continues to settle before detaching.
-Sidebar cosmetics require a per-region readiness marker. The layout controller
-expands the native sidebar when either sidebar feature needs it, then clicks
-native Show More controls before marking it ready. A retained pagination control
-is clicked again only after its section gains rows; pending or disabled controls
-leave the native sidebar visible. Later mounts repeat this sequence, and cleanup
-removes the readiness marker alongside section labels.
+`regions.watch(selector, attach, own)` provides unsubscribe before initial
+discovery. Region attachments register teardown through `onCleanup` before DOM
+changes, listeners, or observers. Unsubscribe attempts every cleanup and retains
+failures for retry. Native sidebar restoration may finish asynchronously.
+
+Sidebar CSS requires a per-region readiness marker. Layout expands the native
+sidebar and Show More lists before setting it. Retained pagination controls are
+clicked again only after new rows arrive; pending/disabled controls leave the
+native view visible. Remounts repeat setup; pause removes markers and restores an
+initially collapsed sidebar when neither sidebar feature needs expansion.
 
 ## Discovery and mutation handling
 
-The document-start content script waits for saved preferences before activating
-the rules, so a previously paused extension does not temporarily hide controls.
-This can allow a brief initial flash while storage loads. CSS handles new matching
-elements during Twitch navigation. A mount observer waits for the initial document
-root, then disconnects. After mounting, `extension/shared/regions.js` owns one shared document
-observer for discovery while features are active. It tracks added subtrees,
-region identity changes, and detached mounts; feature observers stay inside their
-mounted sidebar, navigation, player, chat, or composer regions. Discovery handles
-later mounts without rescanning the whole document on every chat mutation. Pausing
-releases subscriptions and disconnects discovery when none remain; asynchronous
-native sidebar restoration is allowed to finish. Delegated pointer and focus
-handlers cover emotes in later messages without scanning chat or intercepting
-native clicks and keyboard activation. While a preview is
-active, its temporary observer checks source connectivity and filters mutations
-before measuring the native tooltip. It disconnects when the preview closes.
-Emote preview content stays detached until a matching Twitch tooltip mounts.
-Its image is prepended above native labels; matching accepts a native name label
-inside richer metadata without replacing those nodes. No standalone overlay or
-popover is created. Pending activation is canceled by the same dismissal,
-navigation, and pause paths as a mounted preview.
-Replay time formatting observes added nodes/text changes and visits only the
-affected subtrees. Each formatted leaf belongs to one mounted chat region. Moves
-outside the timestamp context release its marker, including moves within a chat
-region; transfers let the receiving region claim the leaf before the previous
-region's teardown can clear it. Pausing releases owned markers even when nodes
-have moved before observer delivery. Native timestamp text and seek targets stay
-intact.
-Player sizing observes its placeholder dimensions and root mode
-changes, reconnecting when relevant player or metadata nodes change during navigation.
-Unrelated chat updates do not trigger document-wide player searches.
-Chat styling observes affected rows, author changes, and adjacent messages; it
-deduplicates affected rows within each mutation batch and cleans up removed
-subtrees without scanning every retained row. Disabling the
-master switch removes tint variables and temporary grouping attributes.
-The same row pass compacts badges by hiding their empty layout wrappers.
-The first row of a sender run retains one badge; continuation rows hide all badge
-wrappers. When an identity wrapper contains badges, grouping hides the inner name
-and leaves badge visibility to the compactor.
-Delegated hover/focus handlers add the other badge names beneath Twitch's original
-text in its native tooltip, using native titles or image alt names as metadata.
-Tooltip discovery prefers native `aria-describedby` links, with exact-name and
-distance matching as a fallback. Its temporary observer filters tooltip mutations
-while a badge is active; ordinary chat updates never search or measure tooltips.
-Badge order, metadata changes, detached rows, and region disposal reconcile or
-release added tooltip details and hidden markers. Native tooltip text nodes,
-theme, arrow, placement, accessible names, titles and badge handlers are preserved.
-The composer controller watches changed editor subtrees and later mounts. It
-never rewrites the draft or changes Twitch's native Send disabled state; temporary
-controls, IDs, and open-state markers are removed when the feature is paused.
+At document start, a temporary observer waits for the document root and then
+disconnects. Saved preferences gate activation, preserving a saved pause at the
+cost of a possible initial native-page flash. One shared discovery observer tracks
+region mounts, identity changes, and removals while features are active. Feature
+observers process affected regions/subtrees, not document-wide chat scans.
+
+| Controller | Important contract |
+| --- | --- |
+| `layout.js` | Own sidebar expansion/restoration and navigation extras; use native controls and readiness events. |
+| `chat.js` | One row observer per chat region; deduplicate changed rows/neighbors and clean removed subtrees. |
+| `chat-badges.js` | Share chat's row pass; own badge wrappers, cross-region ownership, native tooltip state, and delegated listeners. |
+| `timestamps.js` | Transfer leaf ownership safely between regions; preserve native text and seek targets, including moves before observer delivery. |
+| `emotes.js` | Add only an enlarged image to a matching native tooltip; support late mounts and cancel on dismissal, navigation, removal, or pause. |
+| `player.js` | Own wheel-volume feedback and fitted VOD portals; observe player/metadata changes without rediscovery on ordinary chat updates. |
+| `composer.js` | Preserve drafts and native Send state; remove temporary controls, IDs, and listeners on pause. |
+
+Badge and emote tooltip handling preserves native labels, metadata, theme, arrow,
+placement, accessible names, and handlers. Badge discovery prefers native links,
+then exact-name/distance matching. Temporary tooltip observers run only while
+active and filter unrelated mutations before geometry reads. No standalone emote
+popover is created; larger-image failure falls back to the original image.
 
 ## Test organization
 
-`tests/settings.test.cjs` checks the stable preference API and normalization.
-`tests/content.test.cjs` covers content startup, storage races, failure isolation,
-and retries; `tests/runtime.test.cjs` covers the lifecycle adapter. Manifest,
-version, CSS baseline, and fixture script-order contracts belong in
-`tests/architecture.test.cjs`.
+- Root suites separate settings, content startup, lifecycle, request ordering,
+  architecture, browser integration, harness failures, and packaging.
+- `tests/browser.test.cjs` registers each `tests/browser/` module exactly once.
+  Each feature check starts from its own fixture state.
+- `tests/support/rules.cjs` loads settings/selectors/rules into a fresh VM in
+  manifest order. `production.cjs` expands fixture markers from the same manifest.
+- Architecture checks enforce complete focused-command coverage, unique browser
+  registration, script order, versions, and the CSS baseline.
+- Local inline file links in root/`docs/` Markdown are checked, including encoded
+  and angle-wrapped paths. Code, external URLs, and anchor-only links are ignored;
+  reference/HTML links, complex escapes, and nested parentheses are outside scope.
 
-The architecture suite also checks that every root test file belongs to exactly
-one focused npm command and every browser feature module is registered exactly
-once, with no missing, duplicate, or stale entries. It verifies local inline
-Markdown link and image targets in root and `docs/` Markdown files, including
-angle-wrapped and percent-encoded paths. Code examples, external URLs, and
-anchor-only links are ignored; reference links, HTML links, nested destination
-parentheses, and Markdown escapes are outside this small check's scope.
-
-Settings, content, and CSS checks use `tests/support/rules.cjs` to load settings,
-selectors, and rules in manifest order without DOM controllers. Each call uses a fresh VM
-context unless a content test supplies its own context with DOM and storage mocks.
-
-Browser feature modules live in `tests/browser/`. `visibility.cjs` checks page
-visibility, layout, and preference changes, while `popup.cjs` owns popup controls
-and storage failures. `tests/browser.test.cjs` registers the modules sequentially.
-`preferences.cjs` covers independent enhancement restoration and remounts.
-Harness failures have their own suite in `tests/harness.test.cjs`, and ZIP checks
-live in `tests/package.test.cjs`. See [README.md](../README.md#development) for
-full and focused test commands and their requirements.
+Run full or focused commands from [README](../README.md#development). Browser
+fixtures and optional private snapshot fragments stay offline; snapshots are
+parsed inertly, sanitized, ignored by Git, and excluded from packages.
 
 ## Browser test harness
 
-Both Chrome harnesses use `tests/support/chrome-path.cjs` for executable discovery:
-an explicit path takes precedence over `CHROME_PATH`, followed by the shared list
-of standard installation paths. Invalid overrides reach the launch diagnostics
-instead of silently selecting a different browser.
+Both harnesses use `tests/support/chrome-path.cjs`: explicit override, then
+`CHROME_PATH`, then standard installation paths. Invalid overrides reach launch
+diagnostics rather than silently selecting another browser.
 
-The browser harness launches one Chrome child and one UUID profile per run,
-reuses their CDP connection for sequential feature modules, and removes only that
-profile after the child exits, including on assertion/setup failures. Each test
-navigates independently with a fresh storage mock; emote click tracking and popup
-write failures have their own setup. HTML fixtures contain a production marker
-that the local CDP response handler expands from the manifest, including CSS.
-No generated script lists or fixture web server are needed. All remote requests
-are blocked or fulfilled locally, including emote images and snapshot resources.
-The harness captures uncaught page exceptions from startup onward, including
-timer errors and unhandled promise rejections. Handled storage failures and
-console warnings remain valid test scenarios. Harness failure checks use separate
-isolated browsers so deliberately broken pages cannot contaminate feature tests.
-Failed launches and early process exits report the executable and the last 8192
-characters of stderr without waiting for the startup timeout. Profile cleanup
-waits for the child process and its output streams to close, including launch
-failures.
-The debugging-target HTTP response and JSON body share a timeout, and WebSocket
-connection setup has its own timeout. Both default to ten seconds. Failure aborts
-the pending request or closes the socket, releases connection listeners and
-timers, and follows the same browser/profile cleanup path.
-Interception failures include the request URL. A stale interception ID is ignored
-only after Chrome confirms that the corresponding network request was cancelled;
-other invalid IDs remain failures. Pending interception handlers settle before
-the final error check so late local responses cannot escape validation.
+`chrome.cjs` runs sequential feature checks with mocked storage in an isolated
+UUID profile. Port-file, HTTP/body, and WebSocket setup have bounded waits;
+locked/partial port files retry until complete. Startup diagnostics include the
+executable and stderr tail. Uncaught page exceptions/rejections fail checks.
+Cleanup waits for process exit and removes only that run's verified profile.
 
-`tests/extension.test.cjs` uses `tests/support/installed.cjs` for a separate
-installed-extension smoke check. Chrome starts with a temporary profile and a
-debugging pipe, and `Extensions.loadUnpacked` reads the real extension directory.
-The manifest alone registers content scripts in Chrome's isolated world, with
-real `chrome.storage.local`. Requests to the two supported Twitch origins and a
-nonmatching origin are fulfilled from a sanitized fixture with its production
-injection marker removed; other page requests are blocked. The actual extension
-popup page controls two tabs, preserving individual choices through page reload,
-pause/resume, and a full browser restart using the same temporary profile. The
-profile is removed after shutdown, including launch failures. This requires a
-recent Chrome supporting the experimental Extensions debugging domain and does
-not validate authenticated Twitch layouts or the browser action's popup lifetime.
+`interceptions.cjs` correlates Fetch pauses with network and document/frame
+lifetimes, including out-of-order events. A bounded history retains cancellation
+and retired-loader evidence. Only a stale-ID error for the actual cancelled request
+is excused; unrelated failures and wrong IDs still fail with their URL. Pending
+handlers drain before the final check; disposal releases waits and metadata.
+
+`installed.cjs` loads the unchanged unpacked extension through Chrome's debugging
+pipe into a temporary profile. It checks real storage, isolated content scripts,
+popup changes across both Twitch origins, non-Twitch scope, reload, and restart.
+Requests are fulfilled locally or blocked. It requires recent Chrome's experimental
+Extensions debugging domain and checks the popup page, not browser-action popup
+lifetime or authenticated Twitch layouts. See [validation notes](validation.md).

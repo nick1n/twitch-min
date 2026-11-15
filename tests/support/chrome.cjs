@@ -5,6 +5,7 @@ const { pathToFileURL } = require('node:url');
 const { spawn } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 const findChrome = require('./chrome-path.cjs');
+const createInterceptions = require('./interceptions.cjs');
 const root = path.resolve(__dirname, '../..');
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -41,7 +42,7 @@ function waitForSocket(socket, timeoutMs) {
   });
 }
 
-module.exports = async function withBrowser(run, { intercept, initSource = '', chromePath: configuredChromePath, connectionTimeoutMs = 10000 } = {}) {
+module.exports = async function withBrowser(run, { intercept, initSource = '', chromePath: configuredChromePath, connectionTimeoutMs = 10000, startupTimeoutMs = 10000 } = {}) {
   const chromePath = findChrome(configuredChromePath);
   assert.ok(chromePath, 'Install Chrome or set CHROME_PATH to run browser tests.');
   const profile = path.join(root, '.browser-tests', randomUUID());
@@ -64,16 +65,29 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
   let socket;
   let closeBrowser;
   let closeProtocol = () => {};
+  let disposeInterceptions = () => {};
   try {
     const portFile = path.join(profile, 'DevToolsActivePort');
-    for (let attempt = 0; !fs.existsSync(portFile) && !launchError && !exit && attempt < 200; attempt++) await pause(50);
+    const deadline = Date.now() + startupTimeoutMs;
+    let port, portReadError;
+    while (!port && !launchError && !exit && Date.now() < deadline) {
+      try {
+        const lines = fs.readFileSync(portFile, 'utf8').trim().split(/\r?\n/);
+        portReadError = null;
+        if (lines.length === 2 && /^\d{1,5}$/.test(lines[0]) && Number(lines[0]) > 0 && Number(lines[0]) <= 65535 &&
+            /^\/devtools\/browser\/[0-9a-f-]{36}$/i.test(lines[1])) port = lines[0];
+      } catch (error) {
+        if (!['ENOENT', 'EBUSY', 'EACCES', 'EPERM'].includes(error.code)) throw error;
+        portReadError = error;
+      }
+      if (!port) await pause(Math.min(50, Math.max(0, deadline - Date.now())));
+    }
     if (launchError || exit) {
       await browserClosed;
       throw startupError(launchError ? `Chrome failed to start: ${launchError.message}`
         : `Chrome exited before exposing its test debugging endpoint (exit code ${exit.code}, signal ${exit.signal || 'none'}).`);
     }
-    if (!fs.existsSync(portFile)) throw startupError('Chrome timed out before exposing its test debugging endpoint.');
-    const port = fs.readFileSync(portFile, 'utf8').split('\n')[0].trim();
+    if (!port) throw startupError(`Chrome timed out before exposing a readable, complete test debugging endpoint.${portReadError ? ` Last port-file error: ${portReadError.code}.` : ''}`);
     const targets = await debuggerTargets(port, connectionTimeoutMs);
     const page = targets.find(target => target.type === 'page');
     assert.ok(page);
@@ -107,45 +121,26 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
         socket.send(JSON.stringify({ id, method, params }));
       });
     };
-    let interceptionError;
-    const interceptions = new Map();
+    const interceptions = createInterceptions({ send,
+      handle: intercept || (({ requestId }, command) => command('Fetch.continueRequest', { requestId })) });
     const pageErrors = [];
     const checkPageErrors = () => {
       if (pageErrors.length) throw new Error(`Uncaught page exception:\n${pageErrors.join('\n\n')}`);
     };
-    socket.addEventListener('message', ({ data }) => {
+    const onEvent = ({ data }) => {
       const message = JSON.parse(data);
       if (message.method === 'Runtime.exceptionThrown') {
         const details = message.params.exceptionDetails;
         const location = details.url ? `\n${details.url}:${details.lineNumber + 1}:${details.columnNumber + 1}` : '';
         pageErrors.push(`${details.exception?.description || details.text}${location}`);
       }
-      if (message.method === 'Network.loadingFailed' && message.params.canceled) {
-        for (const request of interceptions.values()) {
-          if (request.networkId === message.params.requestId) request.cancel();
-        }
-      }
-      if (message.method === 'Fetch.requestPaused') {
-        const { requestId, networkId } = message.params;
-        let cancelled;
-        const request = { networkId, cancelled: new Promise(resolve => { cancelled = resolve; }), cancel: () => cancelled(true) };
-        interceptions.set(requestId, request);
-        const handle = intercept || (({ requestId }, send) => send('Fetch.continueRequest', { requestId }));
-        request.done = Promise.resolve().then(() => handle(message.params, send)).catch(async error => {
-          // Removing an image or navigating can cancel it before a local response
-          // reaches Chrome. Ignore only IDs with a confirmed Network cancellation.
-          if (networkId && error.message === 'Invalid InterceptionId.') {
-            let timer;
-            const wasCancelled = await Promise.race([request.cancelled,
-              new Promise(resolve => { timer = setTimeout(() => resolve(false), 250); })]);
-            clearTimeout(timer);
-            if (wasCancelled) return;
-          }
-          interceptionError = new Error(`Fixture request failed: ${message.params.request.url}: ${error.message}`, { cause: error });
-          await send('Fetch.failRequest', { requestId, errorReason: 'Failed' }).catch(() => {});
-        }).finally(() => { interceptions.delete(requestId); });
-      }
-    });
+      interceptions.event(message);
+    };
+    socket.addEventListener('message', onEvent);
+    disposeInterceptions = () => {
+      socket.removeEventListener('message', onEvent);
+      interceptions.dispose();
+    };
 
     await send('Fetch.enable', { patterns: [{ urlPattern: '*' }] });
     await send('Network.enable');
@@ -154,7 +149,7 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
     // retained even if a later page replaces the failing execution context.
     await send('Runtime.enable');
     const evaluate = async expression => {
-      if (interceptionError) throw interceptionError;
+      interceptions.check();
       checkPageErrors();
       const result = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
       checkPageErrors();
@@ -187,10 +182,10 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
     await run({ send, evaluate, navigate, isVisible, waitFor });
     // A protocol round trip drains already-delivered page errors before teardown.
     await evaluate('0');
-    await Promise.all([...interceptions.values()].map(request => request.done));
-    if (interceptionError) throw interceptionError;
+    await interceptions.drain();
 
   } finally {
+    disposeInterceptions();
     if (closeBrowser && socket?.readyState === WebSocket.OPEN) await closeBrowser().catch(() => {});
     socket?.close();
     closeProtocol();

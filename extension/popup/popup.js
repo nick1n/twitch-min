@@ -13,6 +13,12 @@
   let pendingSave = null;
   let initialChanges = {};
   const groupControls = new Map();
+  const manifest = globalThis.chrome?.runtime?.getManifest?.();
+  if (manifest?.version) {
+    const version = document.getElementById('app-version');
+    version.textContent = `v${manifest.version}`;
+    version.hidden = false;
+  }
 
   function updateScrollCue() {
     moreSettings.hidden = !ready || groupList.scrollHeight - groupList.clientHeight <= 1;

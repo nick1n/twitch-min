@@ -4,6 +4,7 @@ const { manifest } = require('../support/production.cjs');
 module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
   await t.test('popup saves changed keys, pauses, enables all, and handles external changes', async () => {
     await navigate(`extension/${manifest.action.default_popup}`);
+    assert.equal(await evaluate(`document.querySelector('#app-version').innerText`), `v${manifest.version}`);
     assert.equal(await evaluate(`document.querySelectorAll('#groups input').length === TwitchMinSettings.GROUPS.length`), true);
     assert.equal(await evaluate(`document.querySelector('#pause-button')`), null, 'one master control handles pause and resume');
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').textContent.trim()`), 'Enable all settings');

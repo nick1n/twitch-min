@@ -41,6 +41,7 @@ async function intercept({ requestId, request }, send) {
   return send('Fetch.failRequest', { requestId, errorReason: 'BlockedByClient' });
 }
 
-const initSource = fs.readFileSync(path.join(__dirname, 'mock-storage.cjs'), 'utf8');
+const initSource = fs.readFileSync(path.join(__dirname, 'mock-storage.cjs'), 'utf8') +
+  `\nchrome.runtime.getManifest = () => (${JSON.stringify(manifest)});`;
 
 module.exports = { initSource, root, manifest, content, marker, fixtureHTML, intercept };

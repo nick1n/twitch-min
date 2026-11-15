@@ -119,6 +119,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
 
     await t.test('sidebar allowlist labels, offline transitions and unexpected third-line captions', async () => {
       await navigate('tests/fixtures/twitch.html', '__stored.sidebarHeadings = false;');
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
       assert.deepEqual(await evaluate(`[...document.querySelectorAll('.side-nav-section')].filter(x=>x.checkVisibility({checkVisibilityCSS:true})).map(x=>x.getAttribute('data-tq-section'))`), ['Followed','Recommended','Similar']);
       for (const [id,title] of [['sidebar-heading','Followed'],['live-heading','Recommended'],['similar-heading','Similar']]) {
         assert.equal(await evaluate(`getComputedStyle(document.getElementById(${JSON.stringify(id)}),'::before').content`), JSON.stringify(title));

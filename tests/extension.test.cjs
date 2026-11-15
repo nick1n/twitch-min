@@ -24,6 +24,7 @@ test('installed extension: real storage, popup, isolated world, tabs, reload and
     assert.equal(await outside.evaluate(`document.querySelector('#bits').checkVisibility()`), true, 'non-Twitch origins remain native');
     assert.equal(await outside.evaluate(`document.querySelector('#twitch-min-styles')`), null);
     let popup = await browser.open(popupURL(browser.id));
+    assert.equal(await popup.evaluate(`document.querySelector('#app-version').innerText`), `v${manifest.version}`);
     await popup.waitFor(`!document.querySelector('#group-chatTints').disabled`);
     assert.equal(await popup.evaluate(`getComputedStyle(document.body).fontSize`), '13px', 'extension-page defaults do not shrink popup text');
     await popup.evaluate(`document.querySelector('#group-chatTints').click()`);

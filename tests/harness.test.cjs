@@ -18,6 +18,64 @@ function trackProfiles(t) {
   return profiles;
 }
 
+test('Chrome startup waits through locked and partially written port files', { timeout: 10000 }, async t => {
+  const profiles = trackProfiles(t);
+  const readFile = fs.readFileSync;
+  let attempts = 0;
+  const readMock = mock.method(fs, 'readFileSync', (file, ...args) => {
+    if (String(file).endsWith('DevToolsActivePort')) {
+      attempts++;
+      if (attempts === 1) throw Object.assign(new Error('temporarily locked'), { code: 'EBUSY' });
+      if (attempts === 2) return '';
+      if (attempts === 3) return '9222\n/devtools/browser/partial';
+    }
+    return readFile(file, ...args);
+  });
+  t.after(() => readMock.mock.restore());
+  await withBrowser(async ({ evaluate }) => assert.equal(await evaluate('1 + 1'), 2));
+  assert.ok(attempts >= 4, 'Chrome connects only after a readable, complete port file');
+  assert.equal(fs.existsSync(profiles[0]), false);
+});
+
+for (const state of ['locked', 'incomplete']) {
+  test(`Chrome startup bounds a persistently ${state} port file and cleans its profile`, { timeout: 5000 }, async t => {
+    const profiles = trackProfiles(t);
+    const readFile = fs.readFileSync;
+    const readMock = mock.method(fs, 'readFileSync', (file, ...args) => {
+      if (String(file).endsWith('DevToolsActivePort')) {
+        if (state === 'locked') throw Object.assign(new Error('still locked'), { code: 'EBUSY' });
+        return '9222\n/devtools/browser/partial';
+      }
+      return readFile(file, ...args);
+    });
+    t.after(() => readMock.mock.restore());
+    await assert.rejects(withBrowser(() => assert.fail('invalid endpoint must not run checks'), { startupTimeoutMs: 1000 }),
+      state === 'locked' ? /readable, complete.*Last port-file error: EBUSY/ : /readable, complete/);
+    assert.equal(profiles.length, 1);
+    assert.equal(fs.existsSync(profiles[0]), false);
+  });
+}
+
+test('Chrome releases an intercepted old-document image after navigation', { timeout: 10000 }, async () => {
+  let release, paused;
+  const responseReady = new Promise(resolve => { release = resolve; });
+  const requestPaused = new Promise(resolve => { paused = resolve; });
+  await withBrowser(async ({ navigate, evaluate }) => {
+    await navigate(`extension/${manifest.action.default_popup}`);
+    await evaluate(`window.oldImage=new Image();oldImage.src='https://fixture.invalid/old-document';document.body.append(oldImage)`);
+    await requestPaused;
+    await navigate('tests/fixtures/installed.html');
+    release();
+  }, { initSource, intercept: async (params, send) => {
+    if (params.request.url === 'https://fixture.invalid/old-document') {
+      paused();
+      await responseReady;
+      return send('Fetch.fulfillRequest', { requestId: params.requestId, responseCode: 200, body: '' });
+    }
+    return intercept(params, send);
+  } });
+});
+
 test('Chrome harness accepts confirmed cancellation before an intercepted image response', { timeout: 10000 }, async () => {
   let release, paused;
   const responseReady = new Promise(resolve => { release = resolve; });

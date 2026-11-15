@@ -2,21 +2,27 @@
 
 Historical changes and verification notes, in release order.
 
-## Unreleased
+## 0.20.0 - Popup polish and maintenance
 
+- Extract badge compaction and native tooltip ownership into a dedicated helper,
+  preserving chat's shared row observer, region lifecycle, and restoration behavior.
+- Wait for readable, complete Chrome debugging port files, and correlate request
+  cancellation with network events and document/frame lifetimes. Cover delayed
+  cancellation, navigation, locked/partial files, and genuine interception failures.
+- Shorten installation, feature, architecture, roadmap, and validation guides,
+  keeping current results and outstanding checks easy to find.
 - Share Chrome executable discovery between both browser harnesses and preserve
   the popup's intended text size against Chrome extension-page defaults.
 - Keep compact popup branding and balanced, wrapping descriptions in a scrollable
   list. Consolidate pause/resume into the master control and retain a secondary
   Enable all settings action, shown only when available without changing layout.
+- Show the manifest-derived version beside the popup title.
 - Add pointer cursors and subtle hover/focus feedback to popup controls, with
   straight inset separators and rounded hover backgrounds.
 - Hide the popup scrollbar and show a bottom More settings action while additional
   options remain below view. It switches to Back to top at the bottom; either
   direction scrolls while keeping focus on the button, preserving native
   scrolling and keyboard navigation without highlighting settings.
-- Handle confirmed image-request cancellations in the browser harness without
-  hiding genuine interception errors.
 - Add independent switches for wheel volume, enlarged emote previews, chat author
   tints, and consecutive-message grouping, preserving current defaults and saved choices.
 - Verify real unpacked installation, Chrome storage, isolated content scripts,

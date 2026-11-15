@@ -1,4 +1,4 @@
-/* Per-author tints, sender labels and compact badges; visit changed rows and neighbors. */
+/* Shared row updates for author tints, sender labels and the badge helper. */
 (() => {
   "use strict";
   const ROW = '.vod-message, .chat-line__message';
@@ -6,9 +6,6 @@
   const LIST = globalThis.TwitchMinSelectors.chatRoot;
   const NOTICE = '.chat-line__status, .user-notice-line, [data-a-target="chat-welcome-message"], .chat-line__message--deleted';
   const ENTRY = `${ROW}, ${NOTICE}`;
-  const BADGE = '.chat-badge, [data-a-target="chat-badge"]';
-  const TOOLTIP = globalThis.TwitchMinSelectors.tooltip;
-  const badgeOwners = new WeakMap();
   const BARRIER = Symbol('chat boundary');
   let preferences = {};
   const refreshRegions = new Set();
@@ -16,172 +13,7 @@
     const marked = new Set();
     const grouped = new Set();
     const labels = new WeakMap();
-    const badgeRows = new Map();
-    let badgeHint = null;
-
-    function badgeName(value) {
-      return (value || '').replace(/\s+/g, ' ').trim().replace(/ badge$/i, '');
-    }
-
-    function closeBadgeHint() {
-      if (!badgeHint) return;
-      badgeHint.observer.disconnect();
-      badgeHint.extra.remove();
-      badgeHint = null;
-    }
-
-    function nativeBadgeText(wrapper) {
-      return [...wrapper.childNodes].filter(node => node !== badgeHint?.extra)
-        .map(node => node.textContent).join('').trim();
-    }
-
-    function syncBadgeHint() {
-      if (!badgeHint) return;
-      const { row, first, extra, href } = badgeHint;
-      const state = badgeRows.get(row);
-      if (!root.contains(first) || state?.first !== first || location.href !== href ||
-          !first.checkVisibility({ checkVisibilityCSS: true })) { closeBadgeHint(); return; }
-      const visible = wrapper => wrapper.isConnected && wrapper.matches(TOOLTIP) &&
-        !wrapper.closest('[aria-hidden="true"], [data-popper-reference-hidden="true"]') &&
-        wrapper.checkVisibility({ checkVisibilityCSS: true });
-      const matches = wrapper => state.names.some(name =>
-        badgeName(nativeBadgeText(wrapper)).toLowerCase() === name.toLowerCase());
-      // An explicit native association also covers richer/localized badge names.
-      const linked = new Set();
-      for (let node = first.matches('img') ? first : first.querySelector('img') || first;
-          node && row.contains(node); node = node.parentElement) {
-        for (const id of (node.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean)) {
-          const ref = document.getElementById(id);
-          const wrapper = ref?.matches(TOOLTIP) ? ref : ref?.querySelector(TOOLTIP);
-          if (wrapper && visible(wrapper)) linked.add(wrapper);
-        }
-      }
-      let host = badgeHint.host;
-      if (host && !visible(host)) { closeBadgeHint(); return; }
-      if (host && nativeBadgeText(host) !== badgeHint.nativeText && !matches(host)) {
-        // React reused this popup for another target; a stale describedby must
-        // not carry badge details into that target's tooltip.
-        closeBadgeHint();
-        return;
-      }
-      if (host && !linked.has(host) && !matches(host)) {
-        extra.remove();
-        badgeHint.host = host = null;
-      }
-      if (!host) {
-        // Discovery runs only during a badge hover/focus and on tooltip changes,
-        // never on ordinary message updates. Prefer the nearest exact-name match.
-        const anchor = first.getBoundingClientRect();
-        const distance = wrapper => {
-          const rect = wrapper.getBoundingClientRect();
-          return Math.hypot(rect.x - anchor.x, rect.y - anchor.y);
-        };
-        host = [...linked][0] || [...document.querySelectorAll(TOOLTIP)]
-          .filter(wrapper => visible(wrapper) && matches(wrapper))
-          .sort((a, b) => distance(a) - distance(b))[0];
-        if (!host) return;
-        badgeHint.host = host;
-        badgeHint.nativeText = nativeBadgeText(host);
-      }
-      const text = state.others.join('\n');
-      if (extra.textContent !== text) extra.textContent = text;
-      // Keep Twitch's original text nodes, theme, arrow, role and Popper owner.
-      if (extra.parentElement !== host) host.append(extra);
-    }
-
-    function openBadgeHint(event) {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const row = target.closest(ROW);
-      const first = badgeRows.get(row)?.first;
-      if (!first?.contains(target)) return;
-      if (badgeHint?.first === first) {
-        if (event.type === 'focusin') badgeHint.type = event.type;
-        return;
-      }
-      closeBadgeHint();
-      const extra = document.createElement('span');
-      extra.setAttribute('data-tq-chat-badge-details', '');
-      const observer = new MutationObserver(records => {
-        if (!badgeHint) return;
-        if (!root.contains(first) || location.href !== badgeHint.href) { closeBadgeHint(); return; }
-        if (badgeHint.host && !badgeHint.host.isConnected) { closeBadgeHint(); return; }
-        const relevant = records.some(record => {
-          const node = record.target instanceof Element ? record.target : record.target.parentElement;
-          return node?.closest('.tw-tooltip-layer') || (badgeHint.host && node?.contains(badgeHint.host)) ||
-            (record.type === 'attributes' && row.contains(node) && record.attributeName === 'aria-describedby') ||
-            [...record.addedNodes].some(added => added instanceof Element &&
-              (added.matches('.tw-tooltip-layer') || added.querySelector('.tw-tooltip-layer')));
-        });
-        if (relevant) syncBadgeHint();
-      });
-      badgeHint = { row, first, extra, observer, host: null, href: location.href, type: event.type };
-      observer.observe(document.body, { childList: true, subtree: true, characterData: true,
-        attributes: true, attributeFilter: ['aria-hidden', 'data-popper-reference-hidden', 'aria-describedby', 'class', 'style', 'hidden'] });
-      syncBadgeHint();
-    }
-
-    function leaveBadgeHint(event) {
-      if (!badgeHint || (event.type === 'pointerout' && badgeHint.type === 'focusin')) return;
-      if (badgeHint.first.contains(event.target) && !badgeHint.first.contains(event.relatedTarget)) closeBadgeHint();
-    }
-
-    function dismissBadgeHint(event) {
-      if (event.type !== 'keydown' || event.key === 'Escape') closeBadgeHint();
-    }
-
-    function clearBadges(row) {
-      const state = badgeRows.get(row);
-      if (!state) return;
-      for (const node of state.hidden) node.removeAttribute('data-tq-chat-badge-hidden');
-      if (badgeHint?.row === row) closeBadgeHint();
-      row.removeAttribute('data-tq-chat-badges');
-      badgeRows.delete(row);
-      badgeOwners.delete(row);
-    }
-
-    function compactBadges(row) {
-      // A virtualized row can move between independently observed chat panes.
-      // Release its former owner before taking over, in either observer order.
-      const owner = badgeOwners.get(row);
-      if (owner && owner !== badgeRows.get(row)) owner.release();
-      const badges = [...row.querySelectorAll(BADGE)].filter(node =>
-        node.closest(ROW) === row && !node.parentElement.closest(BADGE) &&
-        !node.closest('.text-fragment, [data-a-target="chat-message-text"], .video-chat__message'));
-      const continuation = row.hasAttribute('data-tq-chat-continuation');
-      if (!badges.length || (badges.length === 1 && !continuation)) { clearBadges(row); return; }
-      let state = badgeRows.get(row);
-      if (!state) {
-        state = { hidden: new Set(), release: () => clearBadges(row) };
-        badgeRows.set(row, state);
-        badgeOwners.set(row, state);
-        row.setAttribute('data-tq-chat-badges', '');
-      }
-      const nameFor = badge => {
-        const image = badge.matches('img') ? badge : badge.querySelector('img');
-        return badgeName(badge.getAttribute('title') || image?.getAttribute('title') ||
-          image?.getAttribute('alt') || badge.getAttribute('aria-label') || badge.textContent);
-      };
-      // Badge labels belong to the visible sender header, not every message in
-      // its run. Hide entire badge wrappers when the repeated name is hidden.
-      const hidden = new Set((continuation ? badges : badges.slice(1)).map(badge => {
-        // Remove the badge's empty layout wrappers too, without hiding names,
-        // timestamps, other badges or any unrelated text/control.
-        let node = badge;
-        while (node.parentElement !== row && node.parentElement.children.length === 1 &&
-            !node.parentElement.textContent.trim()) node = node.parentElement;
-        return node;
-      }));
-      for (const node of state.hidden) if (!hidden.has(node)) node.removeAttribute('data-tq-chat-badge-hidden');
-      for (const node of hidden) if (!state.hidden.has(node)) node.setAttribute('data-tq-chat-badge-hidden', '');
-      state.hidden = hidden;
-      state.first = badges[0];
-      const image = state.first.matches('img') ? state.first : state.first.querySelector('img');
-      state.names = [nameFor(state.first), badgeName(image?.getAttribute('alt')),
-        badgeName(state.first.getAttribute('aria-label'))].filter(Boolean);
-      state.others = badges.slice(1).map(nameFor).filter(Boolean);
-      if (badgeHint?.row === row) syncBadgeHint();
-    }
+    const badges = globalThis.TwitchMinChatBadges.create(root, ROW, onCleanup);
 
     function authorFor(row) {
       // Live chat's clickable username wrapper inherits the ordinary text color.
@@ -282,8 +114,8 @@
       if (!key || !previous?.matches(ROW) || sender(previous) !== key) { clearGroup(row); return; }
       const container = author.closest('.video-chat__message-author, .chat-line__username, .chat-line__username-container, button');
       // Some native identity wrappers also contain badges. Hide only the name
-      // in that case, leaving badge visibility to compactBadges.
-      const identity = container && row.contains(container) && !container.querySelector(BADGE) ? container : author;
+      // in that case, leaving badge visibility to the badge helper.
+      const identity = container && row.contains(container) && !globalThis.TwitchMinChatBadges.hasBadges(container) ? container : author;
       const separators = [...row.querySelectorAll('.chat-line__message--colon, [data-a-target="chat-message-separator"], .chat-line__username-container + span[aria-hidden="true"], .video-chat__message > span:first-child')]
         .filter(node => node.closest(ROW) === row && node.textContent.trim() === ':' &&
           !node.matches('.text-fragment, [data-a-target="chat-message-text"]') &&
@@ -303,7 +135,7 @@
       tint(row, preferences.chatTints === false ? null : author);
       if (preferences.chatGrouping === false) clearGroup(row);
       else group(row, author);
-      compactBadges(row);
+      badges.update(row);
     }
 
     function updateNext(node, neighbors) {
@@ -341,7 +173,7 @@
       const selector = '[data-tq-chat-tint], [data-tq-chat-continuation], [data-tq-chat-badges]';
       const rows = node.matches(selector) ? [node, ...node.querySelectorAll(selector)] : node.querySelectorAll(selector);
       for (const row of rows) {
-        clearBadges(row);
+        badges.release(row);
         if (row.isConnected) {
           marked.delete(row);
           grouped.delete(row);
@@ -392,24 +224,12 @@
     };
     onCleanup(() => {
       refreshRegions.delete(refresh);
-      closeBadgeHint();
-      for (const type of ['pointerover', 'focusin']) root.removeEventListener(type, openBadgeHint, true);
-      for (const type of ['pointerout', 'focusout']) root.removeEventListener(type, leaveBadgeHint, true);
-      document.removeEventListener('scroll', dismissBadgeHint, true);
-      document.removeEventListener('keydown', dismissBadgeHint, true);
-      for (const type of ['popstate', 'hashchange', 'pagehide', 'resize']) window.removeEventListener(type, dismissBadgeHint);
       observer.disconnect();
       for (const row of marked) if (!row.isConnected || root.contains(row)) tint(row, null);
       for (const row of grouped) if (!row.isConnected || root.contains(row)) clearGroup(row);
-      for (const row of badgeRows.keys()) clearBadges(row);
       marked.clear();
       grouped.clear();
     });
-    for (const type of ['pointerover', 'focusin']) root.addEventListener(type, openBadgeHint, true);
-    for (const type of ['pointerout', 'focusout']) root.addEventListener(type, leaveBadgeHint, true);
-    document.addEventListener('scroll', dismissBadgeHint, true);
-    document.addEventListener('keydown', dismissBadgeHint, true);
-    for (const type of ['popstate', 'hashchange', 'pagehide', 'resize']) window.addEventListener(type, dismissBadgeHint);
     refreshRegions.add(refresh);
     refresh();
     observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['style', 'class', 'data-a-user', 'data-user-id', 'data-a-user-id', 'href', 'alt', 'title', 'aria-label', 'data-a-target'] });
