@@ -1,8 +1,26 @@
-# twitch-min
+# ![twitch-min logo](extension/icons/icon32.png) twitch-min
 
-A Chrome extension for a calmer Twitch: a compact sidebar, streamlined chat,
+A browser extension for a simpler Twitch: a compact sidebar, streamlined chat,
 larger emote previews, and wheel volume control. No build or dependency install
 is needed to use it.
+
+## Before and after
+
+<table>
+  <tr>
+    <td colspan="2" align="right">
+      <img src="docs/images/nav-before-after.gif" width="720" alt="Top navigation before and after: notifications, whispers, and account controls remain.">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/sidebar-before-after.gif" width="360" alt="Sidebar before and after: compact rows retain avatars, viewer counts, and games.">
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/chat-before-after.gif" width="360" alt="Chat before and after: sender groups, shorter timestamps, and a collapsed composer.">
+    </td>
+  </tr>
+</table>
 
 ## Install locally
 
@@ -128,6 +146,8 @@ results stay in ignored `.browser-tests/`; ZIPs stay in ignored `dist/`.
 
 Set `TWITCH_MIN_SOAK_CYCLES` to change the soak length. Regenerate PNG icons with
 `python scripts/generate_icons.py` (standard library only).
+Regenerate the README GIFs with `node scripts/capture-previews.cjs`
+on Windows with Node and Chrome; no extra packages are needed.
 
 For implementation and test ownership, see [architecture.md](docs/architecture.md).
 Working rules are in [AGENTS.md](AGENTS.md); deferred work is in [ROADMAP.md](ROADMAP.md).
@@ -135,3 +155,5 @@ Working rules are in [AGENTS.md](AGENTS.md); deferred work is in [ROADMAP.md](RO
 ## License
 
 Licensed under the [MIT License](LICENSE).
+
+![twitch-min logo](extension/icons/icon128.png)

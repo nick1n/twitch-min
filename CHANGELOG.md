@@ -3,6 +3,13 @@
 Release history, newest first. Signed-in Twitch verification remains pending;
 see [validation notes](docs/validation.md) for current checks and limits.
 
+## 0.23.0 - Sidebar reliability and README previews
+
+- Keep compact sidebar sizing while Show more is pending.
+- Add anonymized README GIF previews with native Twitch icons.
+- Group previews and add the README title logo.
+- Add dependency-free GIF capture and regeneration.
+
 ## 0.22.0 - Navigation controls and release automation
 
 - Preserve scroll position and focus during automatic Following expansion.

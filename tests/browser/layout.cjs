@@ -66,7 +66,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       await waitFor(`__moreClicks.length === 2`);
       assert.equal(await evaluate(`__nativeSidebarClicks`), 1, 'expand a collapsed sidebar before finding its lists');
       assert.equal(await isVisible('followed-offline'), true, 'native offline rows remain during loading');
-      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').getBoundingClientRect().width`), 240);
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').getBoundingClientRect().width`), 144);
       await evaluate(`document.querySelector('#followed-live .side-nav-card__metadata').textContent='Updated game';__storagePatch({topNavigation:false})`);
       assert.equal(await evaluate(`__moreClicks.length`), 2, 'unrelated edits and settings do not double-click pending controls');
       await evaluate(`__finishMore('followed')`);
@@ -75,7 +75,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await isVisible('followed-loaded-offline-1'), true, 'pagination finishes before filtering new offline channels');
       await evaluate(`__finishMore('followed');__finishMore('recommended')`);
       await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
-      assert.deepEqual(await evaluate(`__moreClicks`), ['followed','recommended','followed'].map(id => ({ id, offline: true, title: true, heading: 'none', visible: true, ready: false })));
+      assert.deepEqual(await evaluate(`__moreClicks`), ['followed','recommended','followed'].map(id => ({ id, offline: true, title: false, heading: 'none', visible: true, ready: false })));
       for (const id of ['followed-offline','followed-loaded-offline-1','followed-loaded-offline-2','recommended-loaded-offline-1','followed-more','recommended-more']) {
         assert.equal(await isVisible(id), false, `${id} hides only after list expansion`);
       }
@@ -102,7 +102,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await evaluate(`__moreClicks.length`), 3);
       await evaluate(`document.querySelector('#late-more').setAttribute('aria-disabled','false')`);
       await waitFor(`__moreClicks.length === 4`);
-      assert.deepEqual(await evaluate(`__moreClicks[3]`), { id: 'late', offline: true, title: true, heading: 'none', visible: true, ready: false });
+      assert.deepEqual(await evaluate(`__moreClicks[3]`), { id: 'late', offline: true, title: false, heading: 'none', visible: true, ready: false });
       await evaluate(`__finishMore('late')`);
       await waitFor(`document.querySelector('[data-tq-sidebar-ready]') !== null`);
       assert.equal(await isVisible('late-loaded-1'), true);
@@ -113,6 +113,36 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       await evaluate(`__finishMore('replacement')`);
       await waitFor(`document.querySelector('[data-tq-sidebar-ready]') !== null`);
       assert.equal(await isVisible('replacement-loaded-offline-1'), false);
+    });
+
+    await t.test('stalled pagination keeps compact rows through toggles, pause and remounts', async () => {
+      await navigate('tests/fixtures/sidebar-more.html');
+      await waitFor(`__moreClicks.length === 2`);
+      const width = () => evaluate(`document.querySelector('#sidebar-shell').getBoundingClientRect().width`);
+      assert.equal(await width(), 144, 'pending pages never block compact sizing');
+      assert.equal(await isVisible('followed-more'), true, 'stalled native controls remain usable');
+      assert.equal(await isVisible('followed-offline'), true, 'filtering waits for pagination');
+      await evaluate(`__storagePatch({sidebarLabels:false})`);
+      assert.equal(await width(), 240);
+      await evaluate(`__storagePatch({sidebarLabels:true});history.pushState({},'', '?stalled');document.querySelector('#followed-live .side-nav-card__metadata').textContent='Updated'`);
+      assert.equal(await width(), 144);
+      assert.equal(await evaluate(`__moreClicks.length`), 2, 'settings and mutations do not retry stalled requests');
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await width(), 240);
+      assert.equal(await evaluate(`document.querySelector('[data-tq-sidebar-compact]')`), null);
+      await evaluate(`__storagePatch({enabled:true})`);
+      assert.equal(await width(), 144);
+      await evaluate(`window.detachedSide=document.querySelector('#sidebar-shell');const replacement=document.createElement('aside');replacement.id='sidebar-shell';replacement.className='side-nav side-nav--expanded';detachedSide.replaceWith(replacement);__mountMore('stalled', {disabled:true})`);
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-compact')`);
+      assert.equal(await width(), 144, 'later mounts compact even with disabled pagination');
+      assert.equal(await evaluate(`detachedSide.hasAttribute('data-tq-sidebar-compact')`), false);
+      assert.equal(await isVisible('stalled-more'), true);
+      await evaluate(`document.querySelector('#stalled-more').setAttribute('aria-disabled','false')`);
+      await waitFor(`__morePending.has('stalled')`);
+      await evaluate(`__finishMore('stalled')`);
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
+      assert.equal(await width(), 144);
+      assert.equal(await isVisible('stalled-loaded-offline-1'), false, 'filtering still applies after completion');
     });
 
     await t.test('sidebar expansion obeys both preferences and pause during a pending request', async () => {

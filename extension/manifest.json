@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "twitch-min",
   "homepage_url": "https://github.com/nick1n/twitch-min",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "description": "Make Twitch less distracting with a compact sidebar, streamlined chat, enlarged emote previews, and wheel volume control.",
   "minimum_chrome_version": "105",
   "permissions": ["storage"],

@@ -53,8 +53,10 @@ discovery. Region attachments register teardown through `onCleanup` before DOM
 changes, listeners, or observers. Unsubscribe attempts every cleanup and retains
 failures for retry. Native sidebar restoration may finish asynchronously.
 
-Sidebar row and section CSS require a per-region readiness marker. Layout expands the native
-sidebar and Show More lists before setting it. Retained pagination controls are
+Sidebar row CSS requires a per-region native-expansion marker, independent of
+Show More pagination. Section CSS uses a separate readiness marker set after the
+native sidebar and Show More lists finish expanding. Stalled pagination keeps
+compact rows active and native pagination controls visible. Retained pagination controls are
 clicked again only after new rows arrive; pending/disabled controls leave the
 native view visible. Remounts repeat setup; pause removes markers and restores an
 initially collapsed sidebar when neither sidebar feature needs expansion.

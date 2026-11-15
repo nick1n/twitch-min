@@ -55,6 +55,9 @@
     let userCollapsed = false;
     let automaticToggle = false;
     const moreClicks = new Map();
+    function compactReady(value) {
+      if (side.hasAttribute('data-tq-sidebar-compact') !== value) side.toggleAttribute('data-tq-sidebar-compact', value);
+    }
     function ready(value) {
       if (side.hasAttribute('data-tq-sidebar-ready') !== value) side.toggleAttribute('data-tq-sidebar-ready', value);
     }
@@ -105,6 +108,7 @@
       userCollapsed = current;
       pending = { button, expanded: !current };
       ready(false);
+      compactReady(false);
     }
     function syncCollapse() {
       if (!side.isConnected) return;
@@ -129,6 +133,9 @@
     function sync() {
       if (!side.isConnected) return;
       syncCollapse();
+      // Row sizing depends only on native expansion, not pagination completing.
+      // Keep native Show more controls available while section filtering waits.
+      compactReady(enabled && compact && !pending && expanded() !== false);
       if (!enabled || (!compact && !sections) || pending || expanded() === false) {
         ready(false);
         return;
@@ -150,6 +157,7 @@
       side.removeEventListener('click', onToggle, true);
       sides.delete(state);
       moreClicks.clear();
+      compactReady(false);
       ready(false);
       for (const node of side.querySelectorAll('[data-tq-section], [data-tq-section-title]')) {
         node.removeAttribute('data-tq-section');

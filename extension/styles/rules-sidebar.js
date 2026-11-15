@@ -3,8 +3,9 @@
   "use strict";
 
   const SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar})[data-tq-sidebar-ready]`;
-  const SCROLL_SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar}):is([data-tq-sidebar-ready], .side-nav--collapsed, [data-a-target="side-nav-bar-collapsed"])`;
-  const PROMOTED = `${SIDEBAR} .side-nav-card__link--promoted-followed`;
+  const COMPACT = `:is(${globalThis.TwitchMinSelectors.sidebar})[data-tq-sidebar-compact]`;
+  const SCROLL_SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar}):is([data-tq-sidebar-compact], .side-nav--collapsed, [data-a-target="side-nav-bar-collapsed"])`;
+  const PROMOTED = `${COMPACT} .side-nav-card__link--promoted-followed`;
 
   globalThis.TwitchMinSidebarRules = Object.freeze([
     [6, {
@@ -48,79 +49,79 @@
     }],
     [10, {
       key: "sidebarLabels",
-      selectors: [SIDEBAR],
+      selectors: [COMPACT],
       // Only the horizontal layout owner gets a fixed width. In particular,
       // never set flex-basis on the overlay: its parent can be a column.
       declaration: "width: 144px !important; min-width: 144px !important; max-width: 144px !important;"
     }],
     [11, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .side-nav__overlay-wrapper`],
+      selectors: [`${COMPACT} .side-nav__overlay-wrapper`],
       declaration: "width: 100% !important; min-width: 0 !important; max-width: 100% !important;"
     }],
     [12, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .side-nav-card__link`],
+      selectors: [`${COMPACT} .side-nav-card__link`],
       declaration: "display: grid !important; grid-template-columns: 26px minmax(0, 1fr) !important; grid-template-rows: auto auto !important; column-gap: 5px !important; row-gap: 0 !important; align-items: center !important; box-sizing: border-box !important; width: 100% !important; min-width: 0 !important; max-width: 100% !important; height: auto !important; min-height: 38px !important; margin: 0 !important; padding: 2px 4px !important;"
     }],
     [13, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .side-nav-card__link > :first-child`],
+      selectors: [`${COMPACT} .side-nav-card__link > :first-child`],
       // Includes composite/hype-train avatars without side-nav-card__avatar.
       declaration: "grid-column: 1 !important; grid-row: 1 / span 2 !important; min-width: 0 !important; width: 26px !important; height: 26px !important; overflow: hidden !important;"
     }],
     [14, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .side-nav-card__link > :first-child .tw-avatar`, `${SIDEBAR} .side-nav-card__link > .side-nav-card__avatar`],
+      selectors: [`${COMPACT} .side-nav-card__link > :first-child .tw-avatar`, `${COMPACT} .side-nav-card__link > .side-nav-card__avatar`],
       declaration: "width: 26px !important; height: 26px !important;"
     }],
     [15, {
       key: "sidebarLabels",
       selectors: [
-        `${SIDEBAR} .side-nav-card__link > :nth-child(2)`,
-        `${SIDEBAR} .side-nav-card__link > :nth-child(2) > :first-child`,
-        `${SIDEBAR} .side-nav-card__link [data-a-target="side-nav-card-metadata"]`
+        `${COMPACT} .side-nav-card__link > :nth-child(2)`,
+        `${COMPACT} .side-nav-card__link > :nth-child(2) > :first-child`,
+        `${COMPACT} .side-nav-card__link [data-a-target="side-nav-card-metadata"]`
       ],
       // Flatten native layout wrappers so count and game share the grid column.
       declaration: "display: contents !important;"
     }],
     [16, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .side-nav-card__link`, `${SIDEBAR} .side-nav-card__link *`],
+      selectors: [`${COMPACT} .side-nav-card__link`, `${COMPACT} .side-nav-card__link *`],
       // Allow only the count and category to render text. Native promotional
       // captions can appear inside avatar wrappers or unexpected nested boxes.
       declaration: "font-size: 0 !important; line-height: 0 !important;"
     }],
     [17, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .side-nav-card__link [data-a-target="side-nav-live-status"]`],
+      selectors: [`${COMPACT} .side-nav-card__link [data-a-target="side-nav-live-status"]`],
       declaration: "grid-column: 2 !important; grid-row: 1 !important; justify-self: start !important; width: auto !important; min-width: 0 !important; font-size: 13px !important; line-height: 18px !important;"
     }],
     [18, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .side-nav-card__link [data-a-target="side-nav-live-status"] span[aria-hidden="true"]`],
+      selectors: [`${COMPACT} .side-nav-card__link [data-a-target="side-nav-live-status"] span[aria-hidden="true"]`],
       declaration: "font-size: 13px !important; line-height: 18px !important;"
     }],
     [19, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .side-nav-card__link .side-nav-card__metadata`],
+      selectors: [`${COMPACT} .side-nav-card__link .side-nav-card__metadata`],
       declaration: "grid-column: 2 !important; grid-row: 2 !important; min-width: 0 !important; max-width: 100% !important; padding: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; font-size: 12px !important; line-height: 15px !important;"
     }],
     [20, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .side-nav-card__link .side-nav-card__metadata *`],
+      selectors: [`${COMPACT} .side-nav-card__link .side-nav-card__metadata *`],
       declaration: "overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; font-size: inherit !important; line-height: inherit !important;"
     }],
     [21, {
       key: "sidebarLabels",
       selectors: [
-        `${SIDEBAR} .side-nav-card__link .side-nav-card__title`,
-        `${SIDEBAR} .side-nav-card__link > :first-child p`,
-        `${SIDEBAR} .side-nav-card__link > :first-child [data-a-target="side-nav-title"]`,
-        `${SIDEBAR} .side-nav-card__link > :nth-child(2) > :first-child > :not([data-a-target="side-nav-card-metadata"]):not([data-a-target="side-nav-live-status"])`,
-        `${SIDEBAR} .side-nav-card__link [data-a-target="side-nav-card-metadata"] > :not(.side-nav-card__title):not(.side-nav-card__metadata)`,
-        `${SIDEBAR} .side-nav-card__link > :nth-child(2) > :not(:first-child)`,
-        `${SIDEBAR} .side-nav-card__link > :nth-child(n+3)`
+        `${COMPACT} .side-nav-card__link .side-nav-card__title`,
+        `${COMPACT} .side-nav-card__link > :first-child p`,
+        `${COMPACT} .side-nav-card__link > :first-child [data-a-target="side-nav-title"]`,
+        `${COMPACT} .side-nav-card__link > :nth-child(2) > :first-child > :not([data-a-target="side-nav-card-metadata"]):not([data-a-target="side-nav-live-status"])`,
+        `${COMPACT} .side-nav-card__link [data-a-target="side-nav-card-metadata"] > :not(.side-nav-card__title):not(.side-nav-card__metadata)`,
+        `${COMPACT} .side-nav-card__link > :nth-child(2) > :not(:first-child)`,
+        `${COMPACT} .side-nav-card__link > :nth-child(n+3)`
       ],
       declaration: "display: none !important;"
     }],
@@ -173,7 +174,7 @@
     }],
     [29, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .side-nav-card`, `${SIDEBAR} .side-nav-section`],
+      selectors: [`${COMPACT} .side-nav-card`, `${COMPACT} .side-nav-section`],
       declaration: "margin-block: 0 !important;"
     }],
     [30, {
