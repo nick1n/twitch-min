@@ -1,0 +1,4 @@
+interface:
+  display_name: "twitch-min Release"
+  short_description: "Prepare versions, changelogs, and release ZIPs"
+  default_prompt: "Use $twitch-min-release to prepare a minor release of twitch-min."
