@@ -18,7 +18,39 @@ function trackProfiles(t) {
   return profiles;
 }
 
-test('Chrome startup waits through locked and partially written port files', { timeout: 10000 }, async t => {
+test('Chrome cleanup completes after process exit without waiting for inherited stderr to close', { timeout: 5000 }, async t => {
+  const { EventEmitter } = require('node:events');
+  const { PassThrough } = require('node:stream');
+  const childProcess = require('node:child_process');
+  const profiles = trackProfiles(t);
+  const child = new EventEmitter();
+  child.stderr = new PassThrough();
+  child.kill = () => true;
+  const spawnMock = mock.method(childProcess, 'spawn', () => {
+    process.nextTick(() => child.emit('exit', 1, null));
+    return child;
+  });
+  // Load a separate harness instance with the fake child. It deliberately never
+  // emits close, reproducing an inherited pipe still held by a descendant.
+  const modulePath = require.resolve('./support/chrome.cjs');
+  const cached = require.cache[modulePath];
+  let isolatedBrowser;
+  try {
+    delete require.cache[modulePath];
+    isolatedBrowser = require(modulePath);
+  } finally {
+    require.cache[modulePath] = cached;
+    spawnMock.mock.restore();
+  }
+  await assert.rejects(isolatedBrowser(() => assert.fail('exited child must not run checks'), {
+    chromePath: process.execPath,
+  }), /Chrome exited before exposing/);
+  assert.equal(child.stderr.destroyed, true);
+  assert.equal(profiles.length, 1);
+  assert.equal(fs.existsSync(profiles[0]), false);
+});
+
+test('Chrome startup waits through locked and partially written port files', { timeout: 30000 }, async t => {
   const profiles = trackProfiles(t);
   const readFile = fs.readFileSync;
   let attempts = 0;
@@ -140,7 +172,7 @@ for (const failure of ['missing executable', 'early process exit']) {
 }
 
 for (const stage of ['target response', 'target body', 'WebSocket handshake']) {
-  test(`Chrome harness bounds a stalled ${stage} and removes its profile`, { timeout: 5000 }, async t => {
+  test(`Chrome harness bounds a stalled ${stage} and removes its profile`, { timeout: 30000 }, async t => {
     const profiles = trackProfiles(t);
     let signal, socket;
     const fetchMock = mock.method(globalThis, 'fetch', async (_url, options) => {

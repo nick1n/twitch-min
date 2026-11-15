@@ -55,11 +55,10 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
   let stderr = '';
   browser.stderr.setEncoding('utf8');
   browser.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-8192); });
-  // Attach immediately; close also waits for diagnostic output to finish.
-  const browserClosed = new Promise(resolve => {
-    browser.once('error', error => { launchError = error; });
-    browser.once('exit', (code, signal) => { exit = { code, signal }; });
-    browser.once('close', resolve);
+  // Descendants can inherit stderr and delay close indefinitely after exit.
+  const browserExited = new Promise(resolve => {
+    browser.once('error', error => { launchError = error; resolve(); });
+    browser.once('exit', (code, signal) => { exit = { code, signal }; resolve(); });
   });
   const startupError = message => new Error(`${message}\nExecutable: ${chromePath}${stderr.trim() ? `\nChrome stderr:\n${stderr.trim()}` : ''}`, { cause: launchError });
   let socket;
@@ -83,7 +82,7 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
       if (!port) await pause(Math.min(50, Math.max(0, deadline - Date.now())));
     }
     if (launchError || exit) {
-      await browserClosed;
+      await browserExited;
       throw startupError(launchError ? `Chrome failed to start: ${launchError.message}`
         : `Chrome exited before exposing its test debugging endpoint (exit code ${exit.code}, signal ${exit.signal || 'none'}).`);
     }
@@ -191,7 +190,15 @@ module.exports = async function withBrowser(run, { intercept, initSource = '', c
     closeProtocol();
     // Terminate only the Chrome child launched for this test profile.
     browser.kill();
-    await browserClosed;
+    let exitTimer;
+    try {
+      await Promise.race([browserExited, new Promise((_, reject) => {
+        exitTimer = setTimeout(() => reject(startupError('Chrome did not exit after termination.')), 5000);
+      })]);
+    } finally {
+      clearTimeout(exitTimer);
+      browser.stderr.destroy();
+    }
     // Only delete this run's direct child directory, never snapshots or other runs.
     const profilesRoot = path.resolve(root, '.browser-tests');
     assert.equal(path.dirname(path.resolve(profile)), profilesRoot);
