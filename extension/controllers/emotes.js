@@ -33,7 +33,7 @@
 
   function usableTooltip(wrapper, name) {
     return wrapper?.isConnected && wrapper.matches(TOOLTIP) && tooltipHasName(wrapper, name) &&
-      !wrapper.closest('[aria-hidden="true"], [data-popper-reference-hidden="true"]') &&
+      !wrapper.closest('[hidden], [aria-hidden="true"], [data-popper-reference-hidden="true"]') &&
       wrapper.checkVisibility({ checkVisibilityCSS: true });
   }
 
@@ -82,7 +82,7 @@
     resizeObserver.observe(wrapper);
     if (active.positioner) {
       active.positioner.setAttribute('data-tq-emote-positioner', '');
-      observer.observe(active.positioner, { attributes: true, attributeFilter: ['style', 'data-popper-placement', 'data-popper-reference-hidden'] });
+      observer.observe(active.positioner, { attributes: true, attributeFilter: ['style', 'class', 'hidden', 'aria-hidden', 'data-popper-placement', 'data-popper-reference-hidden'] });
     }
     position();
   }
@@ -198,6 +198,8 @@
       } else if (records.some(record => {
         const element = record.target instanceof Element ? record.target : record.target.parentElement;
         if (element?.closest('.tw-tooltip-layer')) return true;
+        // A hidden tooltip can become visible through a wrapper or ancestor.
+        if (record.type === 'attributes' && element?.querySelector('.tw-tooltip-layer, .tw-tooltip-wrapper')) return true;
         return [...record.addedNodes].some(node => node instanceof Element &&
           (node.matches('.tw-tooltip-layer, .tw-tooltip-wrapper') || node.querySelector('.tw-tooltip-layer, .tw-tooltip-wrapper')));
       })) {
@@ -217,7 +219,7 @@
         element.removeAttribute("title");
       }
     }
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['aria-hidden', 'data-popper-reference-hidden'] });
+    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['aria-hidden', 'data-popper-reference-hidden', 'style', 'class', 'hidden'] });
     const wrapper = nativeTooltip(image, name);
     if (wrapper) attachNative(wrapper);
     document.addEventListener("scroll", closeOnScroll, true);

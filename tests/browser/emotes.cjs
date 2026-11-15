@@ -211,6 +211,32 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await evaluate(`document.querySelector('#chat-emote').getAttribute('aria-describedby')`), 'native-emote-hint', 'temporary native tooltip reference restores');
     });
 
+    await t.test('visibility changes dismiss native previews and restore temporary state', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await nativeTooltip('eyesonbHmm', { linked: false });
+      await evaluate(`document.head.insertAdjacentHTML('beforeend','<style>.emote-test-hidden { display: none !important; }</style>')`);
+      for (const [selector, attribute] of [
+        ['#native-emote-tooltip .tw-tooltip-wrapper', 'style'], ['#native-emote-tooltip', 'class'],
+        ['#native-emote-tooltip-positioner', 'hidden'], ['html', 'style']
+      ]) {
+        await evaluate(`document.querySelector('#chat-emote').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}))`);
+        await waitFor(`document.querySelector('#twitch-min-emote-preview img')?.naturalWidth > 0`);
+        await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+        await evaluate(`(()=>{const node=document.querySelector(${JSON.stringify(selector)});const attr=${JSON.stringify(attribute)};if(attr==='style')node.style.setProperty('display','none','important');else if(attr==='class')node.classList.add('emote-test-hidden');else node.hidden=true})()`);
+        try { await waitFor(`!document.querySelector('#twitch-min-emote-preview')`); }
+        catch (error) { throw new Error(`${selector} ${attribute}: ${error.message}`); }
+        assert.deepEqual(await evaluate(`(()=>{const image=document.querySelector('#chat-emote');return [document.querySelectorAll('[data-tq-emote-host], [data-tq-emote-positioner]').length,image.getAttribute('aria-describedby'),image.title]})()`), [0, 'native-emote-hint', 'eyesonbHmm']);
+        await evaluate(`(()=>{const node=document.querySelector(${JSON.stringify(selector)});const attr=${JSON.stringify(attribute)};if(attr==='style')node.style.removeProperty('display');else if(attr==='class')node.classList.remove('emote-test-hidden');else node.hidden=false})()`);
+      }
+      await evaluate(`document.querySelector('#native-emote-tooltip').style.display='none';document.querySelector('#chat-emote').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}))`);
+      assert.equal(await evaluate(`document.querySelector('#twitch-min-emote-preview')`), null);
+      await evaluate(`document.querySelector('#native-emote-tooltip').style.removeProperty('display')`);
+      await waitFor(`document.querySelector('#twitch-min-emote-preview')`);
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await evaluate(`document.querySelector('#chat-emote').title`), 'eyesonbHmm');
+      assert.equal(await evaluate(`document.querySelector('[data-tq-emote-host]')`), null);
+    });
+
     await t.test('rich native emote tooltip keeps its metadata below the 3x image and restores original nodes', async () => {
       await navigate('tests/fixtures/twitch.html');
       const before = await nativeTooltip('eyesonbHmm');

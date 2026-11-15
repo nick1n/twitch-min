@@ -62,6 +62,27 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await isVisible('chat-send'), true);
     });
 
+    await t.test('composer metadata skips unrelated updates while toggles and editor IDs stay current', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await evaluate(`window.composerWrites=0;window.composerOwner=document.querySelector('.chat-input');window.composerControl=composerOwner.querySelector('[data-tq-chat-toggle]');window.composerBox=document.getElementById(composerControl.getAttribute('aria-controls'));const observer=new MutationObserver(records=>composerWrites+=records.length);observer.observe(composerOwner,{attributes:true,attributeFilter:['data-tq-composer-open']});observer.observe(composerControl,{attributes:true});composerOwner.classList.add('unrelated-native-state');composerBox.append(document.createElement('span'))`);
+      assert.equal(await evaluate('composerWrites'), 0, 'unrelated editor mutations leave toggle metadata untouched');
+      await evaluate(`composerControl.click()`);
+      assert.deepEqual(await evaluate(`[composerControl.getAttribute('aria-expanded'),composerControl.getAttribute('aria-label'),composerControl.title]`), ['true', 'Hide chat message box', 'Hide chat message box']);
+      assert.ok(await evaluate('composerWrites') > 0, 'opening updates the accessible state');
+      await evaluate(`composerWrites=0;composerBox.id='renamed-composer'`);
+      assert.equal(await evaluate(`composerControl.getAttribute('aria-controls')`), 'renamed-composer', 'native editor ID changes update the target');
+      await evaluate(`composerWrites=0;composerOwner.classList.toggle('unrelated-native-state');composerBox.append(document.createElement('span'))`);
+      assert.equal(await evaluate('composerWrites'), 0, 'the open composer also skips unchanged metadata');
+      await evaluate(`composerControl.setAttribute('aria-label','stale label')`);
+      await evaluate(`composerOwner.classList.toggle('unrelated-native-state')`);
+      assert.equal(await evaluate(`composerControl.getAttribute('aria-label')`), 'Hide chat message box', 'render repairs metadata changed externally');
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle], [data-tq-composer-open]')`), null);
+      await evaluate(`__storagePatch({enabled:true})`);
+      assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle]').getAttribute('aria-expanded')`), 'false');
+      assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle]').getAttribute('aria-controls')`), 'renamed-composer');
+    });
+
     await t.test('Chat toggle follows later and replaced composers, including the supplied live editor', async () => {
       await navigate('tests/fixtures/twitch.html');
       await evaluate(`document.querySelector('[data-tq-chat-toggle]').click();const old=document.querySelector('.chat-input');old.replaceWith(old.cloneNode(true))`);

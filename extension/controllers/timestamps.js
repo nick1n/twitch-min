@@ -69,14 +69,11 @@
     const observer = new MutationObserver(records => {
       const candidates = new Set();
       for (const record of records) {
-        if (record.type === "characterData") visit(record.target, candidates);
-        else {
-          // A removal-only mutation must clear an obsolete visual label too.
-          const candidate = record.target.closest?.(TIME);
-          if (candidate) candidates.add(candidate);
-          for (const node of record.addedNodes) visit(node, candidates);
-          for (const node of record.removedNodes) releaseRemoved(node);
-        }
+        // A removal-only mutation must clear an obsolete visual label too.
+        const candidate = record.target.closest?.(TIME);
+        if (candidate) candidates.add(candidate);
+        for (const node of record.addedNodes) visit(node, candidates);
+        for (const node of record.removedNodes) releaseRemoved(node);
       }
       flush(candidates);
     });
@@ -87,7 +84,7 @@
     const initial = new Set();
     visit(root, initial);
     flush(initial);
-    observer.observe(root, { childList: true, subtree: true, characterData: true });
+    observer.observe(root, { childList: true, subtree: true });
   }
 
   let stopRegions = null;

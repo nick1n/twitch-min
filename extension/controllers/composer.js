@@ -27,12 +27,14 @@
   }
 
   function render(state) {
-    state.owner.toggleAttribute(OPEN, state.open);
-    state.control.setAttribute('aria-expanded', String(state.open));
-    state.control.setAttribute('aria-controls', state.box.id);
+    if (state.owner.hasAttribute(OPEN) !== state.open) state.owner.toggleAttribute(OPEN, state.open);
     const label = `${state.open ? 'Hide' : 'Show'} chat message box`;
-    state.control.setAttribute('aria-label', label);
-    state.control.title = label;
+    for (const [name, value] of Object.entries({
+      'aria-expanded': String(state.open), 'aria-controls': state.box.id,
+      'aria-label': label, title: label
+    })) {
+      if (state.control.getAttribute(name) !== value) state.control.setAttribute(name, value);
+    }
   }
 
   function sync(owner) {

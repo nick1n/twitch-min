@@ -2,12 +2,12 @@
 
 ## Current verification and limitations
 
-Latest successful full run: **November 14, 2026**, Node 26.3.0,
-Chrome 157.0.8103.51. All **150 tests**, syntax checks, and packaging passed after
-the badge extraction and harness hardening. The Windows sandbox account hit error
+Latest successful full run: **November 15, 2026**, Node 26.3.0,
+Chrome 157.0.8103.51. All **190 tests** and packaging passed after the sidebar,
+tooltip, and DOM update fixes. The Windows sandbox account hit error
 1909; final checks ran outside it.
 
-The 125-second offline soak passed 60 pause/resume cycles, 12,000 message insertions,
+The earlier 125-second offline soak passed 60 pause/resume cycles, 12,000 message insertions,
 and 12 region remounts. No tracked mutation/resize observers, document/window
 listeners, or temporary markers remained after pause. Fixture theatre entry/exit
 also passed. This verifies cleanup and bounded visible DOM, not every possible

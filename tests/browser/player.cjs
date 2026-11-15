@@ -144,6 +144,27 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.deepEqual(await fitted(), { adjacent: true, bottom: true, videoFits: true, height: 450, videoHeight: 350 });
     });
 
+    await t.test('unchanged VOD geometry skips writes while resize and native edits still update the fit', async () => {
+      await navigate('tests/fixtures/player-layout.html', '__stored.channelAbout=true;');
+      await waitFor(`document.querySelector('[data-tq-fit-player]')`);
+      await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+      await evaluate(`window.fitWrites=0;for(const selector of ['.channel-root','.persistent-player']){const element=document.querySelector(selector),set=element.setAttribute,style=element.style,setProperty=style.setProperty;element.setAttribute=function(...args){fitWrites++;return set.apply(this,args)};style.setProperty=function(...args){fitWrites++;return setProperty.apply(this,args)}};for(let i=0;i<10;i++)window.dispatchEvent(new Event('resize'))`);
+      assert.equal(await evaluate('fitWrites'), 0, 'unchanged geometry does not rewrite markers or CSS variables');
+      await evaluate(`document.querySelector('main').style.height='450px'`);
+      await waitFor(`document.querySelector('.channel-root').style.getPropertyValue('--tq-vod-height')==='450px' && document.querySelector('.persistent-player').style.getPropertyValue('--tq-player-height')==='350px'`);
+      assert.ok(await evaluate('fitWrites') > 0, 'a real viewport resize still updates the fit');
+      await evaluate(`document.querySelector('.channel-root').removeAttribute('data-tq-vod-fit');document.querySelector('.persistent-player').removeAttribute('data-tq-fit-player');document.querySelector('.persistent-player').style.setProperty('--tq-player-height','1px');fitWrites=0;window.dispatchEvent(new Event('resize'))`);
+      assert.equal(await evaluate(`document.querySelector('.channel-root').hasAttribute('data-tq-vod-fit') && document.querySelector('.persistent-player').hasAttribute('data-tq-fit-player')`), true, 'missing markers are restored');
+      assert.equal(await evaluate(`document.querySelector('.persistent-player').style.getPropertyValue('--tq-player-height')`), '350px', 'external changes are corrected without a stale cache');
+      await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+      await evaluate(`fitWrites=0;window.dispatchEvent(new Event('resize'))`);
+      assert.equal(await evaluate('fitWrites'), 0, 'settled geometry skips writes again');
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await evaluate(`document.querySelector('[data-tq-fit-player], [data-tq-vod-fit]')`), null);
+      await evaluate(`__storagePatch({enabled:true});history.pushState({},'', '?fit-writes')`);
+      await waitFor(`document.querySelector('.persistent-player').style.getPropertyValue('--tq-player-height')==='350px'`);
+    });
+
     await t.test('live chat updates skip player discovery but later VOD mounts still fit', async () => {
       await navigate('tests/fixtures/twitch.html', '__stored.channelAbout=true;');
       await evaluate(`window.playerLookups=0;for(const method of ['querySelector','querySelectorAll']){const original=document[method];document[method]=function(selector){if(selector.includes('.channel-root') || selector.includes('.root-scrollable__wrapper'))playerLookups++;return original.call(this,selector)}};`);

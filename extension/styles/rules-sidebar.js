@@ -3,6 +3,7 @@
   "use strict";
 
   const SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar})[data-tq-sidebar-ready]`;
+  const HEADINGS = `:is(${globalThis.TwitchMinSelectors.sidebar})[data-tq-sidebar-headings]`;
   const COMPACT = `:is(${globalThis.TwitchMinSelectors.sidebar})[data-tq-sidebar-compact]`;
   const SCROLL_SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar}):is([data-tq-sidebar-compact], .side-nav--collapsed, [data-a-target="side-nav-bar-collapsed"])`;
   const PROMOTED = `${COMPACT} .side-nav-card__link--promoted-followed`;
@@ -34,17 +35,17 @@
     }],
     [7, {
       key: "sidebarSections",
-      selectors: [`${SIDEBAR} [data-tq-section-title] > *`],
+      selectors: [`${HEADINGS} [data-tq-section-title] > *`],
       declaration: "display: none !important;"
     }],
     [8, {
       key: "sidebarSections",
-      selectors: [`${SIDEBAR} [data-tq-section-title]`],
+      selectors: [`${HEADINGS} [data-tq-section-title]`],
       declaration: "display: block !important; box-sizing: border-box !important; width: 100% !important; height: 25px !important; min-height: 0 !important; padding: 6px 4px 3px !important; margin: 0 !important; font-size: 0 !important; line-height: 16px !important;"
     }],
     [9, {
       key: "sidebarSections",
-      selectors: [`${SIDEBAR} [data-tq-section-title]::before`],
+      selectors: [`${HEADINGS} [data-tq-section-title]::before`],
       declaration: 'content: attr(data-tq-section-title); font-size: 12px !important; line-height: 16px !important; font-weight: 600 !important; color: var(--color-text-base, #dedee3);'
     }],
     [10, {

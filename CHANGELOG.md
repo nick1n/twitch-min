@@ -3,6 +3,17 @@
 Release history, newest first. Signed-in Twitch verification remains pending;
 see [validation notes](docs/validation.md) for current checks and limits.
 
+## 0.24.0 - Reliability fixes and DOM optimizations
+
+- Keep sidebar headers styled during pending pagination and native replacements.
+- Detect Following and Browse regions that receive their IDs after mounting.
+- Share region discovery scans between identical selectors.
+- Cache sender-run lookups within each chat update.
+- Restore emote preview state when native tooltips hide through visibility changes.
+- Stop observing direct edits to existing timestamp text nodes.
+- Skip unchanged player-fit and composer metadata writes.
+- Add a repository skill for local release preparation.
+
 ## 0.23.0 - Sidebar reliability and README previews
 
 - Keep compact sidebar sizing while Show more is pending.

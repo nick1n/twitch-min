@@ -53,13 +53,15 @@ discovery. Region attachments register teardown through `onCleanup` before DOM
 changes, listeners, or observers. Unsubscribe attempts every cleanup and retains
 failures for retry. Native sidebar restoration may finish asynchronously.
 
-Sidebar row CSS requires a per-region native-expansion marker, independent of
-Show More pagination. Section CSS uses a separate readiness marker set after the
-native sidebar and Show More lists finish expanding. Stalled pagination keeps
-compact rows active and native pagination controls visible. Retained pagination controls are
-clicked again only after new rows arrive; pending/disabled controls leave the
-native view visible. Remounts repeat setup; pause removes markers and restores an
-initially collapsed sidebar when neither sidebar feature needs expansion.
+Sidebar rows and section headings use separate per-region native-expansion
+markers, independent of Show More pagination and each other's preferences.
+Section filtering uses a readiness marker set after native list expansion.
+Stalled or later pagination keeps compact rows and styled headings active while
+native pagination controls and unfiltered lists remain visible. Heading
+replacements are relabelled while pagination waits. Retained pagination controls
+are clicked again only after new rows arrive. Remounts repeat setup; pause removes
+markers and restores an initially collapsed sidebar when neither sidebar feature
+needs expansion.
 The native Collapse/Expand control stays visible. Layout distinguishes its own
 toggle clicks from manual actions, respects manual collapse, and reapplies compact
 styles only after native expansion settles. It retains the initial-state
@@ -74,6 +76,12 @@ disconnects. Saved preferences gate activation, preserving a saved pause at the
 cost of a possible initial native-page flash. One shared discovery observer tracks
 region mounts, identity changes, and removals while features are active. Feature
 observers process affected regions/subtrees, not document-wide chat scans.
+Discovery observes class, ID, and target attributes and shares added-subtree scans
+between identical selectors within a mutation batch. Each subscription retains
+its own candidates and cleanup ownership. Chat caches author identities and sender
+run starts only within each row-update batch, so later edits use fresh DOM state.
+Timestamp observers handle inserted, replaced, and removed nodes; they do not
+subscribe to edits of existing text nodes or attributes.
 
 | Controller | Important contract |
 | --- | --- |
@@ -104,7 +112,9 @@ Badge and emote tooltip handling preserves native labels, metadata, theme, arrow
 placement, accessible names, and handlers. Badge discovery prefers native links,
 then exact-name/distance matching. Temporary tooltip observers run only while
 active and filter unrelated mutations before geometry reads. No standalone emote
-popover is created; larger-image failure falls back to the original image.
+popover is created; larger-image failure falls back to the original image. Native
+emote tooltip visibility changes through class, style, or hidden attributes also
+release the preview and restore temporary titles, references, and markers.
 
 ## Test organization
 

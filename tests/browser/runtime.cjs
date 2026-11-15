@@ -81,6 +81,51 @@ module.exports = async (t, { navigate, evaluate, waitFor }) => {
     assert.equal(await evaluate('disposals'), 2, 'unsubscribe is idempotent');
   });
 
+  await t.test('Following and Browse activate when existing content gains its region ID', async () => {
+    await navigate('tests/fixtures/following.html', 'window.__deferFollowing=true;');
+    await evaluate(`__mountFollowingPage();window.page=document.querySelector('#following-page-main-content');page.removeAttribute('id')`);
+    await evaluate(`window.__followingClicks.length=0;page.id='following-page-main-content'`);
+    assert.deepEqual(await evaluate('__followingClicks'), ['recommended', 'latest']);
+    await evaluate(`page.id='former-following';__finishFollowing('recommended')`);
+    assert.deepEqual(await evaluate('__followingClicks'), ['recommended', 'latest'], 'losing the ID stops shelf expansion');
+    await evaluate(`history.pushState({},'', '?later');page.id='following-page-main-content'`);
+    assert.equal(await evaluate(`__followingClicks.filter(id=>id==='recommended').length`), 2);
+    await evaluate(`__storagePatch({enabled:false});__finishFollowing('recommended')`);
+    assert.equal(await evaluate(`__followingClicks.filter(id=>id==='recommended').length`), 2, 'pause stops expansion');
+
+    await navigate('tests/fixtures/browse.html', '__stored.enabled=false;');
+    await evaluate(`window.page=document.querySelector('#directory-game-main-content');page.removeAttribute('id');__storagePatch({enabled:true})`);
+    assert.equal(await evaluate(`document.querySelector('#recaps').hasAttribute('data-tq-recent-recaps')`), false);
+    await evaluate(`page.id='directory-game-main-content'`);
+    assert.equal(await evaluate(`document.querySelector('#recaps').hasAttribute('data-tq-recent-recaps')`), true);
+    await evaluate(`page.id='former-directory'`);
+    assert.equal(await evaluate(`document.querySelector('#recaps').hasAttribute('data-tq-recent-recaps')`), false);
+    await evaluate(`history.pushState({},'', '?browse');page.id='directory-game-main-content'`);
+    assert.equal(await evaluate(`document.querySelector('#recaps').hasAttribute('data-tq-recent-recaps')`), true);
+    await evaluate(`__storagePatch({enabled:false})`);
+    assert.equal(await evaluate(`document.querySelector('#recaps').hasAttribute('data-tq-recent-recaps')`), false);
+  });
+
+  await t.test('identical region subscriptions share batch scans and retain independent cleanup and late mounts', async () => {
+    await navigate('tests/fixtures/twitch.html');
+    await evaluate(`window.scanCount=0;window.events=[];window.stopA=TwitchMinRegions.watch('.shared-test',element=>{events.push('a:'+element.id);return()=>events.push('-a:'+element.id)});window.stopB=TwitchMinRegions.watch('.shared-test',element=>{events.push('b:'+element.id);return()=>events.push('-b:'+element.id)});window.container=document.createElement('div');container.innerHTML='<div class="shared-test" id="shared-outer"><div class="shared-test" id="shared-inner"></div></div><div class="shared-test" id="shared-sibling"></div>';const query=container.querySelectorAll;container.querySelectorAll=function(selector){if(selector==='.shared-test')scanCount++;return query.call(this,selector)};document.body.append(container)`);
+    assert.equal(await evaluate('scanCount'), 1);
+    assert.deepEqual(await evaluate('events'), ['a:shared-outer', 'a:shared-sibling', 'b:shared-outer', 'b:shared-sibling']);
+    await evaluate(`stopA();document.querySelector('#shared-outer').remove();container.insertAdjacentHTML('beforeend','<div class="shared-test" id="shared-later"></div>')`);
+    assert.deepEqual(await evaluate('events'), ['a:shared-outer', 'a:shared-sibling', 'b:shared-outer', 'b:shared-sibling', '-a:shared-outer', '-a:shared-sibling', '-b:shared-outer', 'b:shared-later']);
+    await evaluate(`stopB()`);
+    assert.deepEqual(await evaluate('events.slice(-2)'), ['-b:shared-sibling', '-b:shared-later']);
+  });
+
+  await t.test('shared discoveries reject obsolete roots and find roots added synchronously during attachment', async () => {
+    await navigate('tests/fixtures/twitch.html');
+    await evaluate(`window.events=[];window.stopA=TwitchMinRegions.watch('.sync-test',element=>{events.push('a:'+element.id);if(element.id==='obsolete'){element.remove();document.body.insertAdjacentHTML('beforeend','<div class="sync-test" id="sync-later"></div>')}return()=>events.push('-a:'+element.id)});window.stopB=TwitchMinRegions.watch('.sync-test',element=>{events.push('b:'+element.id);return()=>events.push('-b:'+element.id)});document.body.insertAdjacentHTML('beforeend','<div class="sync-test" id="obsolete"></div>')`);
+    await waitFor(`events.includes('b:sync-later')`);
+    assert.equal(await evaluate(`events.includes('b:obsolete')`), false);
+    assert.equal(await evaluate(`events.includes('a:sync-later')`), true);
+    await evaluate(`stopA();stopB()`);
+  });
+
   await t.test('timestamps clear on removal-only updates, wrapper replacement, and disposal', async () => {
     await navigate('tests/fixtures/twitch.html');
     await evaluate(`window.time=document.querySelector('#actual-replay-time p');time.textContent=''`);
@@ -167,13 +212,17 @@ module.exports = async (t, { navigate, evaluate, waitFor }) => {
     assert.ok(await evaluate('video.volume') > 0.55, 'fractional volume still changes');
   });
 
-  await t.test('timestamp batches format each leaf once and skip unchanged shortened labels', async () => {
+  await t.test('timestamps ignore text-node edits and batch inserted or replaced text once per leaf', async () => {
     await navigate('tests/fixtures/twitch.html');
     await evaluate(`document.querySelector('#messages').insertAdjacentHTML('beforeend','<p id="batch-time" class="video-chat__message-time">5:00</p>')`);
-    await evaluate(`window.timeReads=0;window.timeWrites=0;window.batchTime=document.querySelector('#batch-time');const text=Object.getOwnPropertyDescriptor(Node.prototype,'textContent');Object.defineProperty(batchTime,'textContent',{get(){timeReads++;return text.get.call(this)},set(value){text.set.call(this,value)}});const set=batchTime.setAttribute;batchTime.setAttribute=function(...args){if(args[0]==='data-tq-time')timeWrites++;return set.apply(this,args)};for(let i=10;i<30;i++)batchTime.firstChild.data='5:'+i`);
+    await evaluate(`window.timeReads=0;window.timeWrites=0;window.batchTime=document.querySelector('#batch-time');const text=Object.getOwnPropertyDescriptor(Node.prototype,'textContent');Object.defineProperty(batchTime,'textContent',{get(){timeReads++;return text.get.call(this)},set(value){text.set.call(this,value)}});const set=batchTime.setAttribute;batchTime.setAttribute=function(...args){if(args[0]==='data-tq-time')timeWrites++;return set.apply(this,args)};for(let i=10;i<30;i++)batchTime.firstChild.data='9:'+i`);
+    assert.equal(await evaluate('timeReads'), 0, 'text-node edits do not trigger timestamp work');
+    assert.equal(await evaluate('timeWrites'), 0);
+    assert.equal(await evaluate(`batchTime.getAttribute('data-tq-time')`), '0:05');
+    await evaluate(`for(let i=10;i<30;i++)batchTime.textContent='5:'+i`);
     assert.equal(await evaluate('timeReads'), 1);
     assert.equal(await evaluate('timeWrites'), 0);
-    await evaluate(`timeReads=0;for(let i=10;i<30;i++)batchTime.firstChild.data='6:'+i`);
+    await evaluate(`timeReads=0;for(let i=10;i<30;i++)batchTime.textContent='6:'+i`);
     assert.equal(await evaluate('timeReads'), 1);
     assert.equal(await evaluate('timeWrites'), 1);
     assert.equal(await evaluate(`batchTime.getAttribute('data-tq-time')`), '0:06');
@@ -186,6 +235,8 @@ module.exports = async (t, { navigate, evaluate, waitFor }) => {
     await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
     await evaluate(`window.previewReads=0;const positioner=document.querySelector('#preview-positioner');const measure=positioner.getBoundingClientRect;positioner.getBoundingClientRect=function(){previewReads++;return measure.call(this)};document.querySelector('#messages').append(document.createTextNode('Unrelated chat update'))`);
     assert.equal(await evaluate('previewReads'), 0);
+    await evaluate(`document.querySelector('#tint-red [data-a-target="chat-message-username"]').classList.toggle('unrelated-preview-style');document.querySelector('#tint-blue [data-a-target="chat-message-username"]').style.color='rgb(40, 170, 90)'`);
+    assert.equal(await evaluate('previewReads'), 0, 'unrelated chat class and style changes skip tooltip geometry');
     await evaluate(`document.querySelector('#preview-layer').setAttribute('aria-hidden','true')`);
     assert.equal(await evaluate(`document.querySelector('#twitch-min-emote-preview')`), null);
   });

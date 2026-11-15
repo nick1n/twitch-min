@@ -15,8 +15,9 @@
       if (!fittedRoot?.isConnected || !viewport?.isConnected) return;
       const height = viewport.clientHeight || viewport.getBoundingClientRect().height;
       if (height > 0) {
-        fittedRoot.setAttribute('data-tq-vod-fit', '');
-        fittedRoot.style.setProperty('--tq-vod-height', `${height}px`);
+        if (!fittedRoot.hasAttribute('data-tq-vod-fit')) fittedRoot.setAttribute('data-tq-vod-fit', '');
+        const value = `${height}px`;
+        if (fittedRoot.style.getPropertyValue('--tq-vod-height') !== value) fittedRoot.style.setProperty('--tq-vod-height', value);
       }
     }
 
@@ -47,8 +48,12 @@
         width: box.width,
         height: box.height
       };
-      portal.setAttribute("data-tq-fit-player", "");
-      for (const [name, value] of Object.entries(values)) portal.style.setProperty(`--tq-player-${name}`, `${value}px`);
+      if (!portal.hasAttribute('data-tq-fit-player')) portal.setAttribute('data-tq-fit-player', '');
+      for (const [name, value] of Object.entries(values)) {
+        const property = `--tq-player-${name}`;
+        const pixels = `${value}px`;
+        if (portal.style.getPropertyValue(property) !== pixels) portal.style.setProperty(property, pixels);
+      }
     }
 
     function locateFit() {

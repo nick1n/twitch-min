@@ -61,7 +61,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await evaluate(`oldSide.querySelector('[data-tq-sidebar-ready]')`), null);
     });
 
-    await t.test('Show more finishes every native list page before sidebar filtering or title changes', async () => {
+    await t.test('Show more finishes every native list page before sidebar filtering while headings stay styled', async () => {
       await navigate('tests/fixtures/sidebar-more.html', 'window.__initialSidebarCollapsed=true;');
       await waitFor(`__moreClicks.length === 2`);
       assert.equal(await evaluate(`__nativeSidebarClicks`), 1, 'expand a collapsed sidebar before finding its lists');
@@ -75,7 +75,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await isVisible('followed-loaded-offline-1'), true, 'pagination finishes before filtering new offline channels');
       await evaluate(`__finishMore('followed');__finishMore('recommended')`);
       await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
-      assert.deepEqual(await evaluate(`__moreClicks`), ['followed','recommended','followed'].map(id => ({ id, offline: true, title: false, heading: 'none', visible: true, ready: false })));
+      assert.deepEqual(await evaluate(`__moreClicks`), ['followed','recommended','followed'].map(id => ({ id, offline: true, title: false, heading: JSON.stringify(id === 'followed' ? 'Followed' : 'Recommended'), visible: true, ready: false })));
       for (const id of ['followed-offline','followed-loaded-offline-1','followed-loaded-offline-2','recommended-loaded-offline-1','followed-more','recommended-more']) {
         assert.equal(await isVisible(id), false, `${id} hides only after list expansion`);
       }
@@ -102,7 +102,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await evaluate(`__moreClicks.length`), 3);
       await evaluate(`document.querySelector('#late-more').setAttribute('aria-disabled','false')`);
       await waitFor(`__moreClicks.length === 4`);
-      assert.deepEqual(await evaluate(`__moreClicks[3]`), { id: 'late', offline: true, title: false, heading: 'none', visible: true, ready: false });
+      assert.deepEqual(await evaluate(`__moreClicks[3]`), { id: 'late', offline: true, title: false, heading: '"Recommended"', visible: true, ready: false });
       await evaluate(`__finishMore('late')`);
       await waitFor(`document.querySelector('[data-tq-sidebar-ready]') !== null`);
       assert.equal(await isVisible('late-loaded-1'), true);
@@ -113,6 +113,52 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       await evaluate(`__finishMore('replacement')`);
       await waitFor(`document.querySelector('[data-tq-sidebar-ready]') !== null`);
       assert.equal(await isVisible('replacement-loaded-offline-1'), false);
+    });
+
+    await t.test('late stalled pagination preserves section headings through replacements, toggles and remounts', async () => {
+      await navigate('tests/fixtures/sidebar-more.html');
+      await evaluate(`__finishMore('followed');__finishMore('recommended')`);
+      await waitFor(`__moreClicks.length === 3`);
+      await evaluate(`__finishMore('followed')`);
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
+      const heading = () => evaluate(`getComputedStyle(document.querySelector('#followed header'),'::before').content`);
+      const width = () => evaluate(`document.querySelector('#sidebar-shell').getBoundingClientRect().width`);
+      assert.equal(await heading(), '"Followed"');
+      await evaluate(`__mountMore('refresh', {disabled:true})`);
+      await evaluate(`document.querySelector('#sidebar-shell').insertAdjacentHTML('beforeend','<section class="side-nav-section" aria-label="Other recommendations"><header id="pending-other-heading"><span>Other recommendations</span></header></section>')`);
+      assert.equal(await heading(), '"Followed"', 'a late disabled list cannot revert existing headings');
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('#pending-other-heading'),'::before').content`), 'none', 'unrecognized sections keep their native headings while filtering waits');
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('#refresh header'),'::before').content`), '"Recommended"', 'new headings do not wait for pagination');
+      assert.equal(await width(), 144);
+      assert.equal(await isVisible('refresh-more'), true, 'pending native pagination stays usable');
+      assert.equal(await isVisible('followed-offline'), true, 'filtering still waits for pagination');
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`), false);
+      await evaluate(`document.querySelector('#followed header').outerHTML='<header><span>Followed Channels</span></header>';history.pushState({},'', '?sidebar-refresh')`);
+      assert.equal(await heading(), '"Followed"', 'React heading replacements are labelled while pagination waits');
+      await evaluate(`__storagePatch({sidebarLabels:false})`);
+      assert.equal(await width(), 240);
+      assert.equal(await heading(), '"Followed"', 'section headings work independently of compact rows');
+      await evaluate(`__storagePatch({sidebarLabels:true,sidebarSections:false})`);
+      assert.equal(await heading(), 'none');
+      assert.equal(await evaluate(`document.querySelector('#followed header span').checkVisibility({checkVisibilityCSS:true})`), true, 'the section switch restores native heading content');
+      await evaluate(`__storagePatch({sidebarSections:true})`);
+      assert.equal(await heading(), '"Followed"');
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await heading(), 'none');
+      assert.equal(await evaluate(`document.querySelector('[data-tq-sidebar-headings], [data-tq-section-title]')`), null, 'pause removes heading markers');
+      await evaluate(`__storagePatch({enabled:true})`);
+      assert.equal(await heading(), '"Followed"');
+      await evaluate(`window.previousSide=document.querySelector('#sidebar-shell');const replacement=previousSide.cloneNode(true);previousSide.replaceWith(replacement);__mountNativeSidebar(replacement)`);
+      assert.equal(await heading(), '"Followed"', 'remounts restore headings despite stalled pagination');
+      assert.equal(await evaluate(`previousSide.hasAttribute('data-tq-sidebar-headings') || previousSide.querySelector('[data-tq-section-title]') !== null`), false, 'detached heading markers are released');
+      await evaluate(`document.querySelector('[data-a-target="side-nav-arrow"]').click()`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed')`);
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-headings')`), false, 'manual collapse restores native headers');
+      await evaluate(`document.querySelector('[data-a-target="side-nav-arrow"]').click()`);
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-headings')`);
+      assert.equal(await heading(), '"Followed"');
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await heading(), 'none');
     });
 
     await t.test('stalled pagination keeps compact rows through toggles, pause and remounts', async () => {
@@ -177,7 +223,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await evaluate(`document.querySelector('#replay-time').getAttribute('href')`), '/videos/2921409707?t=1h28m10s', 'original seek target unchanged');
       await evaluate(`window.seeks=0;document.querySelector('#actual-replay-time button').addEventListener('click',()=>seeks++);document.querySelector('#actual-replay-time button').click()`);
       assert.equal(await evaluate(`seeks`), 1);
-      await evaluate(`document.querySelector('#actual-replay-time p').firstChild.data='5:26'`);
+      await evaluate(`document.querySelector('#actual-replay-time p').textContent='5:26'`);
       assert.equal(await evaluate(`document.querySelector('#actual-replay-time p').getAttribute('data-tq-time')`), '0:05', 'under-hour timestamps retain hours:minutes format');
       await evaluate(`document.querySelector('#messages').insertAdjacentHTML('beforeend','<div class="video-chat"><div class="vod-message__header"><button><p id="late-time">12:05:59</p></button></div></div>')`);
       assert.equal(await evaluate(`document.querySelector('#late-time').getAttribute('data-tq-time')`), '12:05');

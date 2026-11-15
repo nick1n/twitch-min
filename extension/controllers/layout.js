@@ -38,7 +38,10 @@
         : /^(?:live|recommended)(?: channels)?$/i.test(label) ? 'Recommended'
         : /viewers also watch|^similar(?: channels)?$/i.test(label) ? 'Similar' : 'other';
       if (section.getAttribute('data-tq-section') !== title) section.setAttribute('data-tq-section', title);
-      if (heading && heading.getAttribute('data-tq-section-title') !== title) heading.setAttribute('data-tq-section-title', title);
+      if (heading) {
+        if (title === 'other') heading.removeAttribute('data-tq-section-title');
+        else if (heading.getAttribute('data-tq-section-title') !== title) heading.setAttribute('data-tq-section-title', title);
+      }
     }
   }
 
@@ -58,6 +61,9 @@
     function compactReady(value) {
       if (side.hasAttribute('data-tq-sidebar-compact') !== value) side.toggleAttribute('data-tq-sidebar-compact', value);
     }
+    function headingsReady(value) {
+      if (side.hasAttribute('data-tq-sidebar-headings') !== value) side.toggleAttribute('data-tq-sidebar-headings', value);
+    }
     function ready(value) {
       if (side.hasAttribute('data-tq-sidebar-ready') !== value) side.toggleAttribute('data-tq-sidebar-ready', value);
     }
@@ -69,7 +75,7 @@
         if (!buttons.includes(button)) moreClicks.delete(button);
       }
       if (!buttons.length) return true;
-      // Unmask native controls and titles before invoking Twitch's handlers.
+      // Unmask native pagination controls before invoking Twitch's handlers.
       ready(false);
       let waiting = false;
       for (const button of buttons) {
@@ -109,6 +115,7 @@
       pending = { button, expanded: !current };
       ready(false);
       compactReady(false);
+      headingsReady(false);
     }
     function syncCollapse() {
       if (!side.isConnected) return;
@@ -136,13 +143,15 @@
       // Row sizing depends only on native expansion, not pagination completing.
       // Keep native Show more controls available while section filtering waits.
       compactReady(enabled && compact && !pending && expanded() !== false);
+      headingsReady(enabled && sections && !pending && expanded() !== false);
       if (!enabled || (!compact && !sections) || pending || expanded() === false) {
         ready(false);
         return;
       }
-      const settled = expandSections();
-      if (settled) markSections(side);
-      ready(settled);
+      // Headings need only native expansion. A late or stalled page must not
+      // revert existing headings or prevent replacements from being labelled.
+      markSections(side);
+      ready(expandSections());
     }
     const state = {
       sync,
@@ -158,6 +167,7 @@
       sides.delete(state);
       moreClicks.clear();
       compactReady(false);
+      headingsReady(false);
       ready(false);
       for (const node of side.querySelectorAll('[data-tq-section], [data-tq-section-title]')) {
         node.removeAttribute('data-tq-section');

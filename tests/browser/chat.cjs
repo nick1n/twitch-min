@@ -166,6 +166,94 @@ module.exports = async (t, { navigate, evaluate, isVisible, send, waitFor }) => 
       assert.deepEqual(styles[0], styles[1], 'later stripe changes remain consistent');
     });
 
+    await t.test('long live and replay sender runs use bounded query work across batches', async () => {
+      await navigate('tests/fixtures/chat-sequences.html');
+      await evaluate(`(()=>{
+        __storagePatch({enabled:false});
+        window.longChat = {};
+        for (const [kind, listId, sampleId] of [['live','live-items','l1'],['vod','vod-items','k1']]) {
+          const list=document.getElementById(listId), sample=document.getElementById(sampleId);
+          const template=(kind==='vod' ? sample.closest('li') : sample).cloneNode(true);
+          window.longChat[kind]={list,template};
+          list.replaceChildren();
+        }
+        window.makeLongRow=(kind,id,color='rgb(10, 120, 210)')=>{
+          const item=longChat[kind].template.cloneNode(true);
+          for(const node of [item,...item.querySelectorAll('[id]')]) node.removeAttribute('id');
+          const row=item.matches('.vod-message, .chat-line__message') ? item : item.querySelector('.vod-message');
+          row.id=id;
+          const author=row.querySelector('[data-a-target="chat-message-username"]');
+          author.dataset.aUser='long_user';author.textContent='LongUser';author.style.color=color;
+          const link=author.closest('a');if(link)link.href='/long_user';
+          return item;
+        };
+        for(const kind of ['live','vod']) {
+          const fragment=document.createDocumentFragment();
+          for(let i=0;i<200;i++)fragment.append(makeLongRow(kind,kind+'-'+i,i ? 'rgb(200, 30, 40)' : 'rgb(10, 120, 210)'));
+          longChat[kind].list.append(fragment);
+        }
+        window.longQueries=0;window.longNativeQuery=Element.prototype.querySelector;
+        Element.prototype.querySelector=function(...args){longQueries++;return longNativeQuery.apply(this,args)};
+      })()`);
+      const counts = {};
+      const reset = () => evaluate(`longQueries=0`);
+      const count = async label => { counts[label] = await evaluate(`longQueries`); };
+      const state = kind => evaluate(`(()=>{
+        const rows=[...longChat['${kind}'].list.querySelectorAll('.vod-message, .chat-line__message')];
+        return rows.map(row=>({group:row.hasAttribute('data-tq-chat-continuation'),color:row.style.getPropertyValue('--tq-chat-color')}));
+      })()`);
+      const assertRun = async (kind, firstColor, length) => {
+        const rows = await state(kind);
+        assert.equal(rows.length, length);
+        assert.deepEqual(rows.map(row => row.group), rows.map((_, i) => i > 0), `${kind} has one sender run`);
+        assert.ok(rows.every(row => row.color === firstColor), `${kind} uses the leading native author color`);
+      };
+      try {
+        await reset();
+        await evaluate(`__storagePatch({enabled:true})`);
+        await count('activation');
+        for (const kind of ['live','vod']) await assertRun(kind, 'rgb(10, 120, 210)', 200);
+        await evaluate(`__storagePatch({enabled:false})`);
+        assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-tint], [data-tq-chat-continuation]').length`), 0, 'pause restores native rows');
+        await reset();
+        await evaluate(`__storagePatch({enabled:true})`);
+        await count('resume');
+        for (const kind of ['live','vod']) await assertRun(kind, 'rgb(10, 120, 210)', 200);
+        await reset();
+        await evaluate(`for(const kind of ['live','vod']){const fragment=document.createDocumentFragment();for(let i=0;i<40;i++)fragment.append(makeLongRow(kind,kind+'-append-'+i));longChat[kind].list.append(fragment)}`);
+        await count('append');
+        for (const kind of ['live','vod']) await assertRun(kind, 'rgb(10, 120, 210)', 240);
+        await reset();
+        await evaluate(`for(const kind of ['live','vod']){const fragment=document.createDocumentFragment();for(let i=0;i<40;i++)fragment.append(makeLongRow(kind,kind+'-prepend-'+i,'rgb(50, 160, 70)'));longChat[kind].list.prepend(fragment)}`);
+        await count('prepend');
+        for (const kind of ['live','vod']) await assertRun(kind, 'rgb(50, 160, 70)', 280);
+        await reset();
+        await evaluate(`for(const kind of ['live','vod'])longChat[kind].list.querySelector('[data-a-target="chat-message-username"]').style.color='rgb(90, 80, 170)'`);
+        await count('color change');
+        for (const kind of ['live','vod']) await assertRun(kind, 'rgb(90, 80, 170)', 280);
+        await reset();
+        await evaluate(`for(const kind of ['live','vod'])for(const author of [...longChat[kind].list.querySelectorAll('[data-a-target="chat-message-username"]')].reverse())author.classList.toggle('sender-cache-check')`);
+        await count('reverse row order');
+        for (const kind of ['live','vod']) await assertRun(kind, 'rgb(90, 80, 170)', 280);
+        await reset();
+        await evaluate(`for(const kind of ['live','vod']){const author=longChat[kind].list.querySelector('[data-a-target="chat-message-username"]');author.dataset.aUser='other_user';author.textContent='OtherUser';const link=author.closest('a');if(link)link.href='/other_user'}`);
+        await count('identity change');
+        for (const kind of ['live','vod']) {
+          const rows = await state(kind);
+          assert.equal(rows[0].group, false);
+          assert.equal(rows[1].group, false, `${kind} starts a new run after the changed sender`);
+          assert.ok(rows.slice(2).every(row => row.group));
+          assert.equal(rows[0].color, 'rgb(90, 80, 170)');
+          assert.ok(rows.slice(1).every(row => row.color === 'rgb(50, 160, 70)'), `${kind} reads the new run's native leading color`);
+        }
+        for (const [batch, queries] of Object.entries(counts)) {
+          assert.ok(queries < 40000, `${batch} uses bounded linear query work; saw ${queries} querySelector calls`);
+        }
+      } finally {
+        await evaluate(`Element.prototype.querySelector=longNativeQuery`);
+      }
+    });
+
     await t.test('chat batches repeated author changes and cleans detached rows without touching retained rows', async () => {
       await navigate('tests/fixtures/chat-sequences.html');
       await evaluate(`window.colorReads=0;window.nativeComputedStyle=window.getComputedStyle;window.getComputedStyle=function(...args){colorReads++;return nativeComputedStyle.apply(this,args)};for(let i=0;i<20;i++)document.querySelector('#l2 [data-a-target="chat-message-username"]').classList.toggle('batch-test')`);

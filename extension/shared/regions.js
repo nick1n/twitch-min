@@ -19,10 +19,10 @@
     mounted.delete(element);
   }
 
-  function collect(subscription, node) {
+  function collect(selector, node, candidates) {
     if (!(node instanceof Element)) return;
-    if (node.matches(subscription.selector)) subscription.candidates.add(node);
-    for (const element of node.querySelectorAll(subscription.selector)) subscription.candidates.add(element);
+    if (node.matches(selector)) candidates.add(node);
+    for (const element of node.querySelectorAll(selector)) candidates.add(element);
   }
 
   function reconcile(subscription) {
@@ -38,6 +38,7 @@
     }
     for (const element of roots) {
       if (!subscriptions.has(subscription)) break;
+      if (!element.isConnected || !element.matches(selector) || element.parentElement?.closest(selector)) continue;
       if (!mounted.has(element)) {
         const cleanups = new Set();
         mounted.set(element, cleanups);
@@ -56,15 +57,24 @@
   }
 
   const observer = new MutationObserver(records => {
-    for (const subscription of [...subscriptions]) {
+    const batch = [...subscriptions];
+    const discoveries = new Map();
+    for (const { selector } of batch) {
+      if (discoveries.has(selector)) continue;
+      const candidates = new Set();
       for (const record of records) {
         if (record.type === 'attributes') {
           // Only the target can acquire a simple region selector via attributes.
-          if (record.target.matches(subscription.selector)) subscription.candidates.add(record.target);
+          if (record.target.matches(selector)) candidates.add(record.target);
         } else {
-          for (const node of record.addedNodes) collect(subscription, node);
+          for (const node of record.addedNodes) collect(selector, node, candidates);
         }
       }
+      discoveries.set(selector, candidates);
+    }
+    for (const subscription of batch) {
+      if (!subscriptions.has(subscription)) continue;
+      for (const element of discoveries.get(subscription.selector)) subscription.candidates.add(element);
       reconcile(subscription);
     }
   });
@@ -89,7 +99,7 @@
       own(unsubscribe);
       if (subscriptions.size === 1) observer.observe(document, {
         childList: true, subtree: true, attributes: true,
-        attributeFilter: ['class', 'data-a-target', 'data-target']
+        attributeFilter: ['class', 'id', 'data-a-target', 'data-target']
       });
       reconcile(subscription);
     } catch (error) {

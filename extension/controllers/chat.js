@@ -15,13 +15,16 @@
     const labels = new WeakMap();
     const badges = globalThis.TwitchMinChatBadges.create(root, ROW, onCleanup);
 
-    function authorFor(row) {
+    function authorFor(row, batch) {
       // Live chat's clickable username wrapper inherits the ordinary text color.
       // Prefer its inner display name; keep the wrapper as a legacy fallback.
-      return row.querySelector(AUTHOR) || row.querySelector('.chat-line__username');
+      if (!batch.authors.has(row)) {
+        batch.authors.set(row, row.querySelector(AUTHOR) || row.querySelector('.chat-line__username'));
+      }
+      return batch.authors.get(row);
     }
 
-    function tint(row, author) {
+    function tint(row, author, batch) {
       if (!author) {
         if (marked.has(row)) {
           row.removeAttribute('data-tq-chat-tint');
@@ -33,14 +36,8 @@
       }
       // A hidden continuation may have a different native name color. Use the
       // first sender label in this run so every row has the same background.
-      const key = sender(row, author);
-      let first = row;
-      let previous = adjacent(first, true);
-      while (key && previous?.matches(ROW) && sender(previous) === key) {
-        first = previous;
-        previous = adjacent(first, true);
-      }
-      const color = getComputedStyle(authorFor(first) || author).color;
+      const first = firstInRun(row, batch);
+      const color = getComputedStyle(authorFor(first, batch) || author).color;
       if (marked.has(row) && row.style.getPropertyValue('--tq-chat-color') === color) return;
       const rgb = color.match(/^rgba?\(\s*([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)/);
       marked.add(row);
@@ -49,7 +46,7 @@
       row.setAttribute('data-tq-chat-tint', '');
     }
 
-    function sender(row, author = authorFor(row)) {
+    function readSender(row, author) {
       if (!author || row.matches(NOTICE) || row.querySelector(NOTICE)) return null;
       const candidate = author.closest('[data-a-user], [data-user-id], [data-a-user-id]');
       const account = candidate && row.contains(candidate) ? candidate : null;
@@ -66,6 +63,28 @@
       if (id) return `id:${id}`;
       const name = author.textContent.trim().toLowerCase();
       return name ? `name:${name}` : null;
+    }
+
+    function sender(row, batch) {
+      if (!batch.senders.has(row)) batch.senders.set(row, readSender(row, authorFor(row, batch)));
+      return batch.senders.get(row);
+    }
+
+    function firstInRun(row, batch) {
+      const key = sender(row, batch);
+      const pending = [];
+      let first = row;
+      // Cache every traversed row, including when dirty rows arrive out of order.
+      // The cache belongs to this flush so later edits cannot retain stale runs.
+      while (!batch.firstRows.has(first)) {
+        pending.push(first);
+        const previous = key ? adjacent(first, true) : null;
+        if (!previous?.matches(ROW) || sender(previous, batch) !== key) break;
+        first = previous;
+      }
+      first = batch.firstRows.get(first) || first;
+      for (const entry of pending) batch.firstRows.set(entry, first);
+      return first;
     }
 
     function entryWithin(node, root, last) {
@@ -108,10 +127,10 @@
       grouped.delete(row);
     }
 
-    function group(row, author = authorFor(row)) {
+    function group(row, author, batch) {
       const previous = adjacent(row, true);
-      const key = sender(row, author);
-      if (!key || !previous?.matches(ROW) || sender(previous) !== key) { clearGroup(row); return; }
+      const key = sender(row, batch);
+      if (!key || !previous?.matches(ROW) || sender(previous, batch) !== key) { clearGroup(row); return; }
       const container = author.closest('.video-chat__message-author, .chat-line__username, .chat-line__username-container, button');
       // Some native identity wrappers also contain badges. Hide only the name
       // in that case, leaving badge visibility to the badge helper.
@@ -130,11 +149,11 @@
       for (const separator of separators) separator.setAttribute('data-tq-chat-separator', '');
     }
 
-    function update(row) {
-      const author = authorFor(row);
-      tint(row, preferences.chatTints === false ? null : author);
+    function update(row, batch) {
+      const author = authorFor(row, batch);
+      tint(row, preferences.chatTints === false ? null : author, batch);
       if (preferences.chatGrouping === false) clearGroup(row);
-      else group(row, author);
+      else group(row, author, batch);
       badges.update(row);
     }
 
@@ -186,15 +205,18 @@
     }
 
     function flush(dirty, neighbors) {
-      for (const row of dirty) if (row.isConnected) update(row);
-      for (const row of neighbors) if (row.isConnected && !dirty.has(row)) update(row);
+      const batch = { authors: new Map(), senders: new Map(), firstRows: new Map() };
+      for (const row of dirty) if (row.isConnected) update(row, batch);
+      for (const row of neighbors) if (row.isConnected && !dirty.has(row)) update(row, batch);
       // Color or identity changes can affect the remainder of this sender run.
       const visited = new Set([...dirty, ...neighbors]);
       for (const row of visited) {
         const next = adjacent(row);
-        if (next?.matches(ROW) && !visited.has(next) && sender(row) && sender(next) === sender(row)) {
+        if (!next?.matches(ROW) || visited.has(next)) continue;
+        const key = sender(row, batch);
+        if (key && sender(next, batch) === key) {
           visited.add(next);
-          update(next);
+          update(next, batch);
         }
       }
     }
