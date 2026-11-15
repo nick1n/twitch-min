@@ -12,12 +12,20 @@ if ($manifest.version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$' -or $manifest.version 
 
 # Snapshot every source file, including hidden files, before creating any output.
 # Reject links; include the repository license explicitly below.
+function Get-SourceHash([string] $path) {
+    # Avoid depending on Get-FileHash module discovery in inherited CI environments.
+    $stream = [IO.File]::OpenRead($path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '') }
+    finally { $stream.Dispose(); $sha.Dispose() }
+}
+
 $sources = @{}
 Get-ChildItem -LiteralPath $sourceRoot -Recurse -Force | ForEach-Object {
     if ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Source links are not supported: $($_.FullName)" }
     if (-not $_.PSIsContainer) {
         $name = $_.FullName.Substring($sourcePrefix.Length).Replace('\', '/')
-        $sources[$name] = @{ Path = $_.FullName; Hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
+        $sources[$name] = @{ Path = $_.FullName; Hash = (Get-SourceHash $_.FullName) }
     }
 }
 
@@ -25,7 +33,7 @@ $license = Get-Item -LiteralPath (Join-Path $repoRoot 'LICENSE')
 if ($license.PSIsContainer -or ($license.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
     throw 'LICENSE must be a regular file.'
 }
-$sources['LICENSE'] = @{ Path = $license.FullName; Hash = (Get-FileHash -LiteralPath $license.FullName -Algorithm SHA256).Hash }
+$sources['LICENSE'] = @{ Path = $license.FullName; Hash = (Get-SourceHash $license.FullName) }
 
 function Assert-Asset([string] $name) {
     if ([string]::IsNullOrWhiteSpace($name) -or $name.Contains('\') -or

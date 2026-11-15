@@ -100,6 +100,18 @@ test('packaging rejects a missing license and preserves the previous release', t
   assertPreserved(dir);
 });
 
+test('packaging succeeds when Get-FileHash is unavailable', t => {
+  const dir = fixture(t);
+  const result = powershell(['-Command', `
+    function Get-FileHash { throw 'Get-FileHash is unavailable' }
+    & ./scripts/package.ps1
+  `], dir);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(result.stdout.includes(archiveName));
+  assert.notDeepEqual(fs.readFileSync(path.join(dir, 'dist', archiveName)), oldRelease);
+  assertPreserved(dir);
+});
+
 function referencedAssets(manifest) {
   const popup = manifest.action.default_popup;
   const html = fs.readFileSync(path.join(root, 'extension', popup), 'utf8');
