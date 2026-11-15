@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "twitch-min",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "description": "Make Twitch less distracting with a compact sidebar, streamlined chat, enlarged emote previews, and wheel volume control.",
   "minimum_chrome_version": "105",
   "permissions": ["storage"],

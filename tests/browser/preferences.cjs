@@ -28,7 +28,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
   });
 
   await t.test('wheel volume can be disabled during a volume change and restored after player remount', async () => {
-    await navigate('tests/fixtures/twitch.html');
+    await navigate('tests/fixtures/twitch.html', '__stored.channelAbout=true;');
     const wheel = () => evaluate(`(()=>{const video=document.querySelector('#stream-video');video.volume=0.5;const event=new WheelEvent('wheel',{deltaY:-100,bubbles:true,cancelable:true});video.dispatchEvent(event);return {volume:video.volume,prevented:event.defaultPrevented}})()`);
     assert.deepEqual(await wheel(), { volume: 0.55, prevented: true });
     assert.equal(await isVisible('twitch-min-volume'), true);

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Browse recap shelf</title>
+<style>
+  body { margin: 0; font: 14px Arial, sans-serif; }
+  h1, h2 { margin: 0; }
+  .recap-shelf { padding-block: 20px; }
+  .preview-card-carousel { min-height: 303px; }
+</style>
+<!-- twitch-min:production -->
+</head><body>
+<h1 id="browse-title">Browse</h1>
+<section id="directory-game-main-content" aria-label="Main Content">
+  <div id="browse-header"><h2>Example category</h2><button>Follow</button></div>
+  <div>
+    <section id="browse-root-filter-sort-options" aria-label="Filter &amp; Sort Options"><button id="browse-filter">Filter</button></section>
+    <div id="recaps" class="recap-shelf">
+      <div><h2 id="recap-heading">Recent
+        Recaps</h2></div>
+      <div class="preview-card-carousel">
+        <div class="preview-card-carousel__child-container" data-test-selector="preview-card-carousel-child-container"><div class="preview-card-carousel__body"><div class="tw-tower"><button id="recap-card">Example recap</button></div></div></div>
+        <div class="preview-card-carousel__nav"><button id="recap-next" aria-label="Next">Next</button></div>
+      </div>
+    </div>
+    <div id="other-carousel"><div><h2>Featured clips</h2></div><div class="preview-card-carousel"><button>Example clip</button></div></div>
+    <div id="live-directory"><a id="live-channel" href="/example">Live channel</a></div>
+    <div id="text-only"><div><h2>Recent Recaps</h2></div><p>Unrelated text without a carousel</p></div>
+  </div>
+</section>
+<div id="outside-recaps"><div><h2>Recent Recaps</h2></div><div class="preview-card-carousel">Outside Browse</div></div>
+<div class="chat-room"><div id="browse-test-messages"></div></div>
+<script>
+  window.__recapClicks = 0;
+  document.querySelector('#recap-next').addEventListener('click', () => __recapClicks++);
+</script>
+</body></html>

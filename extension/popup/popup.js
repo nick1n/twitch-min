@@ -30,6 +30,12 @@
     if (!settingsApi || groupControls.size) return;
     groupList.replaceChildren();
     settingsApi.GROUPS.forEach((group) => {
+      if (group.section) {
+        const heading = document.createElement('h2');
+        heading.className = 'settings-heading';
+        heading.textContent = group.section;
+        groupList.append(heading);
+      }
       const label = document.createElement('label');
       label.className = 'setting';
       const copy = document.createElement('span');
@@ -158,7 +164,7 @@
   enableAllButton.addEventListener('click', () => {
     if (!ready || pendingWrites) return;
     const previousState = state;
-    const enabledSettings = { ...settingsApi.DEFAULTS, enabled: true };
+    const enabledSettings = Object.fromEntries(Object.keys(settingsApi.DEFAULTS).map(key => [key, true]));
     state = normalize(enabledSettings);
     render();
     save(enabledSettings, previousState);

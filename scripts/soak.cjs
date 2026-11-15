@@ -69,7 +69,7 @@ async function run() {
     result.finalResources = await evaluate(resources);
     assert.deepEqual(result.finalResources, cleared);
 
-    await navigate('tests/fixtures/player-layout.html');
+    await navigate('tests/fixtures/player-layout.html', '__stored.channelAbout=true;');
     await waitFor(`document.querySelector('[data-tq-fit-player]')`);
     await evaluate(`document.querySelector('.channel-root').classList.add('channel-root--theatre-mode')`);
     assert.equal(await evaluate(`document.querySelector('[data-tq-fit-player]')`), null);

@@ -77,6 +77,18 @@ observers process affected regions/subtrees, not document-wide chat scans.
 | `player.js` | Own wheel-volume feedback and fitted VOD portals; observe player/metadata changes without rediscovery on ordinary chat updates. |
 | `composer.js` | Preserve drafts and native Send state; remove temporary controls, IDs, and listeners on pause. |
 
+Layout also watches the Following content region and clicks native Show more
+controls in the labelled Recommended channels and Latest videos shelves. It
+requests another page only after new articles arrive, including when React
+replaces a pending button. Navigation CSS hides the Stories wrapper between the
+Following title and tabs when `followingStories` is on; disabling that switch
+restores Stories independently of shelf expansion. Master pause restores Stories
+and stops shelf expansion.
+Browse recap discovery stays inside the directory content region and marks only
+the carousel shelf headed Recent Recaps. Navigation CSS hides the marked wrapper;
+the `browseRecaps` switch gates discovery and hiding. Turning it off releases the
+observer and markers. Pause, removal, or reuse for another heading also cleans up.
+
 Badge and emote tooltip handling preserves native labels, metadata, theme, arrow,
 placement, accessible names, and handlers. Badge discovery prefers native links,
 then exact-name/distance matching. Temporary tooltip observers run only while

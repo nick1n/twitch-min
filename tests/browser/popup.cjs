@@ -6,8 +6,20 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     await navigate(`extension/${manifest.action.default_popup}`);
     assert.equal(await evaluate(`document.querySelector('#app-version').innerText`), `v${manifest.version}`);
     assert.equal(await evaluate(`document.querySelectorAll('#groups input').length === TwitchMinSettings.GROUPS.length`), true);
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('#groups input')].map(input=>input.id)`), [
+      'group-topNavigation', 'group-sidebarSections', 'group-sidebarLabels', 'group-channelActions',
+      'group-channelAbout', 'group-wheelVolume', 'group-followingStories', 'group-browseRecaps', 'group-chatLeaderboard', 'group-chatTimestamps',
+      'group-chatTints', 'group-chatGrouping', 'group-emotePreviews', 'group-chatComposer'
+    ]);
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('#groups h2')].map(heading=>[heading.textContent,heading.nextElementSibling.querySelector('input').id])`), [
+      ['Sidebar', 'group-sidebarSections'], ['Main', 'group-channelActions'], ['Chat', 'group-chatLeaderboard']
+    ]);
     assert.equal(await evaluate(`document.querySelector('#pause-button')`), null, 'one master control handles pause and resume');
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').textContent.trim()`), 'Enable all settings');
+    assert.equal(await evaluate(`document.querySelector('#group-channelAbout').checked`), false, 'About hiding defaults off');
+    assert.equal(await evaluate(`document.querySelector('#enable-all-button').disabled`), false, 'Enable all is available with the off default');
+    await evaluate(`document.querySelector('#enable-all-button').click()`);
+    assert.equal(await evaluate(`document.querySelector('#group-channelAbout').checked`), true, 'Enable all opts into About hiding too');
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').disabled`), true, 'enabling everything is unavailable when already active');
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').hidden`), true, 'an unavailable action is not shown');
     const headerLayout = () => evaluate(`['header','.brand','.controls','#master-toggle','#enable-all-button','#groups','#scroll-cue'].map(selector=>{const rect=document.querySelector(selector).getBoundingClientRect();return {x:rect.x+scrollX,y:rect.y+scrollY,width:rect.width,height:rect.height}})`);
@@ -38,6 +50,25 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     assert.equal(await evaluate(`document.querySelector('#group-sidebarLabels').checked`), true);
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').hidden`), true, 'external changes update action availability');
     assert.equal(await evaluate(`originalControls.every(input=>input === document.getElementById(input.id))`), true, 'saves, bulk actions and external changes retain the original controls');
+  });
+
+  await t.test('popup Stories and Recaps switches save independently and participate in Enable all', async () => {
+    await navigate(`extension/${manifest.action.default_popup}`);
+    for (const key of ['followingStories', 'browseRecaps']) {
+      assert.equal(await evaluate(`document.querySelector('#group-${key}').checked`), true, `${key} defaults on`);
+      await evaluate(`document.querySelector('#group-${key}').parentElement.click()`);
+      assert.deepEqual(await evaluate('__writes.at(-1)'), { [key]: false });
+    }
+    await evaluate(`__storagePatch({followingStories:true})`);
+    assert.equal(await evaluate(`document.querySelector('#group-followingStories').checked`), true);
+    assert.equal(await evaluate(`document.querySelector('#group-browseRecaps').checked`), false);
+    await navigate(`extension/${manifest.action.default_popup}`, '__stored.followingStories=false;__stored.browseRecaps=false;');
+    for (const key of ['followingStories', 'browseRecaps']) assert.equal(await evaluate(`document.querySelector('#group-${key}').checked`), false, `${key} reads its saved opt-out`);
+    await evaluate(`document.querySelector('#enable-all-button').click()`);
+    for (const key of ['followingStories', 'browseRecaps']) {
+      assert.equal(await evaluate(`document.querySelector('#group-${key}').checked`), true);
+      assert.equal(await evaluate(`__writes.at(-1).${key}`), true);
+    }
   });
 
   await t.test('branded popup keeps descriptions, scrolls settings, and supports keyboard and label activation', async () => {
@@ -76,13 +107,16 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
       await evaluate(`document.querySelector('#master-toggle').focus()`);
       await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
       await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
-      assert.equal(await evaluate(`document.activeElement.id`), 'group-sidebarSections');
+      assert.equal(await evaluate(`document.activeElement.id`), 'enable-all-button');
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+      assert.equal(await evaluate(`document.activeElement.id`), 'group-topNavigation');
       assert.equal(await evaluate(`document.activeElement.matches(':focus-visible')`), true, 'keyboard focus remains visible');
       await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
       await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ' ', code: 'Space', windowsVirtualKeyCode: 32 });
-      await waitFor(`!document.querySelector('#group-sidebarSections').disabled`);
-      assert.deepEqual(await evaluate(`__writes.at(-1)`), { sidebarSections: false });
-      assert.equal(await evaluate(`document.activeElement.id`), 'group-sidebarSections', 'saving retains keyboard focus');
+      await waitFor(`!document.querySelector('#group-topNavigation').disabled`);
+      assert.deepEqual(await evaluate(`__writes.at(-1)`), { topNavigation: false });
+      assert.equal(await evaluate(`document.activeElement.id`), 'group-topNavigation', 'saving retains keyboard focus');
       await evaluate(`document.querySelector('#group-chatGrouping').parentElement.click()`);
       assert.deepEqual(await evaluate(`__writes.at(-1)`), { chatGrouping: false }, 'clicking the text label saves its setting');
       await evaluate(`document.documentElement.style.fontSize='26px'`);

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Following page</title>
+<style>
+  body { margin: 0; font: 14px Arial, sans-serif; }
+  h1 { margin: 0; }
+  .stories { min-height: 120px; margin-block: 20px; }
+  article { min-height: 30px; }
+</style>
+<!-- twitch-min:production -->
+</head><body>
+<template id="following-template">
+  <div id="following-shell">
+    <div><h1 id="following-title">Following</h1></div>
+    <div id="following-stories" class="stories"><div></div><div class="scrollable-area"><div><h2 class="sr-only">Stories</h2><button id="story-button">Example story</button></div></div></div>
+    <div id="following-tabs"><div class="tw-tabs"><ul role="tablist">
+      <li><a href="/directory/following" role="tab">Overview</a></li>
+      <li><a href="/directory/following/live" role="tab">Live</a></li>
+      <li><a href="/directory/following/videos" role="tab">Videos</a></li>
+      <li><a href="/directory/following/categories" role="tab">Categories</a></li>
+      <li><a href="/directory/following/channels" role="tab">Channels</a></li>
+    </ul></div></div>
+    <section id="following-page-main-content" aria-label="Main Content"><div id="following-shelves"></div></section>
+  </div>
+</template>
+<div id="following-mount"></div>
+<div><h1>Another page</h1></div><div id="other-scrollable"><div class="scrollable-area">Unrelated content</div></div>
+<button id="outside-more">Show more</button>
+<script>
+  window.__followingClicks = [];
+  window.__followingLessClicks = 0;
+  window.__followingOtherClicks = 0;
+  window.__followingPending = new Map();
+  window.__finishFollowing = id => __followingPending.get(id)();
+  window.__mountFollowingShelf = (id, label, { pages = 2, showAll = false } = {}) => {
+    const wrapper = document.createElement('div');
+    const latest = id === 'latest';
+    // Recommended uses an h2 ID, Latest videos labels through its header ID.
+    wrapper.innerHTML = latest
+      ? `<header id="${id}-heading" aria-label="${label}"><h3 data-a-target="followed-videos-header">${label}</h3></header>`
+      : `<div><h2 id="${id}-heading"><span>${label}</span></h2></div>`;
+    const shelf = document.createElement('div');
+    shelf.id = id;
+    shelf.setAttribute('aria-labelledby', `${id}-heading`);
+    shelf.innerHTML = `<div class="${latest ? '' : 'tw-transition-group'}"><div class="tw-tower"><div><article><a href="/example">Example card</a></article></div><div class="tower-placeholder"></div></div></div><div><div class="show-more__move-up"><div></div><div><button id="${id}-more"><span data-a-target="tw-core-button-label-text">${showAll ? 'Show all' : 'Show more'}</span><svg aria-hidden="true"><path d="M0 0 5 5 10 0"></path></svg></button></div><div></div></div></div>`;
+    let page = 0;
+    shelf.addEventListener('click', event => {
+      if (!event.target.closest('button')) return;
+      if (showAll) { __followingOtherClicks++; return; }
+      if (page === pages) {
+        __followingLessClicks++;
+        shelf.querySelectorAll('[data-loaded]').forEach(node => node.remove());
+        page = 0;
+        shelf.querySelector('button span').textContent = 'Show more';
+        return;
+      }
+      __followingClicks.push(id);
+      __followingPending.set(id, () => {
+        __followingPending.delete(id);
+        page++;
+        const card = document.createElement('div');
+        card.setAttribute('data-loaded', '');
+        card.innerHTML = `<article><a href="/example-${page}">Loaded card ${page}</a></article>`;
+        shelf.querySelector('.tw-tower').append(card);
+        if (page === pages) shelf.querySelector('button span').textContent = 'Show less';
+      });
+    });
+    wrapper.append(shelf);
+    document.querySelector('#following-shelves').append(wrapper);
+    return shelf;
+  };
+  window.__mountFollowingPage = () => {
+    document.querySelector('#following-mount').append(document.querySelector('#following-template').content.cloneNode(true));
+    __mountFollowingShelf('recommended', 'Recommended\n channels');
+    __mountFollowingShelf('latest', 'Latest videos');
+    __mountFollowingShelf('live', 'Live channels', { showAll: true });
+    __mountFollowingShelf('categories', 'Live categories');
+    __mountFollowingShelf('continue', 'Continue Watching', { showAll: true });
+  };
+  document.querySelector('#outside-more').addEventListener('click', () => __followingOtherClicks++);
+  if (!window.__deferFollowing) __mountFollowingPage();
+</script>
+</body></html>

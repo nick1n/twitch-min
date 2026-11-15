@@ -1,6 +1,6 @@
 {
   "name": "twitch-min",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "private": true,
   "description": "Local Twitch cosmetic and interactive enhancements with dependency-free checks",
   "scripts": {

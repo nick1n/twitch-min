@@ -20,25 +20,28 @@ After updates, reload the extension at `chrome://extensions` and refresh Twitch.
 
 ## Settings
 
-All options start on and update open Twitch tabs immediately. **Enabled** pauses
+Options start on except **About & lower channel section**, which defaults off.
+Changes update open Twitch tabs immediately. **Enabled** pauses
 or resumes without changing your choices. **Enable all settings** turns everything
 on; it appears only when useful and keeps its layout space when hidden.
 **More settings / Back to top** scrolls the list without changing a setting.
 
 | Switch | Effect |
 | --- | --- |
+| Top navigation extras | Hide Luna/Prime offers, Shouts, Gift Turbo, and Bits; keep search, notifications, whispers, and account controls. |
 | Sidebar sections | Keep online Followed, Recommended, and Similar channels; hide offline rows and other sections. |
 | Compact sidebar | Show avatars, viewer counts, and games in a narrow sidebar; hide names and promotional extras. |
-| Top navigation extras | Hide Luna/Prime offers, Shouts, Gift Turbo, and Bits; keep search, notifications, whispers, and account controls. |
 | Channel action extras | Hide Share, the channel bell, Bits, and Gift a Sub; keep Follow and subscription icons/dropdowns. |
 | About & lower channel section | Hide About, panels, the replay channel card, and recommendations; fit the video above its details. |
-| Chat leaderboard | Hide gift/cheer rankings and goal carousel slides. |
-| Chat message composer | Use **Chat** to show or hide the editor instead of leaving it open. |
-| Short video chat times | Show hours:minutes: `1:32:56` becomes `1:32`, and `5:26` becomes `0:05`. Seek targets stay unchanged. |
 | Wheel volume | Scroll over the video to change volume; chat, sidebar, menu scrolling, and Ctrl+wheel zoom stay native. |
-| Enlarged emote previews | Hover or focus an emote for a 3x image inside Twitch's native tooltip. Escape, scrolling, or leaving dismisses it. |
+| Following Stories | Hide the Stories strip above the Following page tabs. |
+| Browse Recent Recaps | Hide Recent Recaps on Browse pages; keep filters and live channel listings. |
+| Chat leaderboard | Hide gift/cheer rankings and goal carousel slides. |
+| Short video chat times | Show hours:minutes: `1:32:56` becomes `1:32`, and `5:26` becomes `0:05`. Seek targets stay unchanged. |
 | Chat author tints | Add a subtle author-color background without replacing native highlights. |
 | Group consecutive messages | Show repeated sender names once, hide their repeated badges, and separate sender groups with black borders. |
+| Enlarged emote previews | Hover or focus an emote for a 3x image inside Twitch's native tooltip. Escape, scrolling, or leaving dismisses it. |
+| Chat message composer | Use **Chat** to show or hide the editor instead of leaving it open. |
 
 **Chat** never sends a message. It preserves drafts; Enter inside the editor keeps
 Twitch's normal send behavior. Disabling the composer option restores the native
@@ -57,6 +60,8 @@ While the extension is enabled, it also:
 - Hides player Clip, the middle speed display, and Follow/Gift/Subscribe overlays.
   Playback, volume, Settings, speed adjustment, theatre, and fullscreen remain.
 - Softens the search border and keeps reward cards in three columns.
+- Automatically expands **Show more** in Recommended channels and Latest videos
+  on the Following page. Native tabs and list controls remain.
 
 Turn a switch off to restore that feature's native behavior, or clear **Enabled**
 to restore everything. The extension does not replace Twitch's player or chat.

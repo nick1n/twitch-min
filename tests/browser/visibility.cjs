@@ -1,8 +1,18 @@
 const assert = require('node:assert/strict');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
-  await t.test('default settings hide targets and preserve intended UI', async () => {
+  await t.test('About and lower sections stay native by default and restore when their saved key is removed', async () => {
     await navigate('tests/fixtures/twitch.html');
+    const ids = ['about', 'panels', 'vod-channel-card', 'vod-recommendations'];
+    for (const id of ids) assert.equal(await isVisible(id), true, `${id} stays visible by default`);
+    await evaluate(`__storagePatch({channelAbout:true})`);
+    for (const id of ids) assert.equal(await isVisible(id), false, `${id} hides after opt-in`);
+    await evaluate(`__storagePatch({channelAbout:undefined})`);
+    for (const id of ids) assert.equal(await isVisible(id), true, `${id} restores to the off default`);
+  });
+
+  await t.test('enabled settings hide targets and preserve intended UI, including saved About opt-in', async () => {
+    await navigate('tests/fixtures/twitch.html', '__stored.channelAbout=true;');
     await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
     for (const id of ['top-bits','top-turbo','top-turbo-gift','top-turbo-test','top-turbo-text','luna-offers','shouts','sidebar-for-you','sidebar-arrow','sidebar-streak','sidebar-channel-name','sidebar-hype','stray-avatar-text','stray-nested-text','offline-transition','offline-channel','other-section','show-more','channel-bell','channel-bits','channel-gift','video-share','video-share-label','vod-channel-card','vod-recommendations','about','panels','chat-header','leaderboard','composer','chat-send','player-clip','player-clip-subscribe','player-speed-display','player-follow','player-gift','player-subscribe']) {
       assert.equal(await isVisible(id), false, `${id} should be hidden`);
@@ -41,7 +51,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
   await t.test('each group toggles independently and CSS covers later insertions', async () => {
     await navigate('tests/fixtures/twitch.html');
     await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
-    await evaluate(`__storagePatch({...TwitchMinSettings.DEFAULTS,chatComposer:false})`);
+    await evaluate(`__storagePatch({...TwitchMinSettings.DEFAULTS,channelAbout:true,chatComposer:false})`);
     assert.equal(await isVisible('composer'), true);
     assert.equal(await isVisible('leaderboard'), false);
     await evaluate(`__storagePatch({chatLeaderboard:false})`);

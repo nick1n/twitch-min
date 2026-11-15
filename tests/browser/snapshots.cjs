@@ -7,7 +7,7 @@ module.exports = async (t, { navigate, evaluate, isVisible }) => {
   const sessionFile = path.join(root, '.browser-tests', 'test.html');
   const liveSessionFile = path.join(root, '.browser-tests', 'live.html');
     await t.test('provided logged-in HTML: real notification, Turbo, VOD card and timestamp markup', { skip: !fs.existsSync(sessionFile) }, async () => {
-      await navigate('tests/fixtures/twitch.html');
+      await navigate('tests/fixtures/twitch.html', '__stored.channelAbout=true;');
       // The supplied document is parsed inertly. Block all HTTP requests during
       // parsing, then import only sanitized UI fragments, never its scripts.
       const source = fs.readFileSync(sessionFile, 'utf8');

@@ -11,7 +11,8 @@ The ZIP can also be used as a Chrome Web Store upload package; creating it does
 not publish anything.
 
 USE
-All options start on. Enabled pauses/resumes while keeping your choices.
+Options start on except About & lower channel section, which defaults off.
+Enabled pauses/resumes while keeping your choices.
 Enable all settings turns every option on and appears only when useful.
 More settings / Back to top scrolls the list. Each switch has a short description.
 

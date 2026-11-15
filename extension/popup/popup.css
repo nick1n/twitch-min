@@ -27,6 +27,7 @@ input { flex: none; margin: 0; accent-color: var(--accent); cursor: pointer; }
 #groups::-webkit-scrollbar { display: none; }
 #scroll-cue { height: 20px; margin: 0; color: var(--muted); font-size: 11px; line-height: 20px; text-align: center; }
 #more-settings { border: 0; border-radius: 4px; padding: 0 6px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.settings-heading { margin: 12px 6px 2px; color: var(--muted); font-size: .85em; font-weight: 650; }
 .setting { position: relative; gap: 12px; padding: 8px 6px; border-bottom: 1px solid transparent; border-radius: 4px; cursor: pointer; }
 header::after, .setting:not(:last-child)::after { content: ''; position: absolute; left: 6px; right: 6px; bottom: -1px; height: 1px; background: var(--line); pointer-events: none; }
 .setting:has(input:enabled):hover, .setting:focus-within, .controls label:has(input:enabled):hover, .controls label:focus-within,

@@ -84,7 +84,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
     });
 
     await t.test('hidden About leaves a fitted player and metadata with no reserved blank lower panel', async () => {
-      await navigate('tests/fixtures/player-layout.html');
+      await navigate('tests/fixtures/player-layout.html', '__stored.channelAbout=true;');
       const fitted = () => evaluate(`(()=>{const rect=s=>document.querySelector(s).getBoundingClientRect();const root=rect('.channel-root'),player=rect('.channel-root__player'),video=rect('#fit-video'),info=rect('.channel-root__info');return {adjacent:Math.abs(player.bottom-info.top)<1,bottom:Math.abs(info.bottom-root.bottom)<1,videoFits:Math.abs(video.height-player.height)<1,height:root.height,videoHeight:video.height}})()`);
       const initial = await fitted();
       assert.deepEqual(initial, { adjacent: true, bottom: true, videoFits: true, height: 650, videoHeight: 550 });
@@ -111,7 +111,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
     });
 
     await t.test('live chat updates skip player discovery but later VOD mounts still fit', async () => {
-      await navigate('tests/fixtures/twitch.html');
+      await navigate('tests/fixtures/twitch.html', '__stored.channelAbout=true;');
       await evaluate(`window.playerLookups=0;for(const method of ['querySelector','querySelectorAll']){const original=document[method];document[method]=function(selector){if(selector.includes('.channel-root') || selector.includes('.root-scrollable__wrapper'))playerLookups++;return original.call(this,selector)}};`);
       await evaluate(`for(let i=0;i<30;i++){const row=document.createElement('div');row.className='chat-line__message';row.textContent='Message '+i;document.querySelector('#messages').append(row)}`);
       assert.equal(await evaluate(`playerLookups`), 0, 'ordinary live messages do not search the document for VOD players');

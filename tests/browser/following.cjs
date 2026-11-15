@@ -1,0 +1,131 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { root } = require('../support/production.cjs');
+
+module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
+  await t.test('Following hides Stories and expands only Recommended channels and Latest videos', async () => {
+    await navigate('tests/fixtures/following.html');
+    await waitFor('__followingClicks.length === 2');
+    assert.equal(await isVisible('following-stories'), false);
+    for (const id of ['following-title', 'following-tabs', 'following-page-main-content', 'other-scrollable', 'live-more', 'categories-more', 'continue-more', 'outside-more']) {
+      assert.equal(await isVisible(id), true, `${id} stays visible`);
+    }
+    assert.equal(await evaluate(`document.querySelector('#following-stories').getBoundingClientRect().height`), 0, 'the entire Stories wrapper takes no space');
+    const tabsTop = await evaluate(`document.querySelector('#following-tabs').getBoundingClientRect().top`);
+    assert.equal(await evaluate(`document.querySelectorAll('#following-tabs [role="tab"]').length`), 5);
+    assert.equal(await evaluate(`document.querySelector('#recommended article a').getAttribute('href')`), '/example');
+    await evaluate(`document.querySelector('#recommended article a').textContent='Updated title';__storagePatch({topNavigation:false})`);
+    assert.deepEqual(await evaluate('__followingClicks'), ['recommended', 'latest'], 'unrelated mutations/settings never duplicate pending clicks');
+    await evaluate(`__finishFollowing('recommended')`);
+    await waitFor('__followingClicks.length === 3');
+    await evaluate(`__finishFollowing('recommended');__finishFollowing('latest')`);
+    await waitFor('__followingClicks.length === 4');
+    await evaluate(`__finishFollowing('latest')`);
+    assert.deepEqual(await evaluate('__followingClicks'), ['recommended', 'latest', 'recommended', 'latest']);
+    assert.equal(await evaluate('__followingLessClicks + __followingOtherClicks'), 0, 'Show less, Show all, categories and outside buttons are untouched');
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('#recommended, #latest')].map(shelf=>shelf.querySelectorAll('article').length)`), [3, 3]);
+    await evaluate(`__storagePatch({enabled:false})`);
+    assert.equal(await isVisible('following-stories'), true, 'pause restores the entire Stories wrapper');
+    assert.ok(await evaluate(`document.querySelector('#following-tabs').getBoundingClientRect().top`) >= tabsTop + 120, 'pause restores the native Stories space above the tabs');
+    await evaluate(`document.querySelector('#recommended-more').click()`);
+    assert.equal(await evaluate('__followingLessClicks'), 1, 'native Show less still works');
+    await evaluate(`__storagePatch({enabled:true})`);
+    await waitFor('__followingClicks.length === 5');
+    assert.equal(await isVisible('following-stories'), false);
+  });
+
+  await t.test('Following Stories switch restores Stories independently of native shelf expansion', async () => {
+    await navigate('tests/fixtures/following.html', '__stored.followingStories=false;');
+    assert.equal(await isVisible('following-stories'), true, 'saved opt-out restores Stories');
+    await waitFor('__followingClicks.length === 2');
+    await evaluate(`window.storyClicks=0;document.querySelector('#story-button').addEventListener('click',()=>storyClicks++);__storagePatch({followingStories:true,browseRecaps:false})`);
+    assert.equal(await isVisible('following-stories'), false, 'Stories hiding is independent of the Recaps switch');
+    await evaluate(`__storagePatch({followingStories:false});document.querySelector('#story-button').click();__finishFollowing('recommended')`);
+    assert.equal(await evaluate('storyClicks'), 1, 'native Stories handlers survive restoration');
+    await waitFor('__followingClicks.length === 3');
+    await evaluate(`__storagePatch({enabled:false});__storagePatch({enabled:true})`);
+    assert.equal(await isVisible('following-stories'), true, 'master resume preserves the opt-out');
+    await evaluate(`history.pushState({},'', '?stories-navigation');const page=document.querySelector('#following-shell');page.replaceWith(page.cloneNode(true))`);
+    assert.equal(await isVisible('following-stories'), true, 'replacement page follows the saved opt-out');
+    await evaluate(`__storagePatch({followingStories:true})`);
+    assert.equal(await isVisible('following-stories'), false);
+  });
+
+  await t.test('Following honors saved pause, disabled/busy controls, visibility and replaced pending buttons', async () => {
+    await navigate('tests/fixtures/following.html', '__stored.enabled=false;');
+    assert.equal(await isVisible('following-stories'), true);
+    assert.equal(await evaluate('__followingClicks.length'), 0);
+    await evaluate(`document.querySelector('#recommended-more').disabled=true;document.querySelector('#latest-more').setAttribute('aria-busy','true');document.querySelector('#latest-heading').setAttribute('aria-label','Localized heading');document.querySelector('#latest-heading h3').textContent='Localized heading';__storagePatch({enabled:true})`);
+    assert.equal(await evaluate('__followingClicks.length'), 0);
+    await evaluate(`document.querySelector('#recommended-more').disabled=false`);
+    await waitFor('__followingClicks.length === 1');
+    await evaluate(`const button=document.querySelector('#recommended-more');button.replaceWith(button.cloneNode(true));document.querySelector('#recommended article a').textContent='Another title'`);
+    assert.equal(await evaluate('__followingClicks.length'), 1, 'replacing a pending button does not request the same page twice');
+    await evaluate(`document.querySelector('#latest').hidden=true;document.querySelector('#latest-more').setAttribute('aria-busy','false')`);
+    assert.equal(await evaluate('__followingClicks.length'), 1);
+    await evaluate(`document.querySelector('#latest').hidden=false;document.querySelector('#latest-more').setAttribute('aria-disabled','true')`);
+    assert.equal(await evaluate('__followingClicks.length'), 1);
+    await evaluate(`document.querySelector('#latest-more').setAttribute('aria-disabled','false')`);
+    await waitFor('__followingClicks.length === 2');
+    await evaluate(`__finishFollowing('recommended')`);
+    await waitFor('__followingClicks.length === 3');
+    await evaluate(`__storagePatch({enabled:false});__finishFollowing('recommended');__finishFollowing('latest')`);
+    assert.equal(await evaluate('__followingClicks.length'), 3, 'pause during loading stops further expansion');
+    assert.equal(await isVisible('latest-more'), true, 'native controls remain available');
+  });
+
+  await t.test('Following discovers later mounts and navigation replacements and releases detached observers', async () => {
+    await navigate('tests/fixtures/following.html', `window.__deferFollowing=true;window.activeObservers=new Set();window.MutationObserver=class extends MutationObserver{observe(...args){super.observe(...args);activeObservers.add(this)}disconnect(){super.disconnect();activeObservers.delete(this)}}`);
+    assert.equal(await evaluate('activeObservers.size'), 1, 'only shared discovery runs before the page mounts');
+    await evaluate(`__mountFollowingPage()`);
+    await waitFor('__followingClicks.length === 2');
+    assert.equal(await evaluate('activeObservers.size'), 2);
+    await evaluate(`history.pushState({},'', '?navigate-away');window.oldPage=document.querySelector('#following-shell');oldPage.remove()`);
+    await waitFor('activeObservers.size === 1');
+    await evaluate(`__finishFollowing('recommended');__finishFollowing('latest')`);
+    assert.equal(await evaluate('__followingClicks.length'), 2, 'detached regions never request more cards');
+    await evaluate(`history.pushState({},'', '?following-again');__mountFollowingPage()`);
+    await waitFor('__followingClicks.length === 4');
+    assert.equal(await isVisible('following-stories'), false);
+    await evaluate(`__mountFollowingShelf('later', 'Recommended channels')`);
+    await waitFor('__followingClicks.length === 5');
+    await evaluate(`__storagePatch({enabled:false})`);
+    await waitFor('activeObservers.size === 0');
+    await evaluate(`document.querySelector('#following-shell').remove();__mountFollowingPage()`);
+    assert.equal(await evaluate('__followingClicks.length'), 5, 'paused mounts stay native');
+    await evaluate(`__storagePatch({enabled:true})`);
+    await waitFor('__followingClicks.length === 7');
+  });
+
+  const snapshotFile = path.join(root, '.browser-tests/following.html');
+  await t.test('supplied Following HTML matches the Stories rule and native shelf controls', { skip: !fs.existsSync(snapshotFile) }, async () => {
+    await navigate('tests/fixtures/following.html', 'window.__deferFollowing=true;');
+    const source = fs.readFileSync(snapshotFile, 'utf8');
+    await evaluate(`(()=>{
+      const snapshot=new DOMParser().parseFromString(${JSON.stringify(source)},'text/html');
+      const content=snapshot.querySelector('#following-page-main-content');
+      const page=content.parentElement.cloneNode(true);
+      page.querySelectorAll('script,style,link,iframe,object,embed,video,audio,source').forEach(node=>node.remove());
+      for(const node of [page,...page.querySelectorAll('*')])for(const attribute of [...node.attributes]) {
+        if(/^on/i.test(attribute.name)||/^data-tq-/.test(attribute.name)||['style','src','srcset','poster'].includes(attribute.name))node.removeAttribute(attribute.name);
+      }
+      page.querySelector('h1').id='snapshot-following-title';
+      page.querySelector('h1').parentElement.nextElementSibling.id='snapshot-stories';
+      page.querySelector('[role="tablist"]').id='snapshot-following-tabs';
+      window.snapshotFollowingClicks=[];
+      for(const shelf of page.querySelectorAll('[aria-labelledby]')) {
+        const id=shelf.getAttribute('aria-labelledby');
+        const label=snapshot.getElementById(id).textContent.replace(/\\s+/g,' ').trim();
+        for(const button of shelf.querySelectorAll('.show-more__move-up button'))button.addEventListener('click',()=>snapshotFollowingClicks.push(label));
+      }
+      document.querySelector('#following-mount').append(page);
+    })()`);
+    await waitFor('snapshotFollowingClicks.length === 2');
+    assert.deepEqual(await evaluate('snapshotFollowingClicks'), ['Recommended channels', 'Latest videos']);
+    assert.equal(await isVisible('snapshot-stories'), false);
+    for (const id of ['snapshot-following-title', 'snapshot-following-tabs', 'following-page-main-content']) assert.equal(await isVisible(id), true);
+    await evaluate(`__storagePatch({enabled:false})`);
+    assert.equal(await isVisible('snapshot-stories'), true);
+  });
+};

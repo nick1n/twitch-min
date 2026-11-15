@@ -180,7 +180,7 @@ module.exports = async (t, { navigate, evaluate, waitFor }) => {
   });
 
   await t.test('native preview skips unrelated chat geometry reads and closes when an ancestor hides', async () => {
-    await navigate('tests/fixtures/twitch.html');
+    await navigate('tests/fixtures/twitch.html', '__stored.channelAbout=true;');
     await evaluate(`document.body.insertAdjacentHTML('beforeend','<div class="tw-tooltip-layer" id="preview-layer"><div data-popper-placement="top" id="preview-positioner"><div role="tooltip"><div class="tw-tooltip-wrapper">eyesonbHmm</div></div></div></div>');document.querySelector('#chat-emote').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}))`);
     await waitFor(`document.querySelector('#twitch-min-emote-preview[data-tq-native-emote] img').naturalWidth > 0`);
     await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
@@ -191,7 +191,7 @@ module.exports = async (t, { navigate, evaluate, waitFor }) => {
   });
 
   await t.test('player releases and reacquires fit when VOD metadata changes in place', async () => {
-    await navigate('tests/fixtures/player-layout.html');
+    await navigate('tests/fixtures/player-layout.html', '__stored.channelAbout=true;');
     await waitFor(`document.querySelector('[data-tq-fit-player]')`);
     await evaluate(`window.boxart=document.querySelector('[data-a-target="video-info-game-boxart-link"]');boxart.removeAttribute('data-a-target')`);
     assert.equal(await evaluate(`document.querySelector('[data-tq-fit-player]')`), null);

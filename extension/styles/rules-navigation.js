@@ -3,6 +3,7 @@
   "use strict";
 
   const TOP_NAV = `:is(${globalThis.TwitchMinSelectors.topNav})`;
+  const FOLLOWING = globalThis.TwitchMinSelectors.following;
 
   globalThis.TwitchMinNavigationRules = Object.freeze([
     [2, {
@@ -40,6 +41,18 @@
         'button[aria-label="Gift Turbo" i]'
       ].map(selector => `${TOP_NAV} ${selector}`),
       declaration: "display: none !important;"
+    }],
+    [32.5, {
+      key: 'followingStories',
+      // The Stories strip is the scrollable sibling between the page title
+      // and tabs. Hide its outer wrapper so its spacing disappears as well.
+      selectors: [`div:has(> ${FOLLOWING}) > div:has(> h1) + div:has(> .scrollable-area)`],
+      declaration: 'display: none !important;'
+    }],
+    [32.6, {
+      key: 'browseRecaps',
+      selectors: [`${globalThis.TwitchMinSelectors.browse} [data-tq-recent-recaps]`],
+      declaration: 'display: none !important;'
     }]
   ].map(([order, rule]) => Object.freeze([order, Object.freeze({ ...rule, selectors: Object.freeze(rule.selectors) })])));
 })();

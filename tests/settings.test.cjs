@@ -4,10 +4,13 @@ const { loadRules } = require('./support/rules.cjs');
 
 test('settings declaration derives the stable storage and popup API', () => {
   const { TwitchMinSettings: api } = loadRules();
-  const keys = ['enabled', 'sidebarSections', 'sidebarLabels', 'topNavigation', 'channelActions', 'channelAbout', 'chatLeaderboard', 'chatComposer', 'chatTimestamps', 'wheelVolume', 'emotePreviews', 'chatTints', 'chatGrouping'];
+  const keys = ['enabled', 'topNavigation', 'sidebarSections', 'sidebarLabels', 'channelActions', 'channelAbout', 'wheelVolume', 'followingStories', 'browseRecaps', 'chatLeaderboard', 'chatTimestamps', 'chatTints', 'chatGrouping', 'emotePreviews', 'chatComposer'];
   assert.deepEqual(Object.keys(api.DEFAULTS), keys);
   assert.deepEqual(Object.keys(api.ATTRIBUTES), keys);
   assert.deepEqual(Array.from(api.GROUPS, group => group.key), keys.slice(1));
+  assert.deepEqual(Array.from(api.GROUPS).filter(group => group.section).map(({ key, section }) => [key, section]), [
+    ['sidebarSections', 'Sidebar'], ['channelActions', 'Main'], ['chatLeaderboard', 'Chat']
+  ]);
   assert.equal(new Set(Object.values(api.ATTRIBUTES)).size, keys.length);
   for (const setting of api.DEFINITIONS) {
     assert.equal(api.DEFAULTS[setting.key], setting.default);
@@ -18,6 +21,7 @@ test('settings declaration derives the stable storage and popup API', () => {
       const group = api.GROUPS.find(group => group.key === setting.key);
       assert.equal(group.title, setting.title);
       assert.equal(group.description, setting.description);
+      assert.equal(group.section, setting.section);
     }
   }
 });
@@ -29,10 +33,13 @@ test('settings reject malformed values and retain explicit false preferences', (
   assert.equal(api.normalize({ chatComposer: 'false' }).chatComposer, true);
   assert.equal(api.normalize({ sidebarLabels: false }).sidebarLabels, false);
   assert.equal(Object.hasOwn(api.normalize({ unrelated: true }), 'unrelated'), false);
-  assert.equal(api.normalize({ sidebarLabels: true, enabled: false }).channelAbout, true, 'old saved settings adopt the new default');
+  assert.equal(api.DEFAULTS.channelAbout, false);
+  assert.equal(api.normalize({ sidebarLabels: true, enabled: false }).channelAbout, false, 'missing saved preferences adopt the off default');
+  assert.equal(api.normalize({ channelAbout: 'true' }).channelAbout, false, 'malformed values use the off default');
+  assert.equal(api.normalize({ channelAbout: true }).channelAbout, true, 'saved opt-ins are preserved');
   assert.equal(api.normalize({ channelAbout: false }).channelAbout, false);
-  assert.equal(api.GROUPS.length, 12);
-  for (const key of ['wheelVolume', 'emotePreviews', 'chatTints', 'chatGrouping']) {
+  assert.equal(api.GROUPS.length, 14);
+  for (const key of ['wheelVolume', 'emotePreviews', 'chatTints', 'chatGrouping', 'followingStories', 'browseRecaps']) {
     assert.equal(api.normalize({ enabled: false })[key], true, `${key}: existing installations retain the enhancement`);
     assert.equal(api.normalize({ [key]: false })[key], false, `${key}: explicit opt-out persists`);
   }

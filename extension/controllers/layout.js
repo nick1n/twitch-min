@@ -1,16 +1,20 @@
-/* Keep native metadata mounted for the compact count/game sidebar rows. */
+/* Coordinate native sidebar, navigation and Following page behavior. */
 (() => {
   "use strict";
 
   const SIDE = globalThis.TwitchMinSelectors.sidebar;
   const MORE = globalThis.TwitchMinSelectors.sidebarShowMore;
   const NAV = globalThis.TwitchMinSelectors.topNav;
+  const FOLLOWING = globalThis.TwitchMinSelectors.following;
+  const BROWSE = globalThis.TwitchMinSelectors.browse;
   const EXTRA = /^(?:gift turbo|get bits|buy bits|turbo|get ad-free|try 1-month ad-free|go ad-free for free|try 1 month free|try free|luna|prime offers|prime gaming|shouts)$/i;
   let enabled = false;
   let compact = false;
   let sections = false;
   let stopSides = null;
   let stopNavigation = null;
+  let stopFollowing = null;
+  let stopBrowse = null;
   let stoppingSides = false;
   const sides = new Set();
 
@@ -149,12 +153,94 @@
     markNavigation(nav);
   }
 
+  function attachFollowing(page, onCleanup) {
+    const requested = new Map();
+    const normalize = text => (text || '').replace(/\s+/g, ' ').trim();
+    function expand() {
+      if (!enabled || !page.isConnected) return;
+      const shelves = [...page.querySelectorAll('[aria-labelledby]')].filter(shelf =>
+        (shelf.getAttribute('aria-labelledby') || '').split(/\s+/).some(id => {
+          const heading = document.getElementById(id);
+          if (!heading || !page.contains(heading)) return false;
+          return heading.matches('[data-a-target="followed-videos-header"]') ||
+            heading.querySelector('[data-a-target="followed-videos-header"]') ||
+            /^(?:recommended channels|latest videos)$/i.test(normalize(heading.getAttribute('aria-label') || heading.textContent));
+        })
+      );
+      for (const shelf of requested.keys()) {
+        if (!shelves.includes(shelf)) requested.delete(shelf);
+      }
+      for (const shelf of shelves) {
+        const button = [...shelf.querySelectorAll('.show-more__move-up button')].find(control =>
+          /^show more$/i.test(normalize(control.textContent))
+        );
+        if (!button || !button.checkVisibility({ checkVisibilityCSS: true }) ||
+            button.matches(':disabled, [aria-disabled="true"], [aria-busy="true"]')) continue;
+        const count = shelf.querySelectorAll('article').length;
+        // A retained or replaced control can still be waiting on React. Only
+        // advance after cards arrive; unrelated text/attribute edits do not retry.
+        if (requested.has(shelf) && count <= requested.get(shelf)) continue;
+        requested.set(shelf, count);
+        button.click();
+      }
+    }
+    const observer = new MutationObserver(expand);
+    onCleanup(() => {
+      observer.disconnect();
+      requested.clear();
+    });
+    observer.observe(page, {
+      childList: true, subtree: true, characterData: true, attributes: true,
+      attributeFilter: ['aria-labelledby', 'aria-label', 'disabled', 'aria-disabled', 'aria-busy', 'hidden', 'class']
+    });
+    expand();
+  }
+
+  function attachBrowse(page, onCleanup) {
+    const marked = new Set();
+    function markRecaps() {
+      if (!enabled || !page.isConnected) return;
+      const matches = new Set();
+      for (const heading of page.querySelectorAll('h2')) {
+        if (!/^recent recaps$/i.test(heading.textContent.replace(/\s+/g, ' ').trim())) continue;
+        // Twitch supplies no recap-specific ID. Match the heading's own shelf,
+        // never a shared ancestor that also contains filters or live channels.
+        const shelf = heading.parentElement?.parentElement;
+        if (shelf !== page && page.contains(shelf) && shelf.querySelector(':scope > .preview-card-carousel')) matches.add(shelf);
+      }
+      for (const shelf of marked) {
+        if (matches.has(shelf)) continue;
+        shelf.removeAttribute('data-tq-recent-recaps');
+        marked.delete(shelf);
+      }
+      for (const shelf of matches) {
+        marked.add(shelf);
+        if (!shelf.hasAttribute('data-tq-recent-recaps')) shelf.setAttribute('data-tq-recent-recaps', '');
+      }
+    }
+    const observer = new MutationObserver(markRecaps);
+    onCleanup(() => {
+      observer.disconnect();
+      for (const shelf of marked) shelf.removeAttribute('data-tq-recent-recaps');
+      marked.clear();
+    });
+    observer.observe(page, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] });
+    markRecaps();
+  }
+
   function update(settings) {
     enabled = true;
     compact = settings.sidebarLabels === true;
     sections = settings.sidebarSections === true;
     if (!stopSides) stopSides = globalThis.TwitchMinRegions.watch(SIDE, attachSide, stop => { stopSides = stop; });
     if (!stopNavigation) stopNavigation = globalThis.TwitchMinRegions.watch(NAV, attachNavigation, stop => { stopNavigation = stop; });
+    if (!stopFollowing) stopFollowing = globalThis.TwitchMinRegions.watch(FOLLOWING, attachFollowing, stop => { stopFollowing = stop; });
+    if (settings.browseRecaps) {
+      if (!stopBrowse) stopBrowse = globalThis.TwitchMinRegions.watch(BROWSE, attachBrowse, stop => { stopBrowse = stop; });
+    } else {
+      stopBrowse?.();
+      stopBrowse = null;
+    }
     for (const state of sides) state.sync();
   }
 
@@ -165,6 +251,10 @@
       enabled = compact = sections = false;
       stopNavigation?.();
       stopNavigation = null;
+      stopFollowing?.();
+      stopFollowing = null;
+      stopBrowse?.();
+      stopBrowse = null;
       for (const state of sides) state.sync();
       // Only the sidebar subscription survives until native restoration settles.
       finishPause();
