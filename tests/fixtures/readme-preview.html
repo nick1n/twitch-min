@@ -2,7 +2,18 @@
 <html lang="en" class="tw-root--theme-dark"><head><meta charset="utf-8">
 <title>twitch-min previews</title>
 <style>
-  :root { color-scheme: dark; --color-text-base:#efeff1; --color-background-button-primary-default:#9147ff; --color-background-button-primary-hover:#772ce8; }
+  /* Flat UI colors sampled from the supplied Twitch dark-theme screenshot.
+     Keep these variables as the generator's composition and GIF palette source. */
+  :root {
+    color-scheme: dark;
+    --preview-page:#0e0e10; --preview-surface:#18181b; --preview-sidebar:#26262c;
+    --preview-button:#2f2f35; --preview-text:#efeff1; --preview-muted:#adadb8;
+    --preview-live:#eb0400; --preview-primary:#9147ff; --preview-accent:#bf94ff;
+    --preview-profile:#00c7ac;
+    --color-text-base:var(--preview-text);
+    --color-background-button-primary-default:var(--preview-primary);
+    --color-background-button-primary-hover:#772ce8;
+  }
   * { box-sizing:border-box; }
   body { margin:0; background:#0e0e10; color:#efeff1; font:14px Arial,sans-serif; }
   button,input { font:inherit; }
@@ -13,15 +24,16 @@
   .preview { display:none; width:420px; background:#0e0e10; }
   body[data-demo="sidebar"] #preview-sidebar, body[data-demo="chat"] #preview-chat,
   body[data-demo="nav"] #preview-nav { display:block; }
-  .preview-header { height:66px; display:flex; align-items:center; justify-content:space-between; padding:0 18px; border-bottom:1px solid #303035; background:#141416; }
+  .preview-header { height:66px; display:flex; align-items:center; justify-content:space-between; padding:0 18px; border-bottom:1px solid #303035; background:var(--preview-surface); }
   .preview-header h1 { font-size:15px; letter-spacing:-.2px; }
-  .state { border:1px solid #45454e; border-radius:20px; padding:6px 12px; color:#c9c9d0; font-size:12px; font-weight:700; }
-  body[data-state="after"] .state { color:#d4baff; background:#291a41; border-color:#7046aa; }
+  .state { border:1px solid #53535f; border-radius:20px; padding:6px 12px; color:var(--preview-muted); font-size:12px; font-weight:700; }
+  body[data-state="after"] .state { color:var(--preview-text); background:var(--preview-primary); border-color:var(--preview-primary); }
   .sidebar-scene { display:flex; height:520px; overflow:hidden; }
-  .side-nav { width:240px; flex:none; background:#1f1f23; }
+  .side-nav { width:240px; flex:none; background:var(--preview-sidebar); }
   .side-nav > div { height:100%; display:flex; flex-direction:column; }
   .side-nav__overlay-wrapper { flex:1; min-height:0; }
   .side-nav__scrollable_content { position:relative; height:100%; overflow:auto; scrollbar-color:#55555f transparent; scrollbar-width:thin; }
+  body[data-state="after"] .side-nav__scrollable_content { padding-left:6px; }
   .sidebar-toolbar { display:flex; align-items:center; min-height:28px; padding:4px 40px 4px 12px; }
   .sidebar-toolbar h2 { font:inherit; }
   .side-nav__title { font-size:16px; font-weight:700; }
@@ -42,49 +54,58 @@
   .side-nav-card__title { font-size:13px; font-weight:600; white-space:nowrap; }
   .side-nav-card__metadata { color:#adadb8; font-size:12px; line-height:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   [data-a-target="side-nav-live-status"] { flex:none; font-size:12px; }
-  [data-a-target="side-nav-live-status"]::before { content:''; display:inline-block; width:6px; height:6px; margin-right:4px; border-radius:50%; background:#eb4955; vertical-align:1px; }
+  [data-a-target="side-nav-live-status"]::before { content:''; display:inline-block; width:6px; height:6px; margin-right:4px; border-radius:50%; background:var(--preview-live); vertical-align:1px; }
   .side-nav-card__link--offline { opacity:.6; }
   .side-nav-card__link--offline [data-a-target="side-nav-live-status"]::before { display:none; }
   #show-more { color:#bf94ff; font-size:12px; margin:4px 8px; }
   .viewing-area { flex:1; min-width:0; background:#0e0e10; padding:22px 14px; }
-  .video-surface { height:202px; background:linear-gradient(145deg,#252330,#16151d); border:1px solid #34313f; border-radius:5px; display:flex; align-items:center; justify-content:center; }
-  .viewing-area p { margin-top:13px; font-size:11px; line-height:17px; color:#88838f; }
-  .placeholder-line { height:5px; margin-top:12px; background:#29262f; border-radius:3px; }
+  .video-surface { height:202px; background:var(--preview-surface); border:1px solid var(--preview-button); border-radius:5px; display:flex; align-items:center; justify-content:center; }
+  .viewing-area p { margin-top:13px; font-size:11px; line-height:17px; color:var(--preview-muted); }
+  .placeholder-line { height:5px; margin-top:12px; background:var(--preview-button); border-radius:3px; }
   .placeholder-line + .placeholder-line { width:65%; margin-top:7px; }
-  .chat-scene { height:490px; }
+  .chat-scene { height:520px; }
   .chat-room { display:flex; flex-direction:column; height:100%; background:#18181b; }
   .video-chat__header { height:42px; flex:none; display:flex; align-items:center; justify-content:space-between; padding:0 12px; border-bottom:1px solid #303035; font-size:13px; font-weight:600; }
   .video-chat__header span { color:#b8b8c3; font-size:16px; }
   .chat-room__content { display:flex; flex:1; flex-direction:column; min-height:0; }
-  .channel-leaderboard { flex:none; height:78px; padding:12px 16px; border-bottom:1px solid #303035; background:#1e1c24; }
-  .leader-label { color:#c2a6f4; font-size:10px; font-weight:700; letter-spacing:1px; }
+  .channel-leaderboard { flex:none; height:78px; padding:12px 16px; border-bottom:1px solid #303035; background:var(--preview-surface); }
+  .leader-label { color:var(--preview-accent); font-size:10px; font-weight:700; letter-spacing:1px; }
   .leader-row { display:flex; align-items:center; justify-content:space-between; margin-top:9px; font-size:12px; }
   .leader-row small { color:#adadb8; }
   .video-chat__message-list-wrapper { flex:1; min-height:0; overflow:auto; padding:10px 10px 16px; scrollbar-width:thin; scrollbar-color:#53535d transparent; }
-  .vod-message { display:flex; gap:7px; line-height:23px; padding:4px 4px; }
-  .vod-message__header { flex:none; }
+  .vod-message { display:flex; gap:7px; line-height:20px; padding:5px 4px; }
+  /* A flex header avoids an extra anonymous text line below the timestamp button. */
+  .vod-message__header { display:flex; align-items:baseline; flex:none; }
   .vod-message__header button { padding:0; color:#92929f; font-size:12px; line-height:inherit; }
+  .vod-message__header p { line-height:normal; }
   .message-content { min-width:0; flex:1; }
   .badge-layout { display:inline-flex; vertical-align:-3px; margin-right:3px; }
   .badge-layout button { padding:0; }
   .chat-badge { display:block; width:16px; height:16px; border-radius:2px; }
-  .video-chat__message-author { font-weight:700; font-size:13px; }
-  .video-chat__message { display:inline; font-size:13px; }
-  .chat-input { flex:none; padding:10px; border-top:1px solid #26262c; }
-  .chat-input__textarea { border:1px solid #676773; border-radius:5px; min-height:55px; padding:10px; margin-bottom:9px; color:#adadb8; font-size:13px; background:#29292e; }
-  .chat-input-controls { display:flex; align-items:center; gap:8px; }
-  .chat-input-controls .points { margin-right:auto; color:#c1a6ea; font-size:12px; }
-  [data-a-target="chat-send-button"] { background:#9147ff; padding:7px 12px; font-weight:600; font-size:13px; }
+  .video-chat__message-author { font-weight:700; font-size:14px; }
+  .video-chat__message { display:inline; font-size:14px; }
+  .chat-input { flex:none; padding:5px 10px 10px; border-top:1px solid #26262c; }
+  .chat-input__textarea { display:flex; align-items:center; gap:8px; border:1px solid #dadade; border-radius:4px; height:42px; padding:0 8px; margin-bottom:8px; color:var(--preview-text); font-size:14px; background:var(--preview-surface); }
+  .chat-input__textarea [contenteditable] { flex:1; min-width:0; white-space:nowrap; }
+  .chat-input__textarea button { width:24px; height:28px; padding:2px; flex:none; }
+  .chat-input__textarea .subscriber-icon { width:20px; height:20px; border-radius:3px; background:#53535f; color:var(--preview-muted); }
+  .chat-input-controls { display:flex; align-items:center; gap:8px; height:32px; }
+  .chat-input-controls .balance { display:inline-flex; align-items:center; gap:5px; padding:0; font-size:14px; font-weight:600; white-space:nowrap; }
+  .chat-input-controls .balance svg,.chat-input-controls .rewards { color:var(--preview-accent); }
+  .chat-input-controls .points img { width:20px; height:20px; border-radius:50%; }
+  .chat-input-controls .rewards { margin-right:auto; }
+  .chat-input-controls > button:not(.balance):not([data-a-target="chat-send-button"]):not([data-tq-chat-toggle]) { width:28px; height:30px; padding:4px; }
+  [data-a-target="chat-send-button"] { background:#9147ff; padding:7px 12px; border-radius:999px; font-weight:600; font-size:13px; }
   #preview-nav { width:720px; }
   .nav-scene { padding:22px 0; background:#0e0e10; }
   .top-nav { display:flex; align-items:center; height:56px; padding:0 18px; background:#18181b; border-block:1px solid #303035; }
-  .nav-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
-  .nav-icon { position:relative; width:32px; height:34px; padding:5px; }
-  .gift-turbo { gap:8px; padding:7px 11px; border-radius:4px; font-size:13px; font-weight:600; background:#313137; white-space:nowrap; }
-  .gift-turbo svg { width:18px; height:18px; color:#c6adf1; }
-  .notification-count { position:absolute; top:0; right:-1px; font-size:9px; line-height:14px; width:14px; background:#eb4955; color:#fff; border-radius:7px; }
-  .account-avatar { width:30px; height:30px; border-radius:50%; padding:0; background:#3a324b; color:#d7c6ef; }
-  .account-avatar svg { width:19px; height:19px; }
+  .nav-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .nav-icon { position:relative; width:32px; height:32px; padding:6px; }
+  .nav-pill { gap:6px; height:32px; padding:0 12px; border-radius:999px; font-size:14px; font-weight:600; background:var(--preview-button); white-space:nowrap; }
+  .nav-pill svg { width:18px; height:18px; }
+  .notification-count { position:absolute; top:-4px; right:-4px; font-size:12px; line-height:20px; width:20px; background:var(--preview-live); color:#fff; border-radius:50%; }
+  .account-avatar { width:30px; height:30px; border-radius:50%; padding:0; background:var(--preview-profile); color:var(--preview-surface); }
+  .account-avatar img { display:block; width:30px; height:30px; border-radius:50%; }
 </style>
 <script src="readme-icons.js"></script>
 <script src="native-sidebar.js" defer></script>
@@ -108,47 +129,71 @@
   <div class="chat-scene"><div class="chat-room video-chat">
     <div class="video-chat__header"><button aria-label="Collapse chat" data-icon="chatBack"></button>STREAM CHAT<button aria-label="Community" data-icon="community"></button></div>
     <div class="chat-room__content">
-      <div class="channel-leaderboard"><div class="leader-label">TOP GIFTERS</div><div class="leader-row"><span data-test-selector="leaderboard-item-name-test-selector">Viewer 05</span><small>10 gifted subs</small></div></div>
+      <div class="channel-leaderboard"><div class="leader-label">TOP GIFTERS</div><div class="leader-row"><span data-test-selector="leaderboard-item-name-test-selector">Viewer 5</span><small>10 gifted subs</small></div></div>
       <div class="video-chat__message-list-wrapper" id="demo-messages"></div>
-      <div class="chat-input"><div class="chat-input__textarea"><div data-a-target="chat-input" contenteditable="true" role="textbox" tabindex="0">Send a message</div></div><div class="chat-input-controls" data-test-selector="chat-input-buttons-container"><button class="points" data-test-selector="community-points-summary">1.2K</button><button data-a-target="chat-settings" aria-label="Chat settings" data-icon="settings"></button><button data-a-target="chat-send-button">Chat</button></div></div>
+      <div class="chat-input">
+        <div class="chat-input__textarea">
+          <button class="subscriber-icon" aria-label="Subscriber benefits" data-icon="subscriber"></button>
+          <div data-a-target="chat-input" contenteditable="true" role="textbox" tabindex="0">Send a message</div>
+          <button aria-label="Cheer" data-icon="celebrate"></button>
+          <button data-a-target="emote-picker-button" aria-label="Emotes" data-icon="emotes"></button>
+        </div>
+        <div class="chat-input-controls" data-test-selector="chat-input-buttons-container">
+          <button class="balance" data-test-selector="bits-balance" aria-label="67 Bits" data-icon="bits">67</button>
+          <button class="balance points" data-test-selector="community-points-summary" aria-label="420.7K channel points"><img data-points-avatar alt="">420.7K</button>
+          <button class="rewards" aria-label="Rewards" data-icon="rewards"></button>
+          <button data-a-target="chat-settings" aria-label="Chat settings" data-icon="settings"></button>
+          <button data-a-target="chat-send-button">Chat</button>
+        </div>
+      </div>
     </div>
   </div></div>
 </section>
 <section class="preview" id="preview-nav">
   <header class="preview-header"><div><h1>Top navigation · right side</h1></div><span class="state">Before</span></header>
   <div class="nav-scene"><nav class="top-nav" data-a-target="top-nav-container"><div class="nav-right">
-    <div class="top-nav__prime"><button class="nav-icon" aria-label="Prime offers" data-a-target="prime-offers-icon" data-icon="crown"></button></div>
-    <button class="nav-icon" aria-label="Shouts" data-icon="shouts"></button>
-    <button class="gift-turbo" aria-label="Gift Turbo" data-icon="gift">Gift Turbo</button>
-    <button class="nav-icon" aria-label="Bits" data-a-target="top-nav-get-bits-button" data-icon="bits"></button>
-    <button class="nav-icon" aria-label="Notifications" data-a-target="activity-feed-button" data-icon="bell"><span class="notification-count">2</span></button>
+    <div class="top-nav__prime"><button class="nav-icon" aria-label="Prime offers" data-a-target="prime-offers-icon" data-icon="crown"><span class="notification-count">2</span></button></div>
+    <button class="nav-icon" aria-label="Notifications" data-a-target="activity-feed-button" data-icon="bell"></button>
     <button class="nav-icon" aria-label="Whispers" data-icon="whispers"></button>
-    <button class="account-avatar" aria-label="Account"><img class="tw-avatar" data-preview-avatar alt=""></button>
+    <button class="nav-icon" aria-label="Shouts" data-icon="shouts"></button>
+    <button class="nav-pill gift-turbo" aria-label="Gift Turbo" data-icon="gift">Gift Turbo</button>
+    <button class="nav-pill" aria-label="Bits" data-a-target="top-nav-get-bits-button" data-icon="bits">Bits</button>
+    <button class="account-avatar" aria-label="Account"><img data-profile-avatar alt=""></button>
   </div></nav></div>
 </section>
 <script>
   // Names, messages and counts are sanitized; native Twitch icons stay intact.
   document.body.dataset.demo = window.__demo || 'sidebar';
   const icons = window.TwitchMinPreviewIcons;
-  document.querySelector('[data-preview-avatar]').src = icons.avatar;
+  document.querySelector('[data-points-avatar]').src = icons.avatar;
+  document.querySelector('[data-profile-avatar]').src = icons.profile;
   document.querySelectorAll('[data-icon]').forEach(button => button.insertAdjacentHTML('afterbegin', icons[button.dataset.icon]));
   const sections = [
-    ['Followed Channels', [['Channel 01','Just Chatting','8.4K'],['Channel 02','Retro','2.1K'],['Channel 03','Offline','']]],
-    ['Recommended Channels', [['Channel 04','Art','845'],['Channel 05','Music','320']]],
-    ['Example Viewers Also Watch', [['Channel 06','Minecraft','1.3K'],['Channel 07','Stardew Valley','620']]]
+    ['Followed Channels', [['Channel 1','Just Chatting','420'],['Channel 2','Retro','69'],['Channel 3','Offline','']]],
+    ['Recommended Channels', [['Channel 4','Art','67'],['Channel 5','Music','320']]],
+    ['Example Viewers Also Watch', [['Channel 6','Minecraft','1.3K'],['Channel 7','Stardew Valley','620']]]
   ];
   document.querySelector('#demo-sidebar-sections').innerHTML = sections.map(([heading, rows], index) => `<section class="side-nav-section" aria-label="${heading}"><div class="${index ? 'side-nav-header' : 'followed-side-nav-header'}"><h3>${heading}</h3></div>${rows.map(([name,game,count]) => `<div class="side-nav-card"><a class="side-nav-card__link ${count ? '' : 'side-nav-card__link--offline'}" href="/example" aria-label="${name}"><div class="side-nav-card__avatar"><div class="tw-avatar"><img src="${icons.avatar}" alt="Anonymous avatar"></div></div><div class="native-details"><div><div data-a-target="side-nav-card-metadata"><div class="side-nav-card__title">${name}</div><div class="side-nav-card__metadata"><p>${game}</p></div></div><div data-a-target="side-nav-live-status"><span aria-hidden="true">${count}</span></div></div></div></a></div>`).join('')}</section>`).join('');
   const badge = (name, image) => `<span class="badge-layout"><button data-a-target="chat-badge" aria-label="${name}"><img class="chat-badge" alt="${name} badge" src="${image}"></button></span>`;
+  const chatterBadges = {
+    Viewer1: badge('Moderator', icons.moderator) + badge('Subscriber', icons.avatar) + badge('Prime', icons.prime),
+    Viewer2: badge('VIP', icons.vip) + badge('Prime', icons.prime),
+    Viewer3: badge('Subscriber', icons.avatar) + badge('Prime', icons.prime),
+    Viewer4: ''
+  };
   const messages = [
-    ['Viewer01','#ffbd69','1:32:56','That was a great run.'],
-    ['Viewer01','#ffbd69','1:33:08','The timing worked out.'],
-    ['Viewer01','#ffbd69','1:33:12','Ready for the next round.'],
-    ['Viewer02','#c3a5ff','1:33:20','Great stream today!'],
-    ['Viewer02','#c3a5ff','1:33:24','Thanks for hanging out.'],
-    ['Viewer03','#a2ecdf','1:33:30','That looked fun.'],
-    ['Viewer03','#a2ecdf','1:33:34','One more round?'],
-    ['Viewer04','#8fdb8b','1:33:40','See you next time.']
+    ['Viewer1','#ffbd69','1:32:56','That was a great run.'],
+    ['Viewer1','#ffbd69','1:33:08','The timing worked out.'],
+    ['Viewer1','#ffbd69','1:33:12','Ready for the next round.'],
+    ['Viewer2','#c3a5ff','1:33:20','Great stream today!'],
+    ['Viewer2','#c3a5ff','1:33:24','Thanks for hanging out.'],
+    ['Viewer3','#a2ecdf','1:33:30','That looked fun.'],
+    ['Viewer3','#a2ecdf','1:33:34','One more round?'],
+    ['Viewer4','#8fdb8b','1:33:40','See you next time.'],
+    ['Viewer2','#c3a5ff','1:33:45','One last highlight!'],
+    ['Viewer3','#a2ecdf','1:33:50','Thanks for the stream.'],
+    ['Viewer1','#ffbd69','1:33:56','Have a great night, everyone!']
   ];
-  document.querySelector('#demo-messages').innerHTML = messages.map(([name,color,time,message]) => `<div class="vod-message"><div class="vod-message__header"><button><p>${time}</p></button></div><div class="message-content"><span>${badge('Moderator',icons.moderator)}${badge('Prime',icons.prime)}</span><a class="video-chat__message-author" href="/${name.toLowerCase()}"><span data-a-target="chat-message-username" style="color:${color}">${name}</span></a><div class="video-chat__message"><span>:</span> <span data-a-target="chat-message-text">${message}</span></div></div></div>`).join('');
+  document.querySelector('#demo-messages').innerHTML = messages.map(([name,color,time,message]) => `<div class="vod-message"><div class="vod-message__header"><button><p>${time}</p></button></div><div class="message-content"><span>${chatterBadges[name]}</span><a class="video-chat__message-author" href="/${name.toLowerCase()}"><span data-a-target="chat-message-username" style="color:${color}">${name}</span></a><div class="video-chat__message"><span>:</span> <span data-a-target="chat-message-text">${message}</span></div></div></div>`).join('');
 </script>
 </body></html>

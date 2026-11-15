@@ -6,21 +6,9 @@ is needed to use it.
 
 ## Before and after
 
-<table>
-  <tr>
-    <td colspan="2" align="right">
-      <img src="docs/images/nav-before-after.gif" width="720" alt="Top navigation before and after: notifications, whispers, and account controls remain.">
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/images/sidebar-before-after.gif" width="360" alt="Sidebar before and after: compact rows retain avatars, viewer counts, and games.">
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/images/chat-before-after.gif" width="360" alt="Chat before and after: sender groups, shorter timestamps, and a collapsed composer.">
-    </td>
-  </tr>
-</table>
+![Top navigation, sidebar, and chat before and after twitch-min.](docs/images/before-after.gif)
+
+Lossless screenshots: [Before](docs/images/before.png) · [After](docs/images/after.png).
 
 ## Install locally
 
@@ -148,7 +136,7 @@ results stay in ignored `.browser-tests/`; ZIPs stay in ignored `dist/`.
 
 Set `TWITCH_MIN_SOAK_CYCLES` to change the soak length. Regenerate PNG icons with
 `python scripts/generate_icons.py` (standard library only).
-Regenerate the README GIFs with `node scripts/capture-previews.cjs`
+Regenerate the README GIFs and losslessly optimized PNGs with `node scripts/capture-previews.cjs`
 on Windows with Node and Chrome; no extra packages are needed.
 
 For implementation and test ownership, see [architecture.md](docs/architecture.md).
