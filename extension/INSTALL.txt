@@ -1,8 +1,10 @@
-twitch-min - Chrome extension
+twitch-min - Chrome and Opera GX extension
 
 INSTALL
 1. Extract the ZIP completely and keep the extracted folder.
-2. Open chrome://extensions and enable Developer mode.
+2. Open your browser's extensions page and enable Developer mode:
+   Chrome: chrome://extensions
+   Opera GX: opera://extensions
 3. Choose Load unpacked and select the folder containing manifest.json.
 4. Refresh existing Twitch tabs. Pin twitch-min in the Extensions menu.
 
@@ -38,6 +40,7 @@ load a larger image from Twitch's CDN. Hidden Twitch features can still run.
 Twitch layouts and languages vary; signed-in-only variants still need validation.
 
 UPDATES AND REMOVAL
-After replacing files, reload twitch-min at chrome://extensions and refresh Twitch.
-Chrome needs the extracted folder for as long as the extension is installed.
+After replacing files, reload twitch-min at chrome://extensions (Chrome) or
+opera://extensions (Opera GX), then refresh Twitch.
+Keep the extracted folder for as long as the extension is installed.
 Choose Remove on the extension card to uninstall and delete saved preferences.

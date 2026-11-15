@@ -24,16 +24,18 @@ is needed to use it.
 
 ## Install locally
 
-1. Open `chrome://extensions` and enable **Developer mode**.
+1. Open `chrome://extensions` in Chrome or `opera://extensions` in Opera GX
+   and enable **Developer mode**.
 2. Choose **Load unpacked** and select this repository's **extension** folder.
 3. Refresh existing Twitch tabs.
-4. Pin **twitch-min** in Chrome's Extensions menu and open its popup.
+4. Pin **twitch-min** in your browser's Extensions menu and open its popup.
 
 For a packaged download, extract `twitch-min-<version>.zip` and load the folder
-containing `manifest.json`. Keep that folder: Chrome loads the extension from it.
+containing `manifest.json`. Keep that folder: your browser loads the extension from it.
 See [INSTALL.txt](extension/INSTALL.txt) for standalone ZIP instructions.
 
-After updates, reload the extension at `chrome://extensions` and refresh Twitch.
+After updates, reload the extension at `chrome://extensions` (Chrome) or
+`opera://extensions` (Opera GX) and refresh Twitch.
 **Remove** uninstalls it and deletes its saved preferences.
 
 ## Settings
