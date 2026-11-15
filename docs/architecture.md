@@ -53,11 +53,17 @@ discovery. Region attachments register teardown through `onCleanup` before DOM
 changes, listeners, or observers. Unsubscribe attempts every cleanup and retains
 failures for retry. Native sidebar restoration may finish asynchronously.
 
-Sidebar CSS requires a per-region readiness marker. Layout expands the native
+Sidebar row and section CSS require a per-region readiness marker. Layout expands the native
 sidebar and Show More lists before setting it. Retained pagination controls are
 clicked again only after new rows arrive; pending/disabled controls leave the
 native view visible. Remounts repeat setup; pause removes markers and restores an
 initially collapsed sidebar when neither sidebar feature needs expansion.
+The native Collapse/Expand control stays visible. Layout distinguishes its own
+toggle clicks from manual actions, respects manual collapse, and reapplies compact
+styles only after native expansion settles. It retains the initial-state
+restoration obligation through manual toggles.
+Scrollbar hiding also matches native collapsed sidebars, which have no readiness
+marker; disabling Compact sidebar or pausing restores their native scrollbars.
 
 ## Discovery and mutation handling
 
@@ -84,6 +90,9 @@ replaces a pending button. Navigation CSS hides the Stories wrapper between the
 Following title and tabs when `followingStories` is on; disabling that switch
 restores Stories independently of shelf expansion. Master pause restores Stories
 and stops shelf expansion.
+Automatic clicks preserve ancestor scroll positions and focus through native
+click handlers and card loading, with one animation-frame restoration per batch.
+User input cancels saved positions; pause and region removal cancel pending work.
 Browse recap discovery stays inside the directory content region and marks only
 the carousel shelf headed Recent Recaps. Navigation CSS hides the marked wrapper;
 the `browseRecaps` switch gates discovery and hiding. Turning it off releases the

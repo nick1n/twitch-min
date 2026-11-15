@@ -27,6 +27,7 @@ function fixture(t) {
   fs.mkdirSync(path.join(dir, 'scripts'));
   fs.copyFileSync(path.join(root, 'scripts/package.ps1'), path.join(dir, 'scripts/package.ps1'));
   fs.copyFileSync(path.join(root, 'package.json'), path.join(dir, 'package.json'));
+  fs.copyFileSync(path.join(root, 'LICENSE'), path.join(dir, 'LICENSE'));
   fs.cpSync(path.join(root, 'extension'), path.join(dir, 'extension'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'dist'));
   fs.writeFileSync(path.join(dir, 'dist', archiveName), oldRelease);
@@ -77,14 +78,25 @@ test('packaging replaces stale output with all source files at ZIP root, byte fo
   const entries = JSON.parse(inspect.stdout);
   const source = path.join(dir, 'extension');
   const names = fs.readdirSync(source, { recursive: true }).filter(name => fs.statSync(path.join(source, name)).isFile());
-  assert.deepEqual(entries.map(entry => entry.name).sort(), names.map(name => name.split(path.sep).join('/')).sort());
+  assert.deepEqual(entries.map(entry => entry.name).sort(), [...names.map(name => name.split(path.sep).join('/')), 'LICENSE'].sort());
   for (const entry of entries) {
-    assert.deepEqual(Buffer.from(entry.data, 'base64'), fs.readFileSync(path.join(source, entry.name)), entry.name);
+    const file = entry.name === 'LICENSE' ? path.join(dir, 'LICENSE') : path.join(source, entry.name);
+    assert.deepEqual(Buffer.from(entry.data, 'base64'), fs.readFileSync(file), entry.name);
   }
   const manifest = JSON.parse(Buffer.from(entries.find(entry => entry.name === 'manifest.json').data, 'base64'));
   assert.equal(manifest.version, version);
   assert.deepEqual(manifest.permissions, ['storage']);
   assert.deepEqual(manifest.content_scripts[0].matches, ['https://www.twitch.tv/*', 'https://twitch.tv/*']);
+  assertPreserved(dir);
+});
+
+test('packaging rejects a missing license and preserves the previous release', t => {
+  const dir = fixture(t);
+  fs.unlinkSync(path.join(dir, 'LICENSE'));
+  const result = run(dir);
+  assert.notEqual(result.status, 0);
+  assert.ok(result.stderr.includes('LICENSE'), result.stderr);
+  assert.deepEqual(fs.readFileSync(path.join(dir, 'dist', archiveName)), oldRelease);
   assertPreserved(dir);
 });
 

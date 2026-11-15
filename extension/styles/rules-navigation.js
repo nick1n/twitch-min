@@ -42,6 +42,11 @@
       ].map(selector => `${TOP_NAV} ${selector}`),
       declaration: "display: none !important;"
     }],
+    [32.25, {
+      key: 'hideTopNavigation',
+      selectors: [TOP_NAV],
+      declaration: 'display: none !important;'
+    }],
     [32.5, {
       key: 'followingStories',
       // The Stories strip is the scrollable sibling between the page title

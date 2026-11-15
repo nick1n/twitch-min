@@ -4,6 +4,40 @@ const path = require('node:path');
 const { root } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
+    await t.test('channel action extras hide live and VOD three-dot menus and restore native handlers', async () => {
+      await navigate('tests/fixtures/twitch.html', '__stored.channelActions=false;');
+      for (const id of ['channel-menu', 'video-menu']) assert.equal(await isVisible(id), true, `${id} respects the saved opt-out`);
+      await evaluate(`window.menuClicks=0;document.querySelector('#channel-menu').addEventListener('click',()=>menuClicks++);document.querySelector('#player').insertAdjacentHTML('beforeend','<button id="player-other-menu" aria-label="Video Options">Player menu</button>');document.querySelector('#messages').insertAdjacentHTML('beforeend','<button id="chat-other-menu" data-a-target="report-button-more-button" aria-label="More options">Chat menu</button>');document.body.insertAdjacentHTML('beforeend','<button id="outside-menu" data-a-target="report-button-more-button">Other menu</button>');__storagePatch({channelActions:true,channelAbout:false})`);
+      for (const id of ['channel-menu', 'video-menu']) assert.equal(await isVisible(id), false, `${id} hides independently of About`);
+      for (const id of ['follow', 'channel-subscribe', 'player-other-menu', 'chat-other-menu', 'outside-menu']) assert.equal(await isVisible(id), true, `${id} remains available`);
+      await evaluate(`history.pushState({},'', '?new-channel-menu');document.querySelector('#channel-menu').replaceWith(document.querySelector('#channel-menu').cloneNode(true));document.querySelector('.metadata-layout__support').insertAdjacentHTML('beforeend','<button id="late-channel-menu" data-a-target="report-button-more-button" aria-label="More options">Menu</button>')`);
+      for (const id of ['channel-menu', 'late-channel-menu']) assert.equal(await isVisible(id), false, `${id} hides after navigation or mount`);
+      await evaluate(`document.querySelector('#channel-menu').addEventListener('click',()=>menuClicks++);__storagePatch({channelActions:false});document.querySelector('#channel-menu').click()`);
+      assert.equal(await evaluate('menuClicks'), 1, 'restored native handlers remain usable');
+      for (const id of ['channel-menu', 'video-menu', 'late-channel-menu']) assert.equal(await isVisible(id), true, `${id} restores with the option off`);
+      await evaluate(`__storagePatch({channelActions:true});__storagePatch({enabled:false})`);
+      for (const id of ['channel-menu', 'video-menu', 'late-channel-menu']) assert.equal(await isVisible(id), true, `${id} restores on master pause`);
+
+      for (const [file, selector] of [['live.html', '[data-a-target="report-button-more-button"]'], ['test.html', 'button[aria-label="Video Options"]']]) {
+        const snapshotFile = path.join(root, '.browser-tests', file);
+        if (!fs.existsSync(snapshotFile)) continue;
+        const source = fs.readFileSync(snapshotFile, 'utf8');
+        await evaluate(`(()=>{
+          const snapshot=new DOMParser().parseFromString(${JSON.stringify(source)},'text/html');
+          const native=snapshot.querySelector(${JSON.stringify(selector)});
+          const scope=native.closest('.channel-info-content') ? 'channel-info-content' : 'channel-root__info';
+          const button=native.cloneNode(true);
+          button.querySelectorAll('script,style,link,iframe,object,embed,video,audio,source').forEach(node=>node.remove());
+          for(const node of [button,...button.querySelectorAll('*')])for(const attribute of [...node.attributes])if(/^on/i.test(attribute.name)||/^data-tq-/.test(attribute.name)||['id','style','src','srcset'].includes(attribute.name))node.removeAttribute(attribute.name);
+          button.id='snapshot-channel-menu';const region=document.createElement('div');region.className=scope;region.append(button);document.querySelector('#snapshot-channel-menu')?.parentElement.remove();document.body.append(region);__storagePatch({enabled:true});
+        })()`);
+        assert.equal(await isVisible('snapshot-channel-menu'), false, `${file}: native menu markup hides`);
+        await evaluate(`__storagePatch({channelActions:false})`);
+        assert.equal(await isVisible('snapshot-channel-menu'), true, `${file}: native menu markup restores`);
+        await evaluate(`__storagePatch({channelActions:true})`);
+      }
+    });
+
     await t.test('channel Bits variants hide and subscription buttons keep only icons with accessible names and native actions', async () => {
       await navigate('tests/fixtures/twitch.html');
       for (const id of ['channel-bits','channel-bits-alt']) assert.equal(await isVisible(id), false, `${id} hides below the player`);

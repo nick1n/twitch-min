@@ -1,6 +1,38 @@
 const assert = require('node:assert/strict');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
+  await t.test('whole top navigation hiding is opt-in, independent, gap-free and restores native controls', async () => {
+    await navigate('tests/fixtures/twitch.html');
+    assert.equal(await isVisible('top-bell'), true, 'the bar stays visible by default');
+    const before = await evaluate(`({height:document.querySelector('.top-nav').getBoundingClientRect().height,contentTop:document.querySelector('.page-layout').getBoundingClientRect().top})`);
+    await evaluate(`window.notificationClicks=0;document.querySelector('#top-bell').addEventListener('click',()=>notificationClicks++);__storagePatch({hideTopNavigation:true})`);
+    for (const id of ['browse', 'top-bell', 'whispers', 'search', 'account']) assert.equal(await isVisible(id), false, `${id} hides with the entire bar`);
+    assert.equal(await evaluate(`document.querySelector('.top-nav').getBoundingClientRect().height`), 0);
+    assert.equal(await evaluate(`document.querySelector('.page-layout').getBoundingClientRect().top`), before.contentTop - before.height, 'the hidden bar reserves no layout space');
+    for (const id of ['sidebar-arrow', 'follow', 'player-play', 'chat-settings']) assert.equal(await isVisible(id), true, `${id} stays available outside the bar`);
+    await evaluate(`__storagePatch({topNavigation:false})`);
+    assert.equal(await isVisible('top-turbo'), false, 'extras filtering does not control whole-bar hiding');
+    await evaluate(`__storagePatch({hideTopNavigation:false});document.querySelector('#top-bell').click()`);
+    assert.equal(await evaluate('notificationClicks'), 1, 'native handlers survive restoration');
+    for (const id of ['top-bell', 'top-turbo', 'search', 'account']) assert.equal(await isVisible(id), true, `${id} restores`);
+    await evaluate(`__storagePatch({topNavigation:true})`);
+    assert.equal(await isVisible('top-turbo'), false);
+    assert.equal(await isVisible('top-bell'), true, 'extras filtering remains independent');
+    await evaluate(`__storagePatch({hideTopNavigation:true,enabled:false})`);
+    assert.equal(await isVisible('top-bell'), true, 'master pause restores the bar');
+    await evaluate(`__storagePatch({enabled:true})`);
+    assert.equal(await isVisible('top-bell'), false, 'resume preserves the opt-in');
+    await evaluate(`history.pushState({},'', '?new-top-nav');const nav=document.querySelector('.top-nav');const replacement=nav.cloneNode(true);replacement.className='';nav.replaceWith(replacement);window.newNav=replacement`);
+    assert.equal(await evaluate(`newNav.checkVisibility({checkVisibilityCSS:true})`), false, 'the native target selector covers replacements without the class');
+    await evaluate(`newNav.insertAdjacentHTML('afterend','<nav class="top-nav"><button id="late-nav-control">Late control</button></nav>')`);
+    assert.equal(await isVisible('late-nav-control'), false, 'later navigation mounts hide automatically');
+    await evaluate(`__storagePatch({hideTopNavigation:undefined})`);
+    assert.equal(await isVisible('top-bell'), true, 'removing the saved key restores the off default');
+    assert.equal(await isVisible('late-nav-control'), true);
+    await navigate('tests/fixtures/twitch.html', '__stored.hideTopNavigation=true;');
+    assert.equal(await isVisible('top-bell'), false, 'saved opt-in applies on initial mount');
+  });
+
   await t.test('About and lower sections stay native by default and restore when their saved key is removed', async () => {
     await navigate('tests/fixtures/twitch.html');
     const ids = ['about', 'panels', 'vod-channel-card', 'vod-recommendations'];
@@ -14,13 +46,14 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
   await t.test('enabled settings hide targets and preserve intended UI, including saved About opt-in', async () => {
     await navigate('tests/fixtures/twitch.html', '__stored.channelAbout=true;');
     await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
-    for (const id of ['top-bits','top-turbo','top-turbo-gift','top-turbo-test','top-turbo-text','luna-offers','shouts','sidebar-for-you','sidebar-arrow','sidebar-streak','sidebar-channel-name','sidebar-hype','stray-avatar-text','stray-nested-text','offline-transition','offline-channel','other-section','show-more','channel-bell','channel-bits','channel-gift','video-share','video-share-label','vod-channel-card','vod-recommendations','about','panels','chat-header','leaderboard','composer','chat-send','player-clip','player-clip-subscribe','player-speed-display','player-follow','player-gift','player-subscribe']) {
+    for (const id of ['top-bits','top-turbo','top-turbo-gift','top-turbo-test','top-turbo-text','luna-offers','shouts','sidebar-for-you','sidebar-streak','sidebar-channel-name','sidebar-hype','stray-avatar-text','stray-nested-text','offline-transition','offline-channel','other-section','show-more','channel-bell','channel-bits','channel-gift','video-share','video-share-label','vod-channel-card','vod-recommendations','about','panels','chat-header','leaderboard','composer','chat-send','player-clip','player-clip-subscribe','player-speed-display','player-follow','player-gift','player-subscribe']) {
       assert.equal(await isVisible(id), false, `${id} should be hidden`);
     }
-    for (const id of ['sidebar-heading','live-heading','similar-heading','top-bell','top-bell-wrapper','actual-notifications','top-notifications-label','replay-time','replay-time-link','actual-replay-time','browse','whispers','search','account','avatar','second-avatar','viewer-count','sidebar-game','player','video-title','video-category','video-menu','follow','channel-subscribe','messages','replay-body','replay-body-link','actual-replay-message','points','chat-settings','outside-gift','outside-share','outside-metadata','outside-clip','player-play','player-mute','player-settings','player-theatre','player-fullscreen','player-settings-speed','player-speed','player-speed-decrease','player-speed-increase']) {
+    for (const id of ['sidebar-heading','live-heading','similar-heading','top-bell','top-bell-wrapper','actual-notifications','top-notifications-label','replay-time','replay-time-link','actual-replay-time','browse','whispers','search','account','avatar','second-avatar','viewer-count','sidebar-game','player','video-title','video-category','follow','channel-subscribe','messages','replay-body','replay-body-link','actual-replay-message','points','chat-settings','outside-gift','outside-share','outside-metadata','outside-clip','player-play','player-mute','player-settings','player-theatre','player-fullscreen','player-settings-speed','player-speed','player-speed-decrease','player-speed-increase']) {
       assert.equal(await isVisible(id), true, `${id} must stay visible`);
     }
     assert.equal(await evaluate(`document.querySelector('[data-a-target="chat-input"]').getClientRects().length`), 0, 'hidden editor cannot receive focus');
+    for (const id of ['channel-menu', 'video-menu']) assert.equal(await isVisible(id), false, `${id} hides with channel extras`);
     const geometry = () => evaluate(`(()=>{
       const rect = id => { const r=document.getElementById(id).getBoundingClientRect(); return {x:r.x,width:r.width,height:r.height,y:r.y}; };
       return Object.fromEntries(['sidebar-shell','sidebar-overlay','sidebar-nav','channel-row','second-channel-row','avatar','viewer-count','sidebar-game','main','after-about'].map(id=>[id,rect(id)]));

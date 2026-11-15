@@ -4,6 +4,7 @@
 
   const PLAYER = `:is(${globalThis.TwitchMinSelectors.player})`;
   const CHANNEL_INFO = globalThis.TwitchMinSelectors.channelInfo;
+  const CHANNEL_MENU = `:is(.channel-root__info, ${CHANNEL_INFO})`;
   const SUBSCRIBE = `${CHANNEL_INFO} :is([data-a-target="subscribe-button"], [data-a-target="resubscribe-button"], button[aria-label="Subscribe" i], button[aria-label="Resubscribe" i]):has(.tw-core-button-icon, svg)`;
   const VOD = globalThis.TwitchMinSelectors.vodRoot.replace(".channel-root", ".channel-root:not(.channel-root--theatre-mode):not(.channel-root--theatre)");
 
@@ -54,6 +55,16 @@
         'button[aria-label="Bits" i]'
       ].map(selector => `${CHANNEL_INFO} ${selector}`),
       declaration: "display: none !important;"
+    }],
+    [33.5, {
+      key: 'channelActions',
+      // Live Share/More controls can sit outside .channel-info-content, while
+      // the VOD menu has only its native Video Options accessible label.
+      selectors: [
+        `${CHANNEL_MENU} [data-a-target="report-button-more-button"]`,
+        `${CHANNEL_MENU} button[aria-label="Video Options" i]`
+      ],
+      declaration: 'display: none !important;'
     }],
     [34, {
       key: "channelActions",

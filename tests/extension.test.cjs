@@ -27,6 +27,10 @@ test('installed extension: real storage, popup, isolated world, tabs, reload and
     assert.equal(await popup.evaluate(`document.querySelector('#app-version').innerText`), `v${manifest.version}`);
     await popup.waitFor(`!document.querySelector('#group-chatTints').disabled`);
     assert.equal(await popup.evaluate(`getComputedStyle(document.body).fontSize`), '13px', 'extension-page defaults do not shrink popup text');
+    assert.equal(await popup.evaluate(`document.querySelector('#group-hideTopNavigation').checked`), false, 'whole-bar hiding defaults off with real storage');
+    await popup.evaluate(`document.querySelector('#group-hideTopNavigation').click()`);
+    await popup.waitFor(`!document.querySelector('#group-hideTopNavigation').disabled`);
+    for (const tab of tabs) await tab.waitFor(`getComputedStyle(document.querySelector('.top-nav')).display === 'none'`);
     await popup.evaluate(`document.querySelector('#group-chatTints').click()`);
     await popup.waitFor(`!document.querySelector('#group-chatTints').disabled`);
     for (const tab of tabs) {
@@ -38,6 +42,7 @@ test('installed extension: real storage, popup, isolated world, tabs, reload and
     await first.command('Page.reload');
     await first.waitFor(`document.readyState === 'complete' && !document.documentElement.hasAttribute('data-before-reload') && document.documentElement.getAttribute('data-tq-chat-tints') === 'false'`);
     assert.equal(await first.evaluate(`document.querySelector('[data-tq-chat-tint]')`), null, 'reload reads the saved setting');
+    assert.equal(await first.evaluate(`getComputedStyle(document.querySelector('.top-nav')).display`), 'none', 'reload retains whole-bar hiding');
 
     await popup.evaluate(`document.querySelector('#master-toggle').click()`);
     await popup.waitFor(`!document.querySelector('#master-toggle').disabled`);
@@ -53,9 +58,11 @@ test('installed extension: real storage, popup, isolated world, tabs, reload and
     popup = await browser.open(popupURL(browser.id));
     await popup.waitFor(`!document.querySelector('#master-toggle').disabled`);
     assert.equal(await popup.evaluate(`document.querySelector('#group-chatTints').checked`), false);
+    assert.equal(await popup.evaluate(`document.querySelector('#group-hideTopNavigation').checked`), true, 'restart retains the saved opt-in');
     await popup.evaluate(`document.querySelector('#master-toggle').click()`);
     await restored.waitFor(`document.querySelector('#second').hasAttribute('data-tq-chat-continuation')`);
     assert.equal(await restored.evaluate(`document.querySelector('[data-tq-chat-tint]')`), null, 'resuming respects individual opt-outs');
+    assert.equal(await restored.evaluate(`getComputedStyle(document.querySelector('.top-nav')).display`), 'none', 'resuming reapplies whole-bar hiding');
     await popup.waitFor(`!document.querySelector('#enable-all-button').disabled`);
     await popup.evaluate(`document.querySelector('#enable-all-button').click()`);
     await restored.waitFor(`document.querySelector('#first').hasAttribute('data-tq-chat-tint')`);

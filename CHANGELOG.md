@@ -3,6 +3,17 @@
 Release history, newest first. Signed-in Twitch verification remains pending;
 see [validation notes](docs/validation.md) for current checks and limits.
 
+## 0.22.0 - Navigation controls and release automation
+
+- Preserve scroll position and focus during automatic Following expansion.
+- Keep sidebar Collapse/Expand visible and respect manual collapse.
+- Hide the sidebar scrollbar in collapsed view.
+- Hide the channel three-dot menu with Channel action extras.
+- Add an off-by-default option to hide the entire top navigation bar.
+- Automatically tag version changes after default-branch CI succeeds.
+- Add the MIT license to the repository and packaged ZIPs.
+- Add author and project links to package metadata and the manifest homepage.
+
 ## 0.21.0 - Following, Browse, and settings controls
 
 - Add Following Stories and Browse Recent Recaps switches, both on by default.

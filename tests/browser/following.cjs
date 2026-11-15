@@ -4,6 +4,56 @@ const path = require('node:path');
 const { root } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
+  const settleLayout = () => evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))`);
+  const scrollState = () => evaluate(`({document:document.scrollingElement.scrollTop,outer:document.querySelector('#following-outer').scrollTop,inner:document.querySelector('#following-mount').scrollTop,focus:document.activeElement.id})`);
+  async function prepareScrolling() {
+    await navigate('tests/fixtures/following.html', '__stored.enabled=false;__stored.followingStories=false;');
+    await evaluate(`(()=>{
+      const mount=document.querySelector('#following-mount'),outer=document.createElement('main');
+      outer.id='following-outer';outer.style.cssText='height:300px;overflow:auto;scroll-behavior:smooth';
+      mount.before(outer);outer.innerHTML='<div style="height:150px"></div>';outer.append(mount);
+      outer.insertAdjacentHTML('beforeend','<div style="height:1000px"></div>');
+      mount.style.cssText='height:240px;overflow:auto;scroll-behavior:smooth';
+      document.body.style.height='2500px';document.documentElement.style.scrollBehavior='smooth';
+      document.querySelector('#outside-more').focus({preventScroll:true});
+      window.scrollTo({top:100,behavior:'instant'});outer.scrollTo({top:50,behavior:'instant'});mount.scrollTo({top:80,behavior:'instant'});
+      window.__onFollowingMore=(shelf,phase)=>{
+        const move=()=>{const button=shelf.querySelector('button');button.focus();button.scrollIntoView({block:'end',behavior:'instant'})};
+        if(phase==='click')move();else requestAnimationFrame(move);
+      };
+    })()`);
+    await settleLayout();
+  }
+
+  await t.test('automatic Following pagination preserves document/nested scrolling and focus through native effects', async () => {
+    await prepareScrolling();
+    const original = await scrollState();
+    await evaluate(`__storagePatch({enabled:true})`);
+    await settleLayout();
+    assert.deepEqual(await scrollState(), original, 'native clicks must not move or focus the viewport');
+    for (const id of ['recommended', 'latest', 'recommended', 'latest']) {
+      await evaluate(`__finishFollowing('${id}')`);
+      await settleLayout();
+      assert.deepEqual(await scrollState(), original, `${id}: deferred native effects and new cards preserve position`);
+    }
+    assert.equal(await evaluate('__followingClicks.length'), 4, 'both lists still finish expanding');
+  });
+
+  await t.test('Following scroll preservation yields to user input and releases pending work on pause', async () => {
+    await prepareScrolling();
+    await evaluate(`__storagePatch({enabled:true});window.__onFollowingMore=null;const mount=document.querySelector('#following-mount');mount.style.overflowAnchor='none';mount.dispatchEvent(new WheelEvent('wheel',{bubbles:true,deltaY:100}));mount.scrollTo({top:220,behavior:'instant'});document.querySelector('#outside-more').focus({preventScroll:true})`);
+    const chosen = await scrollState();
+    await settleLayout();
+    assert.deepEqual(await scrollState(), chosen, 'a queued restoration never undoes user scrolling');
+    await evaluate(`__finishFollowing('latest')`);
+    await settleLayout();
+    assert.deepEqual(await scrollState(), chosen, 'an old pending request never restores a stale position');
+    await evaluate(`__storagePatch({enabled:false});document.querySelector('#following-mount').scrollTo({top:260,behavior:'instant'});__finishFollowing('recommended')`);
+    const paused = await scrollState();
+    await settleLayout();
+    assert.deepEqual(await scrollState(), paused, 'pause cancels pending scroll work');
+  });
+
   await t.test('Following hides Stories and expands only Recommended channels and Latest videos', async () => {
     await navigate('tests/fixtures/following.html');
     await waitFor('__followingClicks.length === 2');

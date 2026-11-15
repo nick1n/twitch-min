@@ -1,11 +1,21 @@
 {
   "name": "twitch-min",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "private": true,
+  "license": "MIT",
+  "author": "Nicholas Ness",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nick1n/twitch-min"
+  },
+  "homepage": "https://github.com/nick1n/twitch-min",
+  "bugs": {
+    "url": "https://github.com/nick1n/twitch-min/issues"
+  },
   "description": "Local Twitch cosmetic and interactive enhancements with dependency-free checks",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
-    "test:unit": "node --test tests/architecture.test.cjs tests/content.test.cjs tests/interceptions.test.cjs tests/runtime.test.cjs tests/settings.test.cjs",
+    "test:unit": "node --test tests/architecture.test.cjs tests/content.test.cjs tests/interceptions.test.cjs tests/runtime.test.cjs tests/settings.test.cjs tests/tag-version.test.cjs",
     "test:browser": "node --test tests/browser.test.cjs tests/extension.test.cjs tests/harness.test.cjs",
     "test:package": "node --test tests/package.test.cjs",
     "test:soak": "node scripts/soak.cjs",

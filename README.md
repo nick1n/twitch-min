@@ -20,7 +20,8 @@ After updates, reload the extension at `chrome://extensions` and refresh Twitch.
 
 ## Settings
 
-Options start on except **About & lower channel section**, which defaults off.
+Options start on except **Hide top navigation bar** and **About & lower channel
+section**, which default off.
 Changes update open Twitch tabs immediately. **Enabled** pauses
 or resumes without changing your choices. **Enable all settings** turns everything
 on; it appears only when useful and keeps its layout space when hidden.
@@ -29,9 +30,10 @@ on; it appears only when useful and keeps its layout space when hidden.
 | Switch | Effect |
 | --- | --- |
 | Top navigation extras | Hide Luna/Prime offers, Shouts, Gift Turbo, and Bits; keep search, notifications, whispers, and account controls. |
+| Hide top navigation bar | Hide the entire bar, including search, notifications, and account controls. Off by default. |
 | Sidebar sections | Keep online Followed, Recommended, and Similar channels; hide offline rows and other sections. |
 | Compact sidebar | Show avatars, viewer counts, and games in a narrow sidebar; hide names and promotional extras. |
-| Channel action extras | Hide Share, the channel bell, Bits, and Gift a Sub; keep Follow and subscription icons/dropdowns. |
+| Channel action extras | Hide Share, the three-dot menu, the channel bell, Bits, and Gift a Sub; keep Follow and subscription icons/dropdowns. |
 | About & lower channel section | Hide About, panels, the replay channel card, and recommendations; fit the video above its details. |
 | Wheel volume | Scroll over the video to change volume; chat, sidebar, menu scrolling, and Ctrl+wheel zoom stay native. |
 | Following Stories | Hide the Stories strip above the Following page tabs. |
@@ -48,6 +50,8 @@ Twitch's normal send behavior. Disabling the composer option restores the native
 editor and Send button.
 
 The sidebar uses Twitch's native expand and Show More controls before filtering.
+Collapse/Expand stays available, and a manual collapse is respected while active.
+Compact sidebar hides the scrollbar in both expanded and collapsed views.
 Pausing both sidebar options restores native sidebar controls and re-collapses
 the sidebar if it started collapsed.
 
@@ -87,7 +91,7 @@ verified scenarios and limits, and [CHANGELOG.md](CHANGELOG.md) for release hist
 
 ## Development
 
-Full checks need the latest Node.js LTS, recent Chrome, and Windows PowerShell.
+Full checks need Git, the latest Node.js LTS, recent Chrome, and Windows PowerShell.
 No `npm install` is needed. Use `npm.cmd` on Windows if PowerShell blocks `npm.ps1`;
 set `CHROME_PATH` when Chrome is outside the standard locations.
 
@@ -98,16 +102,24 @@ npm.cmd run package
 
 | Focused command | Checks | Requires |
 | --- | --- | --- |
-| `npm.cmd run test:unit` | Settings, startup, lifecycle, request ordering, manifest, CSS, and docs links | Node |
+| `npm.cmd run test:unit` | Settings, startup, lifecycle, requests, manifest, CSS, docs links, and version tagging | Node + Git |
 | `npm.cmd run test:browser` | Offline features, real extension storage, and harness failures | Node + Chrome |
 | `npm.cmd run test:package` | ZIP contents and failure recovery | Node + Windows PowerShell |
 | `npm.cmd run test:soak` | Two-minute message/remount/pause stress workload | Node + Chrome |
 
-Packaging verifies source assets and ZIP bytes before replacing
-`dist/twitch-min-<version>.zip`; failure preserves the previous archive. It does not
+Packaging includes the MIT license and verifies source assets and ZIP bytes before
+replacing `dist/twitch-min-<version>.zip`; failure preserves the previous archive. It does not
 publish a release. [CI](.github/workflows/ci.yml) runs tests and packaging on Windows
 with the latest Node LTS and retains the ZIP as an artifact. Extract the artifact
 wrapper to obtain the installable ZIP.
+
+After CI passes on a default-branch push, it creates a missing `v<version>` Git tag
+at the tested commit, using the version in `package.json`. Package and manifest
+versions must match. Existing tags are never moved; pull requests and other
+branches do not tag. If a bump's run fails or is cancelled, the next successful run
+can tag that version. The tag job uses GitHub's built-in token with `contents: write`;
+no extra secret is needed. It does not publish a GitHub Release or attach the ZIP
+to the tag; the ZIP remains available as the CI artifact above.
 
 Browser checks use temporary profiles and locally fulfilled/blocked requests,
 never your everyday profile. The harness uses `--no-sandbox` for this managed
@@ -119,3 +131,7 @@ Set `TWITCH_MIN_SOAK_CYCLES` to change the soak length. Regenerate PNG icons wit
 
 For implementation and test ownership, see [architecture.md](docs/architecture.md).
 Working rules are in [AGENTS.md](AGENTS.md); deferred work is in [ROADMAP.md](ROADMAP.md).
+
+## License
+
+Licensed under the [MIT License](LICENSE).

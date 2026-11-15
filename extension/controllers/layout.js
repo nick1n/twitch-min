@@ -52,6 +52,8 @@
   function attachSide(side, onCleanup) {
     let restore = false;
     let pending = null;
+    let userCollapsed = false;
+    let automaticToggle = false;
     const moreClicks = new Map();
     function ready(value) {
       if (side.hasAttribute('data-tq-sidebar-ready') !== value) side.toggleAttribute('data-tq-sidebar-ready', value);
@@ -88,6 +90,22 @@
       const label = side.querySelector('[data-a-target="side-nav-arrow"]')?.getAttribute('aria-label') || '';
       return /collapse/i.test(label) ? true : /expand/i.test(label) ? false : null;
     }
+    function clickToggle(button) {
+      automaticToggle = true;
+      try { button.click(); }
+      finally { automaticToggle = false; }
+    }
+    function onToggle(event) {
+      if (!enabled || automaticToggle) return;
+      const button = event.target.closest?.('[data-a-target="side-nav-arrow"]');
+      const current = expanded();
+      if (!button || current === null) return;
+      // Keep the native handler, including keyboard activation, in charge.
+      // A deliberate collapse must not trigger our initial auto-expansion.
+      userCollapsed = current;
+      pending = { button, expanded: !current };
+      ready(false);
+    }
     function syncCollapse() {
       if (!side.isConnected) return;
       const current = expanded();
@@ -99,13 +117,13 @@
         if (pending.expanded !== current) return;
         pending = null;
       }
-      if ((compact || sections) && !current) {
+      if ((compact || sections) && !current && !userCollapsed) {
         restore = true;
         pending = { button, expanded: true };
-        button.click();
+        clickToggle(button);
       } else if (!compact && !sections && restore) {
         if (!current) restore = false;
-        else { pending = { button, expanded: false }; button.click(); }
+        else { pending = { button, expanded: false }; clickToggle(button); }
       }
     }
     function sync() {
@@ -129,6 +147,7 @@
     });
     onCleanup(() => {
       observer.disconnect();
+      side.removeEventListener('click', onToggle, true);
       sides.delete(state);
       moreClicks.clear();
       ready(false);
@@ -139,6 +158,7 @@
       finishPause();
     });
     sides.add(state);
+    side.addEventListener('click', onToggle, true);
     observer.observe(side, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'data-a-target', 'data-test-selector', 'aria-label', 'disabled', 'aria-disabled', 'aria-busy', 'hidden'] });
     sync();
   }
@@ -155,7 +175,48 @@
 
   function attachFollowing(page, onCleanup) {
     const requested = new Map();
+    const pendingRestores = new Set();
+    const inputEvents = ['wheel', 'touchstart', 'pointerdown', 'keydown'];
+    let restoreFrame = null;
     const normalize = text => (text || '').replace(/\s+/g, ' ').trim();
+    function capturePosition(shelf) {
+      const scrolls = [];
+      for (let element = page; element; element = element.parentElement) {
+        scrolls.push({ element, left: element.scrollLeft, top: element.scrollTop });
+      }
+      return { shelf, scrolls, focus: document.activeElement };
+    }
+    function restorePosition(position) {
+      if (!enabled || !page.isConnected || !page.contains(position.shelf)) return;
+      if (position.focus?.isConnected && document.activeElement !== position.focus && page.contains(document.activeElement)) {
+        document.activeElement.blur();
+        position.focus.focus({ preventScroll: true });
+      }
+      for (const { element, left, top } of position.scrolls) {
+        if (element.isConnected && (element.scrollLeft !== left || element.scrollTop !== top)) {
+          element.scrollTo({ left, top, behavior: 'instant' });
+        }
+      }
+    }
+    function preservePosition(position) {
+      if (!position) return;
+      restorePosition(position);
+      pendingRestores.add(position);
+      if (restoreFrame !== null) return;
+      // Native handlers may focus/scroll after React commits the new cards.
+      // Settle once after layout; never keep the viewport pinned with a loop.
+      restoreFrame = requestAnimationFrame(() => {
+        restoreFrame = null;
+        for (const pending of pendingRestores) restorePosition(pending);
+        pendingRestores.clear();
+      });
+    }
+    function cancelRestoration() {
+      if (restoreFrame !== null) cancelAnimationFrame(restoreFrame);
+      restoreFrame = null;
+      pendingRestores.clear();
+      for (const request of requested.values()) request.position = null;
+    }
     function expand() {
       if (!enabled || !page.isConnected) return;
       const shelves = [...page.querySelectorAll('[aria-labelledby]')].filter(shelf =>
@@ -171,24 +232,35 @@
         if (!shelves.includes(shelf)) requested.delete(shelf);
       }
       for (const shelf of shelves) {
+        const count = shelf.querySelectorAll('article').length;
+        const previous = requested.get(shelf);
+        if (previous && count > previous.count) {
+          preservePosition(previous.position);
+          previous.position = null;
+        }
         const button = [...shelf.querySelectorAll('.show-more__move-up button')].find(control =>
           /^show more$/i.test(normalize(control.textContent))
         );
         if (!button || !button.checkVisibility({ checkVisibilityCSS: true }) ||
             button.matches(':disabled, [aria-disabled="true"], [aria-busy="true"]')) continue;
-        const count = shelf.querySelectorAll('article').length;
         // A retained or replaced control can still be waiting on React. Only
         // advance after cards arrive; unrelated text/attribute edits do not retry.
-        if (requested.has(shelf) && count <= requested.get(shelf)) continue;
-        requested.set(shelf, count);
+        if (previous && count <= previous.count) continue;
+        const position = capturePosition(shelf);
+        requested.set(shelf, { count, position });
         button.click();
+        preservePosition(position);
       }
     }
     const observer = new MutationObserver(expand);
     onCleanup(() => {
       observer.disconnect();
+      cancelRestoration();
+      for (const type of inputEvents) document.removeEventListener(type, cancelRestoration, true);
       requested.clear();
     });
+    // User scrolling, focusing, or navigation always wins over saved positions.
+    for (const type of inputEvents) document.addEventListener(type, cancelRestoration, { capture: true, passive: true });
     observer.observe(page, {
       childList: true, subtree: true, characterData: true, attributes: true,
       attributeFilter: ['aria-labelledby', 'aria-label', 'disabled', 'aria-disabled', 'aria-busy', 'hidden', 'class']

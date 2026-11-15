@@ -3,7 +3,64 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { root } = require('../support/production.cjs');
 
-module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
+module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
+    await t.test('native sidebar Collapse stays visible and respects mouse and keyboard toggles', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
+      assert.equal(await isVisible('sidebar-arrow'), true);
+      assert.equal(await evaluate(`document.querySelector('#sidebar-arrow').getAttribute('aria-label')`), 'Collapse Side Nav');
+      await evaluate(`document.querySelector('#sidebar-arrow').click()`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed')`);
+      await evaluate(`const scroller=document.querySelector('.side-nav__scrollable_content');scroller.style.overflowY='auto';scroller.insertAdjacentHTML('beforeend','<div style="height:1500px"></div>');scroller.scrollTop=80`);
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.side-nav__scrollable_content')).scrollbarWidth`), 'none', 'collapsed sidebar hides its scrollbar without the readiness marker');
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.side-nav__scrollable_content'),'::-webkit-scrollbar').display`), 'none');
+      assert.ok(await evaluate(`document.querySelector('.side-nav__scrollable_content').scrollTop`) > 0, 'collapsed sidebar still scrolls');
+      await evaluate(`__storagePatch({sidebarLabels:false})`);
+      assert.notEqual(await evaluate(`getComputedStyle(document.querySelector('.side-nav__scrollable_content')).scrollbarWidth`), 'none', 'disabling compact sidebar restores the native scrollbar');
+      await evaluate(`document.querySelector('#sidebar-game p').textContent='Updated game';__storagePatch({topNavigation:false,sidebarLabels:false});__storagePatch({sidebarLabels:true});history.pushState({},'', '?collapsed-navigation')`);
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.side-nav__scrollable_content')).scrollbarWidth`), 'none', 'reenabling compaction hides the scrollbar while staying collapsed');
+      assert.equal(await evaluate('__nativeSidebarClicks'), 1, 'ordinary updates and settings never undo a deliberate collapse');
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`), false);
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').getBoundingClientRect().width`), 50, 'collapsed width stays native');
+      assert.equal(await isVisible('sidebar-arrow'), true, 'native Expand remains available');
+      await evaluate(`document.querySelector('#sidebar-arrow').focus()`);
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
+      assert.equal(await evaluate('__nativeSidebarClicks'), 2, 'native keyboard activation expands once');
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').getBoundingClientRect().width`), 144);
+      await evaluate(`document.querySelector('#sidebar-arrow').click();__storagePatch({enabled:false})`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed')`);
+      assert.equal(await isVisible('sidebar-arrow'), true, 'pause during a native collapse keeps the control usable');
+      assert.notEqual(await evaluate(`getComputedStyle(document.querySelector('.side-nav__scrollable_content')).scrollbarWidth`), 'none', 'master pause restores the native scrollbar');
+      await evaluate(`document.querySelector('#sidebar-arrow').click()`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
+      assert.equal(await evaluate('__nativeSidebarClicks'), 4, 'paused controls retain their native handler');
+      await evaluate(`__storagePatch({enabled:true})`);
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
+      assert.equal(await isVisible('sidebar-arrow'), true);
+    });
+
+    await t.test('manual sidebar toggles retain initially collapsed restoration and remount behavior', async () => {
+      await navigate('tests/fixtures/twitch.html', 'window.__initialSidebarCollapsed=true;');
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
+      await evaluate(`document.querySelector('#sidebar-arrow').click()`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed')`);
+      await evaluate(`document.querySelector('#sidebar-arrow').click()`);
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
+      await evaluate(`__storagePatch({sidebarSections:false,sidebarLabels:false})`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed')`);
+      assert.equal(await evaluate('__nativeSidebarClicks'), 4, 'disabling sidebar features restores the original collapsed state');
+      await evaluate(`__storagePatch({enabled:false});window.oldSide=document.querySelector('#sidebar-shell');const replacement=oldSide.cloneNode(true);oldSide.replaceWith(replacement);__mountNativeSidebar(replacement);__storagePatch({sidebarSections:true,sidebarLabels:true,enabled:true})`);
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
+      await evaluate(`document.querySelector('#sidebar-arrow').click()`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed')`);
+      assert.equal(await isVisible('sidebar-arrow'), true, 'a remounted sidebar keeps working Collapse/Expand');
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('.side-nav__scrollable_content')).scrollbarWidth`), 'none', 'collapsed scrollbar hiding covers navigation and remounts');
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await evaluate(`oldSide.querySelector('[data-tq-sidebar-ready]')`), null);
+    });
+
     await t.test('Show more finishes every native list page before sidebar filtering or title changes', async () => {
       await navigate('tests/fixtures/sidebar-more.html', 'window.__initialSidebarCollapsed=true;');
       await waitFor(`__moreClicks.length === 2`);

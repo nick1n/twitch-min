@@ -11,7 +11,7 @@ if ($manifest.version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$' -or $manifest.version 
 }
 
 # Snapshot every source file, including hidden files, before creating any output.
-# Reject links so packaging cannot silently include files outside extension/.
+# Reject links; include the repository license explicitly below.
 $sources = @{}
 Get-ChildItem -LiteralPath $sourceRoot -Recurse -Force | ForEach-Object {
     if ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Source links are not supported: $($_.FullName)" }
@@ -21,6 +21,12 @@ Get-ChildItem -LiteralPath $sourceRoot -Recurse -Force | ForEach-Object {
     }
 }
 
+$license = Get-Item -LiteralPath (Join-Path $repoRoot 'LICENSE')
+if ($license.PSIsContainer -or ($license.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+    throw 'LICENSE must be a regular file.'
+}
+$sources['LICENSE'] = @{ Path = $license.FullName; Hash = (Get-FileHash -LiteralPath $license.FullName -Algorithm SHA256).Hash }
+
 function Assert-Asset([string] $name) {
     if ([string]::IsNullOrWhiteSpace($name) -or $name.Contains('\') -or
         $name.StartsWith('/') -or $name -match '(^|/)\.\.(/|$)|[:?#]' -or -not $sources.ContainsKey($name)) {
@@ -28,7 +34,7 @@ function Assert-Asset([string] $name) {
     }
 }
 
-$assets = @('manifest.json')
+$assets = @('manifest.json', 'LICENSE')
 foreach ($content in $manifest.content_scripts) { $assets += @($content.js) + @($content.css) }
 foreach ($icons in @($manifest.icons, $manifest.action.default_icon)) {
     if ($icons -is [string]) { $assets += $icons }

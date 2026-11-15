@@ -3,6 +3,15 @@
 Stabilize the current architecture. The options below are deferred, not rewrite
 plans; use a reproduced issue or measured bottleneck to justify them.
 
+## Future v1 feature: Firefox support
+
+Support Firefox alongside Chrome using the shared vanilla JavaScript/CSS
+codebase. Add Firefox manifest metadata, verify storage API compatibility, and
+review feature behavior and appearance in Firefox. Include Firefox packaging,
+installation instructions, and browser test coverage, with signed-in Twitch
+validation before release. Preserve Twitch-only scope, local settings, and the
+storage-only API permission.
+
 ## Validate the current architecture first
 
 - Check signed-in live/replay navigation, busy chat, theatre/fullscreen, repeated

@@ -54,6 +54,7 @@
         return;
       }
       __followingClicks.push(id);
+      window.__onFollowingMore?.(shelf, 'click');
       __followingPending.set(id, () => {
         __followingPending.delete(id);
         page++;
@@ -62,6 +63,7 @@
         card.innerHTML = `<article><a href="/example-${page}">Loaded card ${page}</a></article>`;
         shelf.querySelector('.tw-tower').append(card);
         if (page === pages) shelf.querySelector('button span').textContent = 'Show less';
+        window.__onFollowingMore?.(shelf, 'loaded');
       });
     });
     wrapper.append(shelf);

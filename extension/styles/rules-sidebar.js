@@ -3,6 +3,7 @@
   "use strict";
 
   const SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar})[data-tq-sidebar-ready]`;
+  const SCROLL_SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar}):is([data-tq-sidebar-ready], .side-nav--collapsed, [data-a-target="side-nav-bar-collapsed"])`;
   const PROMOTED = `${SIDEBAR} .side-nav-card__link--promoted-followed`;
 
   globalThis.TwitchMinSidebarRules = Object.freeze([
@@ -18,8 +19,6 @@
         '[role="group"][aria-label*="streak" i]',
         '[aria-label^="Save your Streak" i]',
         '.side-nav-card__link div:has(> p[title^="Watch Streak" i])',
-        '.collapse-toggle',
-        '[data-a-target="side-nav-arrow"]',
         `:is(${globalThis.TwitchMinSelectors.sidebarShowMore})`,
         '[data-a-target="side-nav-show-less-button"]',
         '[data-test-selector="ShowLess"]',
@@ -179,12 +178,12 @@
     }],
     [30, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .scrollable-area`, `${SIDEBAR} .side-nav__scrollable_content`],
+      selectors: [`${SCROLL_SIDEBAR} .scrollable-area`, `${SCROLL_SIDEBAR} .side-nav__scrollable_content`],
       declaration: "scrollbar-width: none !important; -ms-overflow-style: none !important; overflow-y: auto !important; overflow-x: hidden !important;"
     }],
     [31, {
       key: "sidebarLabels",
-      selectors: [`${SIDEBAR} .scrollable-area::-webkit-scrollbar`, `${SIDEBAR} .side-nav__scrollable_content::-webkit-scrollbar`],
+      selectors: [`${SCROLL_SIDEBAR} .scrollable-area::-webkit-scrollbar`, `${SCROLL_SIDEBAR} .side-nav__scrollable_content::-webkit-scrollbar`],
       declaration: "display: none !important; width: 0 !important; height: 0 !important;"
     }]
   ].map(([order, rule]) => Object.freeze([order, Object.freeze({ ...rule, selectors: Object.freeze(rule.selectors) })])));

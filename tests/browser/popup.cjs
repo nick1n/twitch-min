@@ -7,7 +7,7 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     assert.equal(await evaluate(`document.querySelector('#app-version').innerText`), `v${manifest.version}`);
     assert.equal(await evaluate(`document.querySelectorAll('#groups input').length === TwitchMinSettings.GROUPS.length`), true);
     assert.deepEqual(await evaluate(`[...document.querySelectorAll('#groups input')].map(input=>input.id)`), [
-      'group-topNavigation', 'group-sidebarSections', 'group-sidebarLabels', 'group-channelActions',
+      'group-topNavigation', 'group-hideTopNavigation', 'group-sidebarSections', 'group-sidebarLabels', 'group-channelActions',
       'group-channelAbout', 'group-wheelVolume', 'group-followingStories', 'group-browseRecaps', 'group-chatLeaderboard', 'group-chatTimestamps',
       'group-chatTints', 'group-chatGrouping', 'group-emotePreviews', 'group-chatComposer'
     ]);
@@ -17,9 +17,11 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     assert.equal(await evaluate(`document.querySelector('#pause-button')`), null, 'one master control handles pause and resume');
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').textContent.trim()`), 'Enable all settings');
     assert.equal(await evaluate(`document.querySelector('#group-channelAbout').checked`), false, 'About hiding defaults off');
+    assert.equal(await evaluate(`document.querySelector('#group-hideTopNavigation').checked`), false, 'whole-bar hiding defaults off');
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').disabled`), false, 'Enable all is available with the off default');
     await evaluate(`document.querySelector('#enable-all-button').click()`);
     assert.equal(await evaluate(`document.querySelector('#group-channelAbout').checked`), true, 'Enable all opts into About hiding too');
+    assert.equal(await evaluate(`document.querySelector('#group-hideTopNavigation').checked`), true, 'Enable all opts into whole-bar hiding too');
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').disabled`), true, 'enabling everything is unavailable when already active');
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').hidden`), true, 'an unavailable action is not shown');
     const headerLayout = () => evaluate(`['header','.brand','.controls','#master-toggle','#enable-all-button','#groups','#scroll-cue'].map(selector=>{const rect=document.querySelector(selector).getBoundingClientRect();return {x:rect.x+scrollX,y:rect.y+scrollY,width:rect.width,height:rect.height}})`);
@@ -50,6 +52,19 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     assert.equal(await evaluate(`document.querySelector('#group-sidebarLabels').checked`), true);
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').hidden`), true, 'external changes update action availability');
     assert.equal(await evaluate(`originalControls.every(input=>input === document.getElementById(input.id))`), true, 'saves, bulk actions and external changes retain the original controls');
+  });
+
+  await t.test('popup whole-bar hiding reads saved choices and saves separately from navigation extras', async () => {
+    await navigate(`extension/${manifest.action.default_popup}`, '__stored.hideTopNavigation=true;');
+    assert.equal(await evaluate(`document.querySelector('#group-hideTopNavigation').checked`), true);
+    await evaluate(`document.querySelector('#group-hideTopNavigation').parentElement.click()`);
+    assert.deepEqual(await evaluate('__writes.at(-1)'), { hideTopNavigation: false });
+    assert.equal(await evaluate(`document.querySelector('#group-topNavigation').checked`), true, 'showing the bar retains extras filtering');
+    await evaluate(`__storagePatch({hideTopNavigation:true});document.querySelector('#group-topNavigation').click()`);
+    assert.deepEqual(await evaluate('__writes.at(-1)'), { topNavigation: false });
+    assert.equal(await evaluate(`document.querySelector('#group-hideTopNavigation').checked`), true, 'showing extras retains whole-bar hiding');
+    await evaluate(`document.querySelector('#enable-all-button').click()`);
+    assert.equal(await evaluate(`__writes.at(-1).hideTopNavigation && __writes.at(-1).topNavigation`), true);
   });
 
   await t.test('popup Stories and Recaps switches save independently and participate in Enable all', async () => {
