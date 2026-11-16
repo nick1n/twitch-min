@@ -15,6 +15,9 @@ test('installed extension: real storage, popup, isolated world, tabs, reload and
     const tabs = [first, second];
     for (const tab of tabs) {
       await tab.waitFor(`document.querySelector('#second').hasAttribute('data-tq-chat-continuation')`);
+      for (const id of ['sidebar-for-you', 'sidebar-more', 'sidebar-less']) {
+        assert.equal(await tab.evaluate(`document.getElementById('${id}').checkVisibility({checkVisibilityCSS:true})`), false, `${id} hides even with stalled native pagination`);
+      }
       assert.equal(await tab.evaluate(`getComputedStyle(document.querySelector('#bits')).display`), 'none');
       assert.equal(await tab.evaluate(`document.querySelector('#notifications').checkVisibility()`), true);
       assert.equal(await tab.evaluate(`typeof TwitchMinSettings`), 'undefined', 'content globals stay in Chrome\'s isolated world');
@@ -44,10 +47,39 @@ test('installed extension: real storage, popup, isolated world, tabs, reload and
     assert.equal(await first.evaluate(`document.querySelector('[data-tq-chat-tint]')`), null, 'reload reads the saved setting');
     assert.equal(await first.evaluate(`getComputedStyle(document.querySelector('.top-nav')).display`), 'none', 'reload retains whole-bar hiding');
 
+    assert.equal(await popup.evaluate(`(async()=>{
+      window.twitchTabs=[];
+      for(const tab of await chrome.tabs.query({})){
+        try{const reply=await chrome.tabs.sendMessage(tab.id,{type:'twitch-min:status'},{frameId:0});if(reply?.type==='twitch-min:status')twitchTabs.push(tab.id)}catch{}
+      }
+      window.toggleLogs=[];
+      const info=console.info;console.info=(...args)=>{toggleLogs.push(String(args[0]));info(...args)};
+      await chrome.tabs.update(twitchTabs[0],{active:true});
+      return twitchTabs.length;
+    })()`), 2, 'both Twitch tabs acknowledge status using storage-only permissions');
     await popup.evaluate(`document.querySelector('#master-toggle').click()`);
     await popup.waitFor(`!document.querySelector('#master-toggle').disabled`);
+    await popup.waitFor(`toggleLogs.some(message=>message.includes('active tab confirmed disabled'))`);
+    assert.equal(await popup.evaluate(`document.querySelector('#toggle-error').hidden`), true, 'confirmed changes do not display troubleshooting');
     for (const tab of tabs) await tab.waitFor(`document.documentElement.getAttribute('data-tq-enabled') === 'false' && !document.querySelector('[data-tq-chat-continuation]')`);
+    for (const tab of tabs) {
+      for (const id of ['sidebar-for-you', 'sidebar-more', 'sidebar-less']) {
+        assert.equal(await tab.evaluate(`document.getElementById('${id}').checkVisibility({checkVisibilityCSS:true})`), true, `${id} restores from the real popup`);
+      }
+    }
     assert.deepEqual(await popup.evaluate(`chrome.storage.local.get(['enabled','chatTints'])`), { enabled: false, chatTints: false }, 'the master toggle preserves individual choices');
+
+    await popup.evaluate(`document.querySelector('#master-toggle').click()`);
+    await popup.waitFor(`!document.querySelector('#master-toggle').disabled`);
+    await popup.waitFor(`toggleLogs.some(message=>message.includes('active tab confirmed enabled'))`);
+    assert.equal(await popup.evaluate(`document.querySelector('#toggle-error').hidden`), true);
+    for (const tab of tabs) {
+      await tab.waitFor(`document.documentElement.getAttribute('data-tq-enabled') === 'true' && document.querySelector('#second').hasAttribute('data-tq-chat-continuation')`);
+      assert.equal(await tab.evaluate(`document.querySelector('#sidebar-more').checkVisibility({checkVisibilityCSS:true})`), false, 'resume hides pending pagination in existing tabs');
+    }
+    await popup.evaluate(`document.querySelector('#master-toggle').click()`);
+    await popup.waitFor(`!document.querySelector('#master-toggle').disabled`);
+    for (const tab of tabs) await tab.waitFor(`document.documentElement.getAttribute('data-tq-enabled') === 'false'`);
 
     const id = browser.id;
     browser = await restart();

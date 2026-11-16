@@ -17,20 +17,32 @@
         '.side-nav-card:has(.side-nav-card__link--offline)',
         '.tw-transition:has(.side-nav-card__link--offline)',
         '.side-nav-card:has(.side-nav-card__avatar--offline)',
-        '.side-nav__title',
         '[role="group"][aria-label*="streak" i]',
         '[aria-label^="Save your Streak" i]',
         '.side-nav-card__link div:has(> p[title^="Watch Streak" i])',
-        `:is(${globalThis.TwitchMinSelectors.sidebarShowMore})`,
-        '[data-a-target="side-nav-show-less-button"]',
-        '[data-test-selector="ShowLess"]',
         '[data-a-target*="streak" i]',
         '[data-test-selector*="streak" i]',
         '.side-nav-streaks',
         '.side-nav-streak',
-        '.side-nav-card__streak',
-        '[data-a-target="side-nav-for-you"]'
+        '.side-nav-card__streak'
       ].map(selector => `${SIDEBAR} ${selector}`),
+      declaration: "display: none !important;"
+    }],
+    [6.1, {
+      key: "sidebarSections",
+      selectors: ['.side-nav__title', '[data-a-target="side-nav-for-you"]'].map(selector => `${HEADINGS} ${selector}`),
+      declaration: "display: none !important;"
+    }],
+    [6.2, {
+      key: "sidebarSections",
+      // Native handlers need visible controls only during synchronous discovery
+      // and clicks. A stalled list must not expose every section's pagination.
+      selectors: [
+        '.side-nav-show-more-toggle__button',
+        `:is(${globalThis.TwitchMinSelectors.sidebarShowMore})`,
+        '[data-a-target="side-nav-show-less-button"]',
+        '[data-test-selector="ShowLess"]'
+      ].map(selector => `${HEADINGS}:not([data-tq-sidebar-expanding]) ${selector}`),
       declaration: "display: none !important;"
     }],
     [7, {

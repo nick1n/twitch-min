@@ -1,6 +1,22 @@
 const assert = require('node:assert/strict');
 
 module.exports = async (t, { navigate, evaluate, isVisible, send, waitFor }) => {
+    await t.test('announcement bodies have no grouping divider and preserve native card borders', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await evaluate(`const card=document.createElement('div');card.id='announcement';card.className='announcement-line';card.style.cssText='border: 4px solid rgb(121, 191, 160)';card.innerHTML='<div>Announcement</div><div style="margin-inline-start:-8px"><div id="announcement-body" class="chat-line__message" role="group" aria-label="Bot: Announcement"><div class="chat-line__message-container"><span class="chat-author__display-name" data-a-user="bot">Bot</span>: <span data-a-target="chat-line-message-body">Announcement body</span></div></div></div>';document.querySelector('#messages').append(card)`);
+      const check = async () => {
+        assert.equal(await evaluate(`getComputedStyle(document.querySelector('#announcement-body')).borderTopWidth`), '0px');
+        assert.equal(await evaluate(`getComputedStyle(document.querySelector('#announcement')).borderLeftWidth`), '4px');
+      };
+      await check();
+      await evaluate(`__storagePatch({chatGrouping:false})`);
+      await check();
+      await evaluate(`__storagePatch({chatGrouping:true});document.querySelector('#announcement').replaceWith(document.querySelector('#announcement').cloneNode(true));history.pushState({},'', '?announcement-remount')`);
+      await check();
+      await evaluate(`__storagePatch({enabled:false})`);
+      await check();
+    });
+
     await t.test('short replay times round the 00:00 column up to whole pixels with right-aligned labels and native seek targets', async () => {
       await navigate('tests/fixtures/chat-alignment.html');
       await evaluate(`document.querySelector('#plain-time').textContent='0:07:09';document.querySelector('#badge-time').textContent='12:34:56';document.querySelector('#emote-time').textContent='1:11:10';window.timeSeeks=0;document.querySelector('#plain-time').parentElement.addEventListener('click',()=>timeSeeks++)`);

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { root } = require('./support/production.cjs');
+const { root, manifest } = require('./support/production.cjs');
 const { loadRules } = require('./support/rules.cjs');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
@@ -22,7 +22,7 @@ test('content script handles late document root, initial-read races, removals an
     chrome: { storage: { onChanged: { addListener: callback => changeListener = callback }, local: {
       get: () => new Promise((resolve, reject) => { finishRead = resolve; failRead = reject; })
     } } },
-    console: { warn() {} }
+    console: { info() {}, warn() {} }
   });
   loadRules(context);
   vm.runInContext(read('extension/content.js'), context);
@@ -60,7 +60,7 @@ test('content isolates failures and retries only unsuccessful features with unch
     },
     chrome: { storage: { onChanged: { addListener(callback) { changeListener = callback; } },
       local: { get: async defaults => defaults } } },
-    console: { warn: (...args) => warnings.push(args) },
+    console: { info() {}, warn: (...args) => warnings.push(args) },
     TwitchMinEmotes: { update() { calls.first++; if (fail) throw Error('injected startup/update failure'); } },
     TwitchMinComposer: { update() { calls.later++; } }
   });
@@ -99,7 +99,7 @@ test('content retries failed preference reads on relevant events and preserves c
       onChanged: { addListener(callback) { changeListener = callback; } },
       local: { get: () => new Promise((resolve, reject) => requests.push({ resolve, reject })) }
     } },
-    console: { warn: (...args) => warnings.push(args) }
+    console: { info() {}, warn: (...args) => warnings.push(args) }
   });
   loadRules(context);
   vm.runInContext(read('extension/content.js'), context);
@@ -132,4 +132,65 @@ test('content retries failed preference reads on relevant events and preserves c
   changeListener({ enabled: { newValue: true } }, 'local');
   assert.equal(attributes['data-tq-enabled'], 'true', 'normal preference updates resume');
   assert.equal(requests.length, 3, 'loaded preferences do not need another read');
+});
+
+test('toggle diagnostics tag logs and report actual page state and controller failures', async () => {
+  const logs = [], attributes = {}, styles = [];
+  let changeListener, messageListener, finishRead, failFeature = false;
+  const rootElement = {
+    setAttribute: (key, value) => attributes[key] = value,
+    getAttribute: key => attributes[key] ?? null,
+    appendChild: style => { style.isConnected = true; styles.push(style); }
+  };
+  const context = vm.createContext({
+    document: {
+      documentElement: rootElement,
+      createElement: () => ({}),
+      getElementById: id => styles.find(style => style.id === id)
+    },
+    chrome: {
+      runtime: { getManifest: () => manifest, onMessage: { addListener: callback => messageListener = callback } },
+      storage: {
+        onChanged: { addListener: callback => changeListener = callback },
+        local: { get: () => new Promise(resolve => finishRead = resolve) }
+      }
+    },
+    console: {
+      info: (...args) => logs.push(['info', ...args]),
+      warn: (...args) => logs.push(['warn', ...args])
+    }
+  });
+  for (const name of ['TwitchMinEmotes', 'TwitchMinLayout', 'TwitchMinTimestamps', 'TwitchMinPlayer', 'TwitchMinChat', 'TwitchMinComposer']) {
+    context[name] = { update() { if (name === 'TwitchMinLayout' && failFeature) throw Error('restoration failed'); } };
+  }
+  loadRules(context);
+  vm.runInContext(read('extension/content.js'), context);
+  const status = () => {
+    let response;
+    messageListener({ type: 'twitch-min:status' }, {}, value => response = JSON.parse(JSON.stringify(value)));
+    return response;
+  };
+  assert.equal(status().enabled, null, 'diagnostics do not mistake an unread preference for success');
+  changeListener({ enabled: { newValue: false } }, 'local');
+  assert.match(logs.at(-1)[1], /queued until preferences finish loading/);
+  finishRead(context.TwitchMinSettings.DEFAULTS);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(status(), { type: 'twitch-min:status', version: manifest.version, enabled: false,
+    appliedEnabled: 'false', stylesheetMounted: true, failedFeatures: [], missingFeatures: [] });
+  failFeature = true;
+  changeListener({ enabled: { newValue: true } }, 'local');
+  assert.deepEqual(status().failedFeatures, ['TwitchMinLayout']);
+  assert.equal(logs.some(([level, message]) => level === 'warn' && message.includes('TwitchMinLayout')), true);
+  failFeature = false;
+  changeListener({ enabled: { newValue: true } }, 'local');
+  assert.deepEqual(status().failedFeatures, [], 'same-settings retry clears the reported failure');
+  assert.match(logs.at(-1)[1], /unchanged; already enabled/);
+  const count = logs.length;
+  changeListener({ unrelated: { newValue: true } }, 'local');
+  assert.equal(logs.length, count, 'unrelated page work stays quiet');
+  styles[0].isConnected = false;
+  assert.equal(status().stylesheetMounted, false, 'removed CSS is diagnosed');
+  delete context.TwitchMinChat;
+  assert.deepEqual(status().missingFeatures, ['TwitchMinChat']);
+  assert.equal(logs.every(([, message]) => message.startsWith(`[${manifest.name} v${manifest.version}]`)), true);
 });

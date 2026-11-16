@@ -34,6 +34,20 @@ and recovery reads. If both saving and rereading fail, rollback touches only fie
 without newer notifications. Scroll and ResizeObserver events update popup
 navigation without polling.
 
+Master-toggle diagnostics log popup requests, storage failures, and page-side
+application with a name/version prefix derived from the installed manifest.
+After a successful save, the popup queries only the active tab ID and sends one
+read-only status message to its top frame. The response reports the applied root
+attribute, stylesheet presence, and missing/failed controllers. This uses the
+existing storage-only permission declaration; no tab URLs or titles are read.
+Checks run asynchronously with a single two-second response timeout, without
+blocking saves, polling, or persisting results. Newer toggle attempts supersede
+earlier responses. Unconfirmed toggles show conditional troubleshooting and
+refresh guidance; no specific cause is assumed. A new toggle, successful check,
+or external enabled-state change clears the old report. Copying includes only
+extension status fields and diagnostic errors, with selectable text as a clipboard
+fallback. The issue link does not upload or submit the report.
+
 ## Regions and controllers
 
 One shared observer tracks mounts, identity changes, and removals while features
@@ -58,8 +72,10 @@ subtrees rather than rescanning the document on chat updates.
 ### Sidebar and page shelves
 
 Sidebar rows and headings have separate expansion markers. Filtering waits for
-native expansion; pending pagination keeps compact styling while leaving native
-pagination controls and unfiltered lists visible. Replacement headings are
+native expansion; pending pagination keeps compact styling and unfiltered lists.
+The For You title and pagination hide independently of list completion. Pagination
+is unmasked synchronously for native visibility checks and clicks, then hidden
+again even if a request stalls. Replacement headings are
 relabelled. Retained pagination controls are clicked again only after new rows arrive.
 
 Layout distinguishes automatic clicks from manual Collapse/Expand and waits for

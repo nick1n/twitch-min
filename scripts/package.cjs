@@ -38,10 +38,14 @@ const assets = ['manifest.json', 'LICENSE',
 const popup = manifest.action?.default_popup;
 if (popup) {
   assertAsset(popup); assets.push(popup);
-  for (const match of sources.get(popup).data.toString('utf8').matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)) {
-    const reference = match[1];
-    if (/[\\:?#]/.test(reference) || reference.startsWith('/')) throw new Error(`Invalid popup asset: ${reference}`);
-    assets.push(path.posix.normalize(path.posix.join(path.posix.dirname(popup), reference)));
+  for (const tag of sources.get(popup).data.toString('utf8').matchAll(/<([a-z][\w-]*)\b[^>]*>/gi)) {
+    for (const match of tag[0].matchAll(/\b(src|href)\s*=\s*["']([^"']+)["']/gi)) {
+      const reference = match[2];
+      // The explicit issue-report destination is navigation, not a fetched asset.
+      if (tag[1].toLowerCase() === 'a' && match[1].toLowerCase() === 'href' && reference === pkg.bugs?.url) continue;
+      if (/[\\:?#]/.test(reference) || reference.startsWith('/')) throw new Error(`Invalid popup asset: ${reference}`);
+      assets.push(path.posix.normalize(path.posix.join(path.posix.dirname(popup), reference)));
+    }
   }
 }
 for (const asset of assets) if (asset != null) assertAsset(asset);

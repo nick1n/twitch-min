@@ -5,16 +5,17 @@
   --text: #211b2b;
   --muted: #62596e;
   --line: #e1dbe9;
-  --accent: #7237bd;
+  --accent: #9146FF;
   --hover: #eee9f5;
+  --button-hover: #f5f1fa;
 
   @media (prefers-color-scheme: dark) {
     --background: #17151e;
     --text: #f3eff9;
     --muted: #b3aabd;
     --line: #36303f;
-    --accent: #bf94ff;
     --hover: #282331;
+    --button-hover: #f0edf5;
   }
 }
 
@@ -29,6 +30,19 @@ body {
   background: var(--background);
   color: var(--text);
   font: inherit;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  max-height: 572px;
+}
+
+header,
+#scroll-cue,
+#toggle-error,
+#status {
+  flex: none;
 }
 
 header,
@@ -98,16 +112,6 @@ input {
 }
 
 #enable-all-button {
-  border: 0;
-  border-radius: 4px;
-  padding: 2px 5px;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  font-size: 11px;
-  text-decoration: underline;
-  cursor: pointer;
-
   &[hidden] {
     display: block;
     visibility: hidden;
@@ -115,7 +119,9 @@ input {
 }
 
 #groups {
+  min-height: 0;
   max-height: 480px;
+  flex: 0 1 auto;
   overflow-y: auto;
   scrollbar-width: none;
 
@@ -133,13 +139,16 @@ input {
   text-align: center;
 }
 
+#enable-all-button,
 #more-settings {
   border: 0;
   border-radius: 4px;
   padding: 0 6px;
   background: none;
-  color: inherit;
+  color: var(--muted);
   font: inherit;
+  font-size: 11px;
+  line-height: 20px;
   cursor: pointer;
 }
 
@@ -174,18 +183,20 @@ header::after,
 .setting:has(input:enabled):hover,
 .setting:focus-within,
 .controls label:has(input:enabled):hover,
-.controls label:focus-within,
-#enable-all-button:enabled:hover,
-#more-settings:hover {
+.controls label:focus-within {
   background: var(--hover);
 }
 
+#enable-all-button:enabled:hover,
 #more-settings:hover {
+  background: var(--button-hover);
   color: var(--accent);
 }
 
 input:focus-visible,
-button:focus-visible {
+button:focus-visible,
+a:focus-visible,
+textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -222,4 +233,60 @@ label:has(input:disabled) {
 #status {
   margin: 10px 0 0;
   overflow-wrap: anywhere;
+}
+
+#toggle-error {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+#toggle-error p {
+  margin: 0 0 6px;
+}
+
+#reload-hint,
+#copy-error-status {
+  color: var(--muted);
+}
+
+.error-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.error-actions button {
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--background);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.error-actions a {
+  color: var(--text);
+  text-underline-offset: 2px;
+}
+
+.error-actions button:hover {
+  background: var(--hover);
+}
+
+#error-details {
+  width: 100%;
+  height: 72px;
+  margin-top: 6px;
+  resize: none;
+  background: var(--background);
+  color: var(--text);
+  border: 1px solid var(--line);
+  font: inherit;
 }

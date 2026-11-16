@@ -35,6 +35,17 @@
     </div>
     <p id="scroll-cue"><button id="more-settings" type="button" hidden>More settings ↓</button></p>
 
+    <section id="toggle-error" aria-label="Toggle troubleshooting" hidden>
+      <p id="toggle-error-message" role="alert"></p>
+      <p id="reload-hint">Try refreshing the Twitch tab, then use the switch again. If the problem continues, copy the error details and report an issue.</p>
+      <div class="error-actions">
+        <button id="copy-error" type="button" aria-live="polite">Copy error details</button>
+        <a href="https://github.com/nick1n/twitch-min/issues" target="_blank" rel="noopener noreferrer">Report the issue</a>
+      </div>
+      <p id="copy-error-status" role="status" hidden></p>
+      <textarea id="error-details" aria-label="Error details to copy" readonly hidden></textarea>
+    </section>
+
     <p id="status" role="status" hidden></p>
 
   </main>

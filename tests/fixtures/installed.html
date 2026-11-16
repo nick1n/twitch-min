@@ -10,6 +10,18 @@
     <button id="bits" data-a-target="top-nav-get-bits-button">Bits</button>
     <button id="notifications" data-a-target="activity-feed-button">Notifications</button>
   </nav>
+  <aside id="sidebar-shell" class="side-nav side-nav--expanded" data-a-target="side-nav-bar">
+    <button data-a-target="side-nav-arrow" aria-label="Collapse Side Nav">Collapse</button>
+    <div id="sidebar-for-you" class="side-nav__title"><h3>For You</h3></div>
+    <div class="side-nav-section" aria-label="Followed Channels">
+      <header>Followed Channels</header>
+      <div class="side-nav-show-more-toggle__button"><button id="sidebar-more" data-a-target="side-nav-show-more-button" data-test-selector="ShowMore">Show More</button></div>
+    </div>
+    <div class="side-nav-section" aria-label="Recommended Channels">
+      <header>Recommended Channels</header>
+      <div class="side-nav-show-more-toggle__button"><div><button id="sidebar-less" data-a-target="side-nav-show-less-button" data-test-selector="ShowLess">Show Less</button></div></div>
+    </div>
+  </aside>
   <div class="chat-room"><div class="chat-scrollable-area__message-container">
     <div id="first" class="chat-line__message"><button data-a-user="example"><span data-a-target="chat-message-username" style="color:rgb(200,30,70)">Example</span></button><span>First message</span></div>
     <div id="second" class="chat-line__message"><button id="repeat" data-a-user="example"><span data-a-target="chat-message-username" style="color:rgb(200,30,70)">Example</span></button><span>Second message</span></div>

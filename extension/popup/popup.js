@@ -7,6 +7,14 @@
   const moreSettings = document.getElementById('more-settings');
   const enableAllButton = document.getElementById('enable-all-button');
   const status = document.getElementById('status');
+  const toggleErrorPanel = document.getElementById('toggle-error');
+  const toggleErrorMessage = document.getElementById('toggle-error-message');
+  const reloadHint = document.getElementById('reload-hint');
+  const copyError = document.getElementById('copy-error');
+  const copyErrorStatus = document.getElementById('copy-error-status');
+  const errorDetails = document.getElementById('error-details');
+  let toggleError = null;
+  let copyFeedbackTimer;
   let state = null;
   let ready = false;
   let pendingWrites = 0;
@@ -14,6 +22,8 @@
   let initialChanges = {};
   const groupControls = new Map();
   const manifest = globalThis.chrome?.runtime?.getManifest?.();
+  const logTag = `[${manifest?.name || 'twitch-min'} v${manifest?.version || 'unknown'}]`;
+  let diagnosticAttempt = 0;
   if (manifest?.version) {
     const version = document.getElementById('app-version');
     version.textContent = `v${manifest.version}`;
@@ -67,6 +77,64 @@
     status.hidden = !message;
   }
 
+  function resetCopyFeedback() {
+    clearTimeout(copyFeedbackTimer);
+    copyFeedbackTimer = undefined;
+    copyError.textContent = 'Copy error details';
+  }
+
+  function clearToggleError() {
+    toggleError = null;
+    toggleErrorPanel.hidden = true;
+    errorDetails.value = '';
+    errorDetails.hidden = true;
+    resetCopyFeedback();
+    copyErrorStatus.hidden = true;
+  }
+
+  function showToggleError(expected, reason, message, { response, error, refresh = true } = {}) {
+    // Include only extension state, never arbitrary response fields or page data.
+    const observed = response ? {
+      version: response.version,
+      enabled: response.enabled,
+      appliedEnabled: response.appliedEnabled,
+      stylesheetMounted: response.stylesheetMounted,
+      failedFeatures: response.failedFeatures,
+      missingFeatures: response.missingFeatures
+    } : undefined;
+    toggleError = { text: `${logTag} Toggle troubleshooting\n${JSON.stringify({
+      requestedEnabled: expected, reason, message, error: error?.message, observed
+    }, null, 2)}` };
+    toggleErrorMessage.textContent = message;
+    reloadHint.hidden = !refresh;
+    errorDetails.value = toggleError.text;
+    errorDetails.hidden = true;
+    resetCopyFeedback();
+    copyErrorStatus.hidden = true;
+    toggleErrorPanel.hidden = false;
+  }
+
+  copyError.addEventListener('click', async () => {
+    const report = toggleError;
+    if (!report) return;
+    try {
+      await navigator.clipboard.writeText(report.text);
+      if (toggleError !== report) return;
+      resetCopyFeedback();
+      copyError.textContent = 'Copied!';
+      copyFeedbackTimer = setTimeout(resetCopyFeedback, 5000);
+      copyErrorStatus.hidden = true;
+    } catch {
+      if (toggleError !== report) return;
+      resetCopyFeedback();
+      errorDetails.hidden = false;
+      errorDetails.focus();
+      errorDetails.select();
+      copyErrorStatus.textContent = 'Automatic copying is unavailable. Select and copy the details below.';
+      copyErrorStatus.hidden = false;
+    }
+  });
+
   function setBusy(busy) {
     master.disabled = busy || !ready;
     enableAllButton.disabled = busy || !ready || Object.values(state).every(value => value === true);
@@ -111,7 +179,68 @@
     });
   }
 
+  async function diagnoseToggle(expected, attempt) {
+    let contactedTab = false;
+    let timeout;
+    try {
+      if (!chrome.tabs?.query || !chrome.tabs?.sendMessage) {
+        console.warn(`${logTag} Popup: tab diagnostics are unavailable; storage success does not confirm that Twitch applied the toggle.`);
+        showToggleError(expected, 'diagnostics-unavailable', "Couldn't check whether the change reached Twitch.");
+        return;
+      }
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (attempt !== diagnosticAttempt) return;
+      if (!Number.isInteger(tab?.id)) {
+        console.warn(`${logTag} Popup: no active tab was found; cannot confirm enable/disable.`);
+        showToggleError(expected, 'no-active-tab', 'Open Twitch and try the switch again.');
+        return;
+      }
+      contactedTab = true;
+      const response = await Promise.race([
+        chrome.tabs.sendMessage(tab.id, { type: 'twitch-min:status' }, { frameId: 0 }),
+        new Promise((resolve, reject) => {
+          timeout = setTimeout(() => reject(new Error('No page acknowledgement within 2 seconds.')), 2000);
+        })
+      ]);
+      if (attempt !== diagnosticAttempt) return;
+      if (state.enabled !== expected) {
+        console.info(`${logTag} Popup: a newer preference change superseded this toggle; its page acknowledgement is ignored.`);
+      } else if (response?.type !== 'twitch-min:status' || response.version !== manifest?.version ||
+          !Array.isArray(response.failedFeatures) || !Array.isArray(response.missingFeatures)) {
+        console.warn(`${logTag} Popup: the active tab has a missing or outdated diagnostic response; the change cannot be confirmed. If this is Twitch, try refreshing the tab.`);
+        showToggleError(expected, 'outdated-response', "Couldn't confirm the change because this tab returned an unsupported response.", { response });
+      } else if (response.enabled === null) {
+        console.warn(`${logTag} Popup: the page has not loaded preferences yet; the toggle is not applied. Check the Twitch console for a preference-read failure.`);
+        showToggleError(expected, 'preferences-not-loaded', "Twitch hasn't loaded your preferences, so the change isn't applied yet.", { response });
+      } else if (response.enabled !== expected || response.appliedEnabled !== String(expected)) {
+        console.warn(`${logTag} Popup: storage was saved but the page has not applied the requested enabled state; storage delivery or document setup may still be pending.`, response);
+        showToggleError(expected, 'state-not-applied', "Your choice was saved, but Twitch hasn't applied it yet.", { response });
+      } else if (!response.stylesheetMounted || response.failedFeatures.length || response.missingFeatures.length) {
+        console.warn(`${logTag} Popup: the page received the toggle but application is incomplete; check stylesheetMounted, failedFeatures and missingFeatures. Refresh Twitch if scripts/styles are missing.`, response);
+        showToggleError(expected, 'incomplete-application', "Twitch received the change, but some extension features couldn't apply it.", { response });
+      } else {
+        clearToggleError();
+        console.info(`${logTag} Popup: active tab confirmed ${expected ? 'enabled' : 'disabled'}; stylesheet present and controllers reported no failures.`);
+      }
+    } catch (error) {
+      if (attempt !== diagnosticAttempt || state.enabled !== expected) return;
+      if (contactedTab) {
+        console.warn(`${logTag} Popup: cannot confirm enable/disable because the active tab did not respond. Make sure the tab is Twitch, then try refreshing it and check extension site access.`, error);
+        showToggleError(expected, 'no-page-response', "Couldn't confirm the change because this tab didn't respond. Make sure the active tab is Twitch.", { error });
+      } else {
+        console.warn(`${logTag} Popup: active-tab lookup failed; cannot confirm enable/disable.`, error);
+        showToggleError(expected, 'tab-lookup-failed', "Couldn't find the active Twitch tab to confirm the change.", { error });
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async function save(changes, previousState) {
+    const toggling = Object.hasOwn(changes, 'enabled');
+    const diagnostic = toggling ? ++diagnosticAttempt : null;
+    if (toggling) clearToggleError();
+    if (toggling) console.info(`${logTag} Popup: requested ${changes.enabled ? 'enable' : 'disable'}; saving to local storage.`);
     const focusedId = document.activeElement?.id;
     const attempt = pendingSave = { observed: {}, recovery: null };
     pendingWrites += 1;
@@ -119,10 +248,16 @@
     showStatus('');
     try {
       await storageSet(changes);
+      if (toggling) {
+        console.info(`${logTag} Popup: enabled=${changes.enabled} saved; checking the active tab.`);
+        void diagnoseToggle(changes.enabled, diagnostic);
+      }
       // The change is already applied optimistically. Storage events received
       // while saving may contain newer values, so completion must keep them.
       render();
     } catch (error) {
+      console.warn(`${logTag} Popup: preference save failed; the requested change is not confirmed.`, { keys: Object.keys(changes) }, error);
+      if (toggling) showToggleError(changes.enabled, 'storage-save-failed', "Couldn't save the change. Try the switch again; if it still fails, report the error.", { error, refresh: false });
       // Merge notifications received during the recovery read over its snapshot.
       // If that read also fails, roll back only fields without newer notifications.
       try {
@@ -135,7 +270,8 @@
           });
         });
         state = normalize({ ...stored, ...attempt.recovery });
-      } catch {
+      } catch (recoveryError) {
+        console.warn(`${logTag} Popup: preference recovery also failed; rolling back fields without newer storage notifications.`, recoveryError);
         const rollback = Object.fromEntries(Object.keys(changes)
           .filter(key => !Object.hasOwn(attempt.observed, key))
           .map(key => [key, previousState[key]]));
@@ -153,7 +289,14 @@
   }
 
   function updateField(key, value) {
-    if (!ready || pendingWrites) return;
+    if (!ready || pendingWrites) {
+      if (key === 'enabled') console.warn(`${logTag} Popup: toggle ignored because ${!ready ? 'preferences are not loaded' : 'a previous save is still pending'}.`);
+      return;
+    }
+    if (key === 'enabled' && state.enabled === value) {
+      console.info(`${logTag} Popup: toggle has no effect because twitch-min is already ${value ? 'enabled' : 'disabled'}.`);
+      return;
+    }
     const previousState = state;
     state = normalize({ ...state, [key]: value });
     render();
@@ -188,7 +331,9 @@
           Object.assign(pendingSave.observed, patch);
           if (pendingSave.recovery) Object.assign(pendingSave.recovery, patch);
         }
-        state = normalize({ ...state, ...patch });
+        const nextState = normalize({ ...state, ...patch });
+        if (nextState.enabled !== state.enabled) clearToggleError();
+        state = nextState;
         render();
       }
     });
@@ -196,6 +341,7 @@
 
   function initialize() {
     if (!settingsApi || typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+      console.warn(`${logTag} Popup: preferences are unavailable; settings or the storage API is missing, so toggles are disabled.`);
       groupList.replaceChildren();
       groupList.setAttribute('aria-busy', 'false');
       showStatus('Preferences are unavailable. Check that twitch-min has storage access, then reopen this popup.');
@@ -206,6 +352,7 @@
       chrome.storage.local.get(settingsApi.DEFAULTS, (raw) => {
         const error = chrome.runtime && chrome.runtime.lastError;
         if (error) {
+          console.warn(`${logTag} Popup: preference load failed; toggles are disabled.`, error.message);
           groupList.replaceChildren();
           groupList.setAttribute('aria-busy', 'false');
           showStatus(`Couldn't load preferences. ${error.message || 'Try reopening the popup.'}`);
@@ -218,6 +365,7 @@
         render();
       });
     } catch (error) {
+      console.warn(`${logTag} Popup: preference load failed; toggles are disabled.`, error);
       groupList.replaceChildren();
       groupList.setAttribute('aria-busy', 'false');
       showStatus(`Couldn't load preferences. ${error.message || 'Try reopening the popup.'}`);
@@ -233,6 +381,7 @@
     updateScrollCue();
   });
   window.addEventListener('pagehide', () => {
+    resetCopyFeedback();
     sizeObserver.disconnect();
     groupList.removeEventListener('scroll', updateScrollCue);
   }, { once: true });

@@ -4,6 +4,30 @@ const path = require('node:path');
 const { root } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
+    await t.test('For You and pagination stay hidden when one native list stalls', async () => {
+      await navigate('tests/fixtures/sidebar-more.html');
+      await waitFor(`__moreClicks.length === 2`);
+      await evaluate(`__finishMore('recommended')`);
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`), false);
+      for (const id of ['sidebar-for-you', 'followed-more', 'recommended-more']) {
+        assert.equal(await isVisible(id), false, `${id} does not wait for another section's pagination`);
+      }
+      assert.equal(await evaluate(`document.querySelector('#recommended .side-nav-show-more-toggle__button').getBoundingClientRect().height`), 0, 'hidden native pagination leaves no wrapper gap');
+      assert.equal(await evaluate(`document.querySelector('[data-tq-sidebar-expanding]')`), null, 'temporary pagination access is released');
+      await evaluate(`__storagePatch({sidebarSections:false})`);
+      for (const id of ['sidebar-for-you', 'followed-more', 'recommended-more']) assert.equal(await isVisible(id), true, `${id} restores with its setting off`);
+      await evaluate(`__storagePatch({sidebarSections:true,enabled:false})`);
+      for (const id of ['sidebar-for-you', 'followed-more', 'recommended-more']) assert.equal(await isVisible(id), true, `${id} restores on master pause`);
+      await evaluate(`__storagePatch({enabled:true});history.pushState({},'', '?pending-sidebar');__mountMore('later', {disabled:true})`);
+      assert.equal(await isVisible('sidebar-for-you'), false);
+      assert.equal(await isVisible('later-more'), false, 'later disabled pagination is hidden too');
+      await evaluate(`document.querySelector('#later-more').setAttribute('aria-disabled','false')`);
+      await waitFor(`__morePending.has('later')`);
+      assert.equal(await isVisible('later-more'), false, 'native expansion still runs behind the hidden link');
+      await evaluate(`__storagePatch({enabled:false})`);
+      assert.equal(await isVisible('later-more'), true);
+    });
+
     await t.test('native sidebar Collapse stays visible and respects mouse and keyboard toggles', async () => {
       await navigate('tests/fixtures/twitch.html');
       await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
@@ -130,7 +154,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('#pending-other-heading'),'::before').content`), 'none', 'unrecognized sections keep their native headings while filtering waits');
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('#refresh header'),'::before').content`), '"Recommended"', 'new headings do not wait for pagination');
       assert.equal(await width(), 144);
-      assert.equal(await isVisible('refresh-more'), true, 'pending native pagination stays usable');
+      assert.equal(await isVisible('refresh-more'), false, 'pending pagination does not expose native links');
       assert.equal(await isVisible('followed-offline'), true, 'filtering still waits for pagination');
       assert.equal(await evaluate(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`), false);
       await evaluate(`document.querySelector('#followed header').outerHTML='<header><span>Followed Channels</span></header>';history.pushState({},'', '?sidebar-refresh')`);
@@ -166,7 +190,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       await waitFor(`__moreClicks.length === 2`);
       const width = () => evaluate(`document.querySelector('#sidebar-shell').getBoundingClientRect().width`);
       assert.equal(await width(), 144, 'pending pages never block compact sizing');
-      assert.equal(await isVisible('followed-more'), true, 'stalled native controls remain usable');
+      assert.equal(await isVisible('followed-more'), false, 'stalled pagination stays hidden');
       assert.equal(await isVisible('followed-offline'), true, 'filtering waits for pagination');
       await evaluate(`__storagePatch({sidebarLabels:false})`);
       assert.equal(await width(), 240);
@@ -182,7 +206,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-compact')`);
       assert.equal(await width(), 144, 'later mounts compact even with disabled pagination');
       assert.equal(await evaluate(`detachedSide.hasAttribute('data-tq-sidebar-compact')`), false);
-      assert.equal(await isVisible('stalled-more'), true);
+      assert.equal(await isVisible('stalled-more'), false);
       await evaluate(`document.querySelector('#stalled-more').setAttribute('aria-disabled','false')`);
       await waitFor(`__morePending.has('stalled')`);
       await evaluate(`__finishMore('stalled')`);

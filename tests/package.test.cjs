@@ -55,6 +55,19 @@ function assertPreserved(dir) {
   assert.deepEqual(fs.readdirSync(path.join(dir, 'dist')).sort(), [archiveName, 'unrelated.zip'].sort());
 }
 
+for (const markup of ['<script src="URL"></script>', '<link rel="stylesheet" href="URL">', '<img src="URL">']) {
+  test(`packaging still rejects remote popup assets: ${markup.split(' ')[0].slice(1)}`, t => {
+    const dir = fixture(t);
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+    fs.appendFileSync(path.join(dir, 'extension', manifest.action.default_popup), markup.replace('URL', pkg.bugs.url));
+    const result = run(dir);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Invalid popup asset/);
+    assert.deepEqual(fs.readFileSync(path.join(dir, 'dist', archiveName)), oldRelease);
+    assertPreserved(dir);
+  });
+}
+
 test('packaging replaces stale output with all source files at ZIP root, byte for byte', t => {
   const dir = fixture(t);
   fs.mkdirSync(path.join(dir, 'extension/nested'));

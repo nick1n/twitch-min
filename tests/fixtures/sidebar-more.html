@@ -11,6 +11,7 @@
 </head><body>
 <aside id="sidebar-shell" class="side-nav side-nav--expanded" data-a-target="side-nav-bar">
   <button data-a-target="side-nav-arrow" aria-label="Collapse Side Nav">Collapse</button>
+  <div id="sidebar-for-you" class="side-nav__title"><h3>For You</h3></div>
 </aside>
 <button id="outside-more" data-a-target="side-nav-show-more-button">Show more elsewhere</button>
 <script>
@@ -61,7 +62,7 @@
         const rows = document.createElement('div');
         rows.setAttribute('data-loaded', '');
         rows.innerHTML = row(`loaded-${page}`) + row(`loaded-offline-${page}`, true);
-        control.before(rows);
+        pagination.before(rows);
         if (page === pages) {
           control.setAttribute(attribute, less);
           button.setAttribute('data-a-target', 'side-nav-show-less-button');
@@ -69,7 +70,10 @@
         }
       });
     });
-    section.append(control);
+    const pagination = document.createElement('div');
+    pagination.className = 'side-nav-show-more-toggle__button';
+    pagination.append(control);
+    section.append(pagination);
     side.append(section);
     return section;
   };

@@ -53,7 +53,8 @@
     }],
     [4.75, {
       key: 'chatGrouping',
-      selectors: ['.vod-message:not([data-tq-chat-continuation])', '.chat-line__message:not([data-tq-chat-continuation])'],
+      selectors: ['.vod-message:not([data-tq-chat-continuation])', '.chat-line__message:not([data-tq-chat-continuation]):not(.announcement-line .chat-line__message)'],
+      // Announcement headers and their nested message form one native card.
       declaration: 'border-top: 1px solid #000 !important;'
     }],
     [4.8, {

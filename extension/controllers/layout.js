@@ -77,21 +77,26 @@
       if (!buttons.length) return true;
       // Unmask native pagination controls before invoking Twitch's handlers.
       ready(false);
-      let waiting = false;
-      for (const button of buttons) {
-        if (!button.checkVisibility({ checkVisibilityCSS: true })) continue;
-        waiting = true;
-        if (button.matches(':disabled, [aria-disabled="true"], [aria-busy="true"]')) continue;
-        const section = button.closest('.side-nav-section') || side;
-        const count = section.querySelectorAll('.side-nav-card__link, a.side-nav-card').length;
-        const previous = moreClicks.get(button);
-        // React may retain the same Show more button for several pages. Only
-        // request another page after new rows arrive, never on unrelated edits.
-        if (previous && previous.section === section && count <= previous.count) continue;
-        moreClicks.set(button, { section, count });
-        button.click();
+      side.setAttribute('data-tq-sidebar-expanding', '');
+      try {
+        let waiting = false;
+        for (const button of buttons) {
+          if (!button.checkVisibility({ checkVisibilityCSS: true })) continue;
+          waiting = true;
+          if (button.matches(':disabled, [aria-disabled="true"], [aria-busy="true"]')) continue;
+          const section = button.closest('.side-nav-section') || side;
+          const count = section.querySelectorAll('.side-nav-card__link, a.side-nav-card').length;
+          const previous = moreClicks.get(button);
+          // React may retain the same Show more button for several pages. Only
+          // request another page after new rows arrive, never on unrelated edits.
+          if (previous && previous.section === section && count <= previous.count) continue;
+          moreClicks.set(button, { section, count });
+          button.click();
+        }
+        return !waiting;
+      } finally {
+        side.removeAttribute('data-tq-sidebar-expanding');
       }
-      return !waiting;
     }
     function expanded() {
       if (side.matches('.side-nav--collapsed, [data-a-target="side-nav-bar-collapsed"]')) return false;
@@ -141,7 +146,7 @@
       if (!side.isConnected) return;
       syncCollapse();
       // Row sizing depends only on native expansion, not pagination completing.
-      // Keep native Show more controls available while section filtering waits.
+      // Section filtering waits for pagination; heading/control styling does not.
       compactReady(enabled && compact && !pending && expanded() !== false);
       headingsReady(enabled && sections && !pending && expanded() !== false);
       if (!enabled || (!compact && !sections) || pending || expanded() === false) {
@@ -163,6 +168,7 @@
     });
     onCleanup(() => {
       observer.disconnect();
+      side.removeAttribute('data-tq-sidebar-expanding');
       side.removeEventListener('click', onToggle, true);
       sides.delete(state);
       moreClicks.clear();

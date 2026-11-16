@@ -13,8 +13,8 @@ Enable twitch-min pauses/resumes while keeping your choices.
 Enable all settings turns every option on.
 More settings / Back to top scrolls the list.
 
-All options start on except Hide top navigation bar and About & lower channel
-section. Chat toggles the editor without sending or losing drafts; Enter sends
+All options start on except Hide top navigation bar and About & channel panels.
+Chat toggles the editor without sending or losing drafts; Enter sends
 normally. Disabling a switch restores that feature; pausing restores everything.
 
 PRIVACY AND LIMITS

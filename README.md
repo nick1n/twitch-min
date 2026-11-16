@@ -25,25 +25,25 @@ resumes while keeping your choices; **Enable all settings** turns every option o
 **More settings / Back to top** scrolls the popup.
 
 All options start on except **Hide top navigation bar** and
-**About & lower channel section**.
+**About & channel panels**.
 
-| Switch | Effect |
+| Setting | What it does |
 | --- | --- |
-| Top navigation extras | Hide promotional links; keep search, notifications, whispers, and account controls. |
-| Hide top navigation bar | Hide the entire top bar, including its search and account controls. |
-| Sidebar sections | Keep online Followed, Recommended, and Similar channels. |
-| Compact sidebar | Show avatars, viewer counts, and games in a narrow sidebar. |
-| Channel action extras | Hide Share, the three-dot menu, the channel bell, Bits, and Gift a Sub; keep Follow and subscription icons/dropdowns. |
-| About & lower channel section | Hide About, panels, the replay channel card, and recommendations; fit the video above its details. |
-| Wheel volume | Scroll over the video to adjust volume. Chat, sidebar, menu scrolling, and Ctrl+wheel zoom stay native. |
-| Following Stories | Hide the Stories strip above the Following tabs. |
-| Browse Recent Recaps | Hide Recent Recaps; keep Browse filters and live channels. |
-| Chat leaderboard | Hide gift, cheer, and goal carousel slides. |
-| Short video chat times | Show hours:minutes: `1:32:56` becomes `1:32`, and `5:26` becomes `0:05`. Seek targets stay unchanged. |
-| Chat author tints | Add subtle author-color backgrounds while preserving native highlights. |
-| Group consecutive messages | Show repeated names and badges once, with black borders between sender groups. |
-| Enlarged emote previews | Show a 3x image in Twitch's tooltip on hover or focus. Escape, scrolling, or leaving dismisses it. |
-| Chat message composer | Use **Chat** to toggle the editor without sending or losing drafts. Enter still sends normally. |
+| Top navigation extras   | Hide promotional buttons at the top of Twitch. Keep search, notifications, whispers, and your account menu. |
+| Hide top navigation bar | Hide the whole bar at the top of Twitch, including search, notifications, and your account menu. |
+| Sidebar sections        | Hide the For You section and make the other section headings take up less space. |
+| Compact sidebar         | Make the sidebar narrower while keeping channel icons, viewer counts, and game names. |
+| Channel action extras   | Hide Share, the three-dot menu, the channel bell, Bits, and Gift a Sub. Keep Follow and subscription icons. |
+| About & channel panels  | Hide the About section, channel card, and channel panels below the video. |
+| Mouse wheel volume      | Use the scroll wheel over the video to change the volume. |
+| Following Stories       | Hide Stories at the top of the Following page. |
+| Browse Recent Recaps    | Hide the Recent Recaps section on the Browse page. |
+| Chat leaderboard        | Hide the gift rankings, cheer rankings, and goals shown above chat. |
+| Shorter chat times      | Show chat times in hours and minutes: `1:32:56` becomes `1:32`, and `5:26` becomes `0:05`. |
+| Chat username tint      | Give messages a background tint that matches the username color. Leave highlighted messages unchanged. |
+| Group consecutive chats | Show the username and first badge once for groups of messages from the same chatter. |
+| Enlarged emote previews | Hover over an emote to see a preview at three times its normal size. |
+| Chat message box        | Click **Chat** to show or hide the message box. Press Enter to send. |
 
 The sidebar expands native lists before filtering. Manual Collapse/Expand stays
 available; turning both sidebar options off restores an initially collapsed
@@ -75,6 +75,18 @@ localized controls. Third-party emote markup is not specifically supported.
 If a feature misses its target, check its switch and refresh Twitch. Report
 reproducible issues with steps and a small sanitized HTML example.
 
+If a toggle cannot be confirmed, the popup shows troubleshooting guidance with
+**Copy error details** and a **Report an issue** link. The copied report includes
+the extension name/version, requested state, and diagnostic reason. If automatic
+copying is unavailable, select and copy the displayed details. Reports are not
+uploaded automatically. Refreshing Twitch is a suggested troubleshooting step;
+a missing response does not establish why the change could not be confirmed.
+
+For more detail, right-click inside the popup, choose **Inspect**, and filter its
+Console for `twitch-min`. Logs distinguish a saved preference from an active-tab
+acknowledgement. Twitch's DevTools Console logs page-side application and controller
+errors. Logs include the extension name and installed version and stay local.
+
 See [validation notes](docs/validation.md) for tested scenarios and remaining gaps.
 
 ## Development
@@ -89,7 +101,7 @@ pnpm install --frozen-lockfile
 pnpm test
 ```
 
-On Windows, use `pnpm.cmd` if PowerShell blocks `pnpm.ps1`.
+On Windows, use `pnpm.cmd` if PowerShell blocks `pnpm.ps1`
 
 Puppeteer downloads Chrome for Testing during installation; the unused standalone
 Headless Shell download is disabled. Set `CHROME_PATH` to
@@ -127,9 +139,9 @@ and CI do not publish a GitHub Release or attach the ZIP to the tag.
 After installing development dependencies:
 
 - `node scripts/generate-icons.cjs` regenerates PNG icons from
-  `extension/icons/logo.svg`.
+  `extension/icons/logo.svg`
 - `node scripts/capture-previews.cjs` uses Chrome and offline fixtures to regenerate
-  the README GIF and PNGs in `docs/images/`.
+  the README GIF and PNGs in `docs/images/`
 
 ## Reference
 
@@ -138,6 +150,6 @@ After installing development dependencies:
 - [Contributing rules](AGENTS.md): repository working instructions.
 - [Roadmap](ROADMAP.md): future work and triggers for deferred refactors.
 - [Changelog](CHANGELOG.md): release history.
-- [MIT license](LICENSE).
+- [MIT license](LICENSE)
 
 ![twitch-min logo](extension/icons/icon128.png)
