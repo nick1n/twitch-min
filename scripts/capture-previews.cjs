@@ -27,6 +27,17 @@ async function run() {
         if (enabled && demo === 'sidebar') await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
         if (enabled && demo === 'chat') await waitFor(`document.querySelector('[data-tq-chat-continuation]') && document.querySelector('[data-tq-time]') && document.querySelector('[data-tq-chat-toggle]')`);
         await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+        if (demo === 'chat') {
+          await evaluate(`(()=>{
+            const list=document.querySelector('#demo-messages');
+            list.scrollTop=list.scrollHeight;
+          })()`);
+          await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+          assert.equal(await evaluate(`(()=>{
+            const list=document.querySelector('#demo-messages');
+            return Math.abs(list.scrollHeight-list.clientHeight-list.scrollTop)<=1;
+          })()`), true, 'chat is scrolled to the bottom in both preview states');
+        }
         if (demo === 'sidebar') {
           if (!enabled) assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.sidebar-toolbar h2, .side-nav-section h3'), heading=>heading.textContent)`),
             ['For You', 'Followed Channels', 'Live Channels', 'Viewers Also Watch'], 'before image uses native sidebar headings');

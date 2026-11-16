@@ -3,6 +3,13 @@
 Release history, newest first. For current checks and limits, see
 [validation notes](docs/validation.md).
 
+## 0.28.0 - Popup polish and changelog release notes
+
+- Style settings as toggle switches with keyboard focus and forced-colors support.
+- Animate settings scrolling while respecting reduced-motion preferences.
+- Use the matching changelog entry for GitHub Release descriptions.
+- Align README and standalone ZIP installation instructions.
+
 ## 0.27.0 - Direct release downloads
 
 - Publish validated release ZIPs from CI and link the latest download in the README.

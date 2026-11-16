@@ -77,7 +77,7 @@
   .leader-label { color:var(--preview-accent); font-size:10px; font-weight:700; letter-spacing:1px; }
   .leader-row { display:flex; align-items:center; justify-content:space-between; margin-top:9px; font-size:12px; }
   .leader-row small { color:#adadb8; }
-  .video-chat__message-list-wrapper { flex:1; min-height:0; overflow:auto; padding:10px 10px 16px; scrollbar-width:thin; scrollbar-color:#53535d transparent; }
+  .video-chat__message-list-wrapper { flex:1; min-height:0; overflow:auto; padding:10px 10px 4px; scrollbar-width:thin; scrollbar-color:#53535d transparent; }
   .vod-message { display:flex; gap:7px; line-height:20px; padding:5px 4px; }
   /* A flex header avoids an extra anonymous text line below the timestamp button. */
   .vod-message__header { display:flex; align-items:baseline; flex:none; }
@@ -175,29 +175,37 @@
   document.querySelector('[data-profile-avatar]').src = icons.profile;
   document.querySelectorAll('[data-icon]').forEach(button => button.insertAdjacentHTML('afterbegin', icons[button.dataset.icon]));
   const sections = [
-    ['Followed Channels', [['Channel 1','Just Chatting','420'],['Channel 2','Retro','69'],['Channel 3','Offline','']]],
+    ['Followed Channels', [['Channel 1','Just Chatting','420'],['Channel 8','Science & Technology','180'],['Channel 2','Retro','69'],['Channel 3','Offline',''],['Channel 9','Offline','']]],
     ['Live Channels', [['Channel 4','Art','67'],['Channel 5','Music','320']]],
-    ['Viewers Also Watch', [['Channel 6','Minecraft','1.3K'],['Channel 7','Stardew Valley','620']]]
+    ['Viewers Also Watch', [['Channel 6','Minecraft','1.3K'],['Channel 7','Stardew Valley','620'],['Channel 11','Terraria','850']]]
   ];
   document.querySelector('#demo-sidebar-sections').innerHTML = sections.map(([heading, rows], index) => `<section class="side-nav-section" aria-label="${heading}"><div class="${index ? 'side-nav-header' : 'followed-side-nav-header'}"><h3>${heading}</h3></div>${rows.map(([name,game,count]) => `<div class="side-nav-card"><a class="side-nav-card__link ${count ? '' : 'side-nav-card__link--offline'}" href="/example" aria-label="${name}"><div class="side-nav-card__avatar"><div class="tw-avatar"><img src="${icons.avatar}" alt="Anonymous avatar"></div></div><div class="native-details"><div><div data-a-target="side-nav-card-metadata"><div class="side-nav-card__title">${name}</div><div class="side-nav-card__metadata"><p>${game}</p></div></div><div data-a-target="side-nav-live-status"><span aria-hidden="true">${count}</span></div></div></div></a></div>`).join('')}</section>`).join('');
   const badge = (name, image) => `<span class="badge-layout"><button data-a-target="chat-badge" aria-label="${name}"><img class="chat-badge" alt="${name} badge" src="${image}"></button></span>`;
   const chatterBadges = {
     Viewer1: badge('Moderator', icons.moderator) + badge('Subscriber', icons.avatar) + badge('Prime', icons.prime),
-    Viewer2: badge('VIP', icons.vip) + badge('Prime', icons.prime),
-    Viewer3: badge('Subscriber', icons.avatar) + badge('Prime', icons.prime),
-    Viewer4: ''
+    Chatter: badge('VIP', icons.vip) + badge('Prime', icons.prime),
+    User: badge('Subscriber', icons.avatar) + badge('Prime', icons.prime),
+    Viewer4: '',
+    Chatter2: badge('Subscriber', icons.avatar),
+    User2: '',
+    Viewer5: badge('Prime', icons.prime)
   };
   const messages = [
     ['Viewer1','#ffbd69','1:32:56','That was a great run.'],
     ['Viewer1','#ffbd69','1:33:08','The timing worked out.'],
     ['Viewer1','#ffbd69','1:33:12','Ready for the next round.'],
-    ['Viewer2','#c3a5ff','1:33:20','Great stream today!'],
-    ['Viewer2','#c3a5ff','1:33:24','Thanks for hanging out.'],
-    ['Viewer3','#a2ecdf','1:33:30','That looked fun.'],
-    ['Viewer3','#a2ecdf','1:33:34','One more round?'],
+    ['Chatter','#c3a5ff','1:33:20','Great stream today!'],
+    ['Chatter','#c3a5ff','1:33:24','Thanks for hanging out.'],
+    ['User','#a2ecdf','1:33:30','That looked fun.'],
+    ['User','#a2ecdf','1:33:34','One more round?'],
+    ['Chatter2','#ff91b7','1:33:36','Just made it!'],
+    ['Chatter2','#ff91b7','1:33:38','What a finish.'],
     ['Viewer4','#8fdb8b','1:33:40','See you next time.'],
-    ['Viewer2','#c3a5ff','1:33:45','One last highlight!'],
-    ['Viewer3','#a2ecdf','1:33:50','Thanks for the stream.'],
+    ['User2','#82c8ff','1:33:42','Hello chat!'],
+    ['User2','#82c8ff','1:33:44','That was close.'],
+    ['Chatter','#c3a5ff','1:33:45','One last highlight!'],
+    ['Viewer5','#f1dc78','1:33:48','Nice teamwork.'],
+    ['User','#a2ecdf','1:33:50','Thanks for the stream.'],
     ['Viewer1','#ffbd69','1:33:56','Have a great night, everyone!']
   ];
   document.querySelector('#demo-messages').innerHTML = messages.map(([name,color,time,message]) => `<div class="vod-message"><div class="vod-message__header"><button><p>${time}</p></button></div><div class="message-content"><span>${chatterBadges[name]}</span><a class="video-chat__message-author" href="/${name.toLowerCase()}"><span data-a-target="chat-message-username" style="color:${color}">${name}</span></a><div class="video-chat__message"><span>:</span> <span data-a-target="chat-message-text">${message}</span></div></div></div>`).join('');
