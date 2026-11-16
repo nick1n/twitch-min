@@ -79,9 +79,9 @@ test('packaging replaces stale output with all source files at ZIP root, byte fo
   const entries = readZip(fs.readFileSync(path.join(dir, 'dist', archiveName)));
   const source = path.join(dir, 'extension');
   const names = fs.readdirSync(source, { recursive: true }).filter(name => fs.statSync(path.join(source, name)).isFile());
-  assert.deepEqual(entries.map(entry => entry.name).sort(), [...names.map(name => name.split(path.sep).join('/')), 'LICENSE'].sort());
+  assert.deepEqual(entries.map(entry => entry.name).sort(), names.map(name => name.split(path.sep).join('/')).sort());
   for (const entry of entries) {
-    const file = entry.name === 'LICENSE' ? path.join(dir, 'LICENSE') : path.join(source, entry.name);
+    const file = path.join(source, entry.name);
     assert.deepEqual(entry.data, fs.readFileSync(file), entry.name);
   }
   assertPreserved(dir);
@@ -109,7 +109,7 @@ test('Sharp icon generation preserves the reviewed raster pixels', async t => {
 
 test('packaging rejects a missing license and preserves the previous release', t => {
   const dir = fixture(t);
-  fs.unlinkSync(path.join(dir, 'LICENSE'));
+  fs.unlinkSync(path.join(dir, 'extension/LICENSE'));
   const result = run(dir);
   assert.notEqual(result.status, 0);
   assert.ok(result.stderr.includes('LICENSE'), result.stderr);

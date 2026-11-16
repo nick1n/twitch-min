@@ -15,7 +15,7 @@ const sources = new Map();
 function snapshot(file, name) {
   const stat = fs.lstatSync(file);
   if (stat.isSymbolicLink()) throw new Error(`Source links are not supported: ${file}`);
-  if (stat.isDirectory() && name !== 'LICENSE') {
+  if (stat.isDirectory()) {
     for (const child of fs.readdirSync(file)) snapshot(path.join(file, child), name ? `${name}/${child}` : child);
   } else {
     if (!stat.isFile()) throw new Error(`Source must be a regular file: ${file}`);
@@ -24,7 +24,6 @@ function snapshot(file, name) {
   }
 }
 snapshot(sourceRoot, '');
-snapshot(path.join(root, 'LICENSE'), 'LICENSE');
 function assertAsset(name) {
   if (typeof name !== 'string' || !name.trim() || /[\\:?#]/.test(name) || name.startsWith('/') ||
       name.split('/').includes('..') || !sources.has(name)) throw new Error(`Missing or invalid extension asset: ${name}`);

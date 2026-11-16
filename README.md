@@ -8,13 +8,15 @@ Screenshots: [Before](docs/images/before.png) & [After](docs/images/after.png)
 
 ## Install locally
 
+[Download the latest release ZIP](https://github.com/nick1n/twitch-min/releases/latest/download/twitch-min.zip)
+and follow the included [INSTALL.txt](extension/INSTALL.txt).
+
 1. Open `chrome://extensions` (Chrome) or `opera://extensions` (Opera GX).
 2. Enable **Developer mode**, choose **Load unpacked**, and select this
    repository's **extension** folder.
 3. Pin **twitch-min** in the Extensions menu, then open Twitch. Click the
    extension icon to change your settings.
 
-For release ZIPs, follow the included [INSTALL.txt](extension/INSTALL.txt).
 Keep the loaded folder in place. To update, replace its files and click **Reload**
 for twitch-min on your browser's extensions page. **Remove** uninstalls it and
 deletes saved settings.
@@ -119,15 +121,17 @@ for Puppeteer, Sharp, fflate, and their installation scripts.
 ### Packaging and CI
 
 Run `pnpm run package` to create `dist/twitch-min-<version>.zip`. It packages
-`extension/` and the MIT license, validates assets and ZIP contents, and preserves
-the previous archive on failure. The version comes from the matching package and
+only the contents of `extension/` (including its MIT license), validates assets
+and ZIP contents, and preserves the previous archive on failure. The version comes from the matching package and
 manifest versions.
 
 [CI](.github/workflows/ci.yml) runs tests and packaging on Linux with the latest
 Node LTS and a frozen lockfile. Download and extract its artifact wrapper to get
 the installable ZIP. Successful default-branch pushes also create a missing
-`v<version>` tag at the tested commit; existing tags are never moved. Packaging
-and CI do not publish a GitHub Release or attach the ZIP to the tag.
+`v<version>` tag at the tested commit; existing tags are never moved. CI
+then publishes a GitHub Release with the validated archive named `twitch-min.zip`.
+Publication only proceeds when the version tag points to the tested commit;
+existing releases and tags are never overwritten.
 
 ### Images
 
