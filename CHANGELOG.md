@@ -3,6 +3,14 @@
 Release history, newest first. For current checks and limits, see
 [validation notes](docs/validation.md).
 
+## Unreleased
+
+- Keep open Twitch tabs working after extension updates and retry disconnected
+  settings changes without reloading the page.
+- Show troubleshooting with copyable error details and an issue link when a
+  change can't be confirmed.
+- Remove redundant tests and keep browser checks based on committed fixtures.
+
 ## 0.25.0 - Sticky footer cleanup and development tooling
 
 - Hide Twitch's sticky footer while the extension is enabled.

@@ -9,8 +9,8 @@ The refactors below need a reproduced issue or measured bottleneck.
 Support Firefox alongside Chrome using the shared JavaScript/CSS codebase.
 Add manifest metadata, check storage API compatibility, and verify appearance
 and behavior. Include Firefox packaging, installation instructions, browser tests,
-and signed-in Twitch validation before release. Keep Twitch-only scope, local
-settings, and storage-only API permission.
+and signed-in Twitch validation before release. Preserve the scope and permission
+limits in [repository rules](AGENTS.md#scope).
 
 ## Deferred: explicit sidebar state machine
 
@@ -33,4 +33,4 @@ supported variants. Keep feature CSS with its rules and native controls usable
 on unknown markup. Use scoped lookups rather than document-wide chat scans;
 avoid duplicating Twitch state in a separate application model.
 
-Preserve CSS and saved preferences unless deliberately changing them.
+Preserve CSS and saved settings unless deliberately changing them.

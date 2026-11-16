@@ -1,7 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const { root } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
   const settleLayout = () => evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))`);
@@ -148,34 +145,4 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
     await waitFor('__followingClicks.length === 7');
   });
 
-  const snapshotFile = path.join(root, '.browser-tests/following.html');
-  await t.test('supplied Following HTML matches the Stories rule and native shelf controls', { skip: !fs.existsSync(snapshotFile) }, async () => {
-    await navigate('tests/fixtures/following.html', 'window.__deferFollowing=true;');
-    const source = fs.readFileSync(snapshotFile, 'utf8');
-    await evaluate(`(()=>{
-      const snapshot=new DOMParser().parseFromString(${JSON.stringify(source)},'text/html');
-      const content=snapshot.querySelector('#following-page-main-content');
-      const page=content.parentElement.cloneNode(true);
-      page.querySelectorAll('script,style,link,iframe,object,embed,video,audio,source').forEach(node=>node.remove());
-      for(const node of [page,...page.querySelectorAll('*')])for(const attribute of [...node.attributes]) {
-        if(/^on/i.test(attribute.name)||/^data-tq-/.test(attribute.name)||['style','src','srcset','poster'].includes(attribute.name))node.removeAttribute(attribute.name);
-      }
-      page.querySelector('h1').id='snapshot-following-title';
-      page.querySelector('h1').parentElement.nextElementSibling.id='snapshot-stories';
-      page.querySelector('[role="tablist"]').id='snapshot-following-tabs';
-      window.snapshotFollowingClicks=[];
-      for(const shelf of page.querySelectorAll('[aria-labelledby]')) {
-        const id=shelf.getAttribute('aria-labelledby');
-        const label=snapshot.getElementById(id).textContent.replace(/\\s+/g,' ').trim();
-        for(const button of shelf.querySelectorAll('.show-more__move-up button'))button.addEventListener('click',()=>snapshotFollowingClicks.push(label));
-      }
-      document.querySelector('#following-mount').append(page);
-    })()`);
-    await waitFor('snapshotFollowingClicks.length === 2');
-    assert.deepEqual(await evaluate('snapshotFollowingClicks'), ['Recommended channels', 'Latest videos']);
-    assert.equal(await isVisible('snapshot-stories'), false);
-    for (const id of ['snapshot-following-title', 'snapshot-following-tabs', 'following-page-main-content']) assert.equal(await isVisible(id), true);
-    await evaluate(`__storagePatch({enabled:false})`);
-    assert.equal(await isVisible('snapshot-stories'), true);
-  });
 };

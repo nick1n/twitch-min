@@ -17,6 +17,7 @@
   let stopBrowse = null;
   let stoppingSides = false;
   const sides = new Set();
+  const retirementWaiters = new Set();
 
   function markNavigation(nav) {
     if (!nav?.isConnected) return;
@@ -48,7 +49,11 @@
   function finishPause() {
     if (enabled || stoppingSides || [...sides].some(state => state.restoring())) return;
     stoppingSides = true;
-    try { stopSides?.(); stopSides = null; }
+    try {
+      stopSides?.(); stopSides = null;
+      for (const resolve of retirementWaiters) resolve();
+      retirementWaiters.clear();
+    }
     finally { stoppingSides = false; }
   }
 
@@ -340,7 +345,7 @@
     for (const state of sides) state.sync();
   }
 
-  globalThis.TwitchMinLayout = globalThis.TwitchMinRuntime.create({
+  const controller = globalThis.TwitchMinRuntime.create({
     attach: update,
     update,
     dispose() {
@@ -354,6 +359,26 @@
       for (const state of sides) state.sync();
       // Only the sidebar subscription survives until native restoration settles.
       finishPause();
+    }
+  });
+  globalThis.TwitchMinLayout = Object.freeze({
+    ...controller,
+    async retire() {
+      controller.dispose();
+      if (!stopSides) return;
+      // Let native asynchronous collapse settle before the next generation
+      // discovers the sidebar. A stalled native handler must not stack instances.
+      let timer, done;
+      try {
+        await new Promise((resolve, reject) => {
+          done = resolve;
+          retirementWaiters.add(done);
+          timer = setTimeout(() => reject(new Error('Sidebar restoration stalled; refresh Twitch to reconnect.')), 2000);
+        });
+      } finally {
+        clearTimeout(timer);
+        retirementWaiters.delete(done);
+      }
     }
   });
 })();

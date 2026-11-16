@@ -196,12 +196,31 @@
         return;
       }
       contactedTab = true;
-      const response = await Promise.race([
-        chrome.tabs.sendMessage(tab.id, { type: 'twitch-min:status' }, { frameId: 0 }),
-        new Promise((resolve, reject) => {
-          timeout = setTimeout(() => reject(new Error('No page acknowledgement within 2 seconds.')), 2000);
-        })
-      ]);
+      const bounded = (promise, milliseconds, message) => Promise.race([
+        promise,
+        new Promise((resolve, reject) => { timeout = setTimeout(() => reject(new Error(message)), milliseconds); })
+      ]).finally(() => clearTimeout(timeout));
+      let response, connectionError;
+      try {
+        response = await bounded(chrome.tabs.sendMessage(tab.id, { type: 'twitch-min:status' }, { frameId: 0 }),
+          2000, 'No page acknowledgement within 2 seconds.');
+      } catch (error) { connectionError = error; }
+      if (attempt !== diagnosticAttempt) return;
+      if (state.enabled !== expected) {
+        console.info(`${logTag} Popup: a newer preference change superseded this toggle; its page acknowledgement is ignored.`);
+        return;
+      }
+      if ((connectionError || response?.version !== manifest?.version || response?.type !== 'twitch-min:status' || response.ready === false) && chrome.runtime?.sendMessage) {
+        console.info(`${logTag} Popup: reconnecting the active Twitch tab without reloading it.`);
+        const recovered = await bounded(chrome.runtime.sendMessage({ type: 'twitch-min:recover', tabId: tab.id }),
+          8000, 'Reconnection did not finish within 8 seconds. Try the switch again or refresh Twitch.');
+        if (recovered?.type !== 'twitch-min:recovery' || !recovered.ok) {
+          throw new Error(recovered?.error || 'Could not reconnect to the Twitch tab.');
+        }
+        response = recovered.status;
+        connectionError = null;
+      }
+      if (connectionError) throw connectionError;
       if (attempt !== diagnosticAttempt) return;
       if (state.enabled !== expected) {
         console.info(`${logTag} Popup: a newer preference change superseded this toggle; its page acknowledgement is ignored.`);
@@ -226,7 +245,7 @@
       if (attempt !== diagnosticAttempt || state.enabled !== expected) return;
       if (contactedTab) {
         console.warn(`${logTag} Popup: cannot confirm enable/disable because the active tab did not respond. Make sure the tab is Twitch, then try refreshing it and check extension site access.`, error);
-        showToggleError(expected, 'no-page-response', "Couldn't confirm the change because this tab didn't respond. Make sure the active tab is Twitch.", { error });
+        showToggleError(expected, 'no-page-response', "Couldn't confirm the change or reconnect to this tab. Make sure it's Twitch and extension site access is allowed, then try refreshing it.", { error });
       } else {
         console.warn(`${logTag} Popup: active-tab lookup failed; cannot confirm enable/disable.`, error);
         showToggleError(expected, 'tab-lookup-failed', "Couldn't find the active Twitch tab to confirm the change.", { error });

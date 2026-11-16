@@ -18,7 +18,10 @@ globalThis.__storagePatch = (patch, area = "local") => {
 globalThis.chrome = {
   runtime: { lastError: null },
   storage: {
-    onChanged: { addListener: listener => __listeners.push(listener) },
+    onChanged: {
+      addListener: listener => __listeners.push(listener),
+      removeListener: listener => { const index = __listeners.indexOf(listener); if (index !== -1) __listeners.splice(index, 1); }
+    },
     local: {
       get(defaults, callback) {
         const result = { ...defaults, ...__stored };

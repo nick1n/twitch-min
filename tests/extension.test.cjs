@@ -5,6 +5,51 @@ const path = require('node:path');
 const withInstalledBrowser = require('./support/installed.cjs');
 const { root, manifest, marker } = require('./support/production.cjs');
 
+test('installed extension reconnects open documents after extension reload and missing receivers', { timeout: 90000 }, async () => {
+  const fixture = fs.readFileSync(path.join(root, 'tests/fixtures/installed.html'), 'utf8').replace(marker, '');
+  await withInstalledBrowser(async browser => {
+    const tab = await browser.open('https://www.twitch.tv/offline-recovery', fixture);
+    await tab.waitFor(`document.querySelector('#second').hasAttribute('data-tq-chat-continuation')`);
+    await tab.evaluate(`
+      window.originalBody=document.body;window.previousStyle=document.getElementById('twitch-min-styles');
+      const draft=document.createElement('textarea');draft.id='native-draft';draft.value='unsent message';document.body.append(draft);
+      window.nativeClicks=0;document.querySelector('#notifications').addEventListener('click',()=>nativeClicks++);
+    `);
+    await browser.reloadExtension();
+    await tab.waitFor(`document.getElementById('twitch-min-styles') && document.getElementById('twitch-min-styles') !== previousStyle && document.querySelector('#second').hasAttribute('data-tq-chat-continuation')`);
+    assert.equal(await tab.evaluate(`document.body===originalBody && document.querySelector('#native-draft').value==='unsent message'`), true, 'extension reload preserves the document and native draft');
+    assert.equal(await tab.evaluate(`document.querySelectorAll('#twitch-min-styles').length`), 1);
+    await tab.evaluate(`document.querySelector('#notifications').click()`);
+    assert.equal(await tab.evaluate(`nativeClicks`), 1, 'native handlers survive replacement');
+
+    let popup = await browser.open(`chrome-extension://${browser.id}/${manifest.action.default_popup}`);
+    await popup.waitFor(`!document.querySelector('#master-toggle').disabled`);
+    await popup.evaluate(`(async()=>{
+      window.targetTab=(await chrome.tabs.query({url:chrome.runtime.getManifest().host_permissions}))[0].id;
+      await chrome.tabs.update(targetTab,{active:true});
+      await chrome.scripting.executeScript({target:{tabId:targetTab},func:()=>{
+        document.dispatchEvent(new Event('twitch-min:retire'));
+      }});
+      window.toggleLogs=[];const info=console.info;console.info=(...args)=>{toggleLogs.push(String(args[0]));info(...args)};
+    })()`);
+    await tab.waitFor(`!document.getElementById('twitch-min-styles')`);
+    await popup.evaluate(`document.querySelector('#master-toggle').click()`);
+    await popup.waitFor(`toggleLogs.some(message=>message.includes('active tab confirmed disabled'))`);
+    assert.equal(await popup.evaluate(`document.querySelector('#toggle-error').hidden`), true, 'missing receiver is recovered automatically');
+    assert.equal(await tab.evaluate(`document.body===originalBody && document.querySelector('#native-draft').value==='unsent message' && document.querySelectorAll('#twitch-min-styles').length===1 && !document.querySelector('[data-tq-chat-continuation]')`), true);
+    await popup.evaluate(`document.querySelector('#master-toggle').click()`);
+    await tab.waitFor(`document.querySelector('#second').hasAttribute('data-tq-chat-continuation')`);
+
+    // Retiring a paused instance must also survive invalidation and keep pause.
+    await popup.evaluate(`document.querySelector('#master-toggle').click()`);
+    await tab.waitFor(`document.documentElement.getAttribute('data-tq-enabled')==='false'`);
+    await tab.evaluate(`previousStyle=document.getElementById('twitch-min-styles');previousStyle.remove()`);
+    await browser.reloadExtension();
+    await tab.waitFor(`document.getElementById('twitch-min-styles')!==previousStyle && document.documentElement.getAttribute('data-tq-enabled')==='false'`);
+    assert.equal(await tab.evaluate(`document.querySelector('[data-tq-chat-continuation]')`), null, 'saved pause survives update');
+  });
+});
+
 test('installed extension: real storage, popup, isolated world, tabs, reload and browser restart', { timeout: 90000 }, async () => {
   // No production injection or chrome mock: Chrome reads the unchanged manifest.
   const fixture = fs.readFileSync(path.join(root, 'tests/fixtures/installed.html'), 'utf8').replace(marker, '');
@@ -56,7 +101,7 @@ test('installed extension: real storage, popup, isolated world, tabs, reload and
       const info=console.info;console.info=(...args)=>{toggleLogs.push(String(args[0]));info(...args)};
       await chrome.tabs.update(twitchTabs[0],{active:true});
       return twitchTabs.length;
-    })()`), 2, 'both Twitch tabs acknowledge status using storage-only permissions');
+    })()`), 2, 'both Twitch tabs acknowledge status with Twitch-only recovery access');
     await popup.evaluate(`document.querySelector('#master-toggle').click()`);
     await popup.waitFor(`!document.querySelector('#master-toggle').disabled`);
     await popup.waitFor(`toggleLogs.some(message=>message.includes('active tab confirmed disabled'))`);

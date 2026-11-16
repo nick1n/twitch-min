@@ -124,21 +124,11 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
     assert.equal(await evaluate(`document.querySelector('#sidebar-game p').textContent`), 'Warhammer Survivors', 'native game updates appear without copying/caching metadata');
   });
 
-  await t.test('saved disabled state and read failure leave Twitch usable', async () => {
-    await navigate('tests/fixtures/twitch.html', '__stored.enabled = false;');
-    assert.equal(await isVisible('composer'), true);
-    await evaluate(`document.querySelector('#chat-emote').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}))`);
-    assert.equal(await isVisible('twitch-min-emote-preview'), false);
-    await navigate('tests/fixtures/twitch.html', '__readError = true;');
-    assert.equal(await isVisible('composer'), true);
-    await evaluate(`document.querySelector('#chat-emote').dispatchEvent(new PointerEvent('pointerover',{bubbles:true}))`);
-    assert.equal(await isVisible('twitch-min-emote-preview'), false, 'unknown preferences leave native emotes alone');
-    assert.equal(await evaluate(`document.documentElement.hasAttribute('data-tq-enabled')`), false);
-  });
 
   await t.test('a later settings change recovers a failed initial read and restores normal pause behavior', async () => {
     await navigate('tests/fixtures/twitch.html', '__readError=true;');
     assert.equal(await isVisible('composer'), true);
+    assert.equal(await evaluate(`document.documentElement.hasAttribute('data-tq-enabled')`), false, 'failed preferences leave native styling untouched');
     assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle]')`), null);
     await evaluate(`__readError=false;__storagePatch({enabled:true})`);
     await waitFor(`document.querySelector('[data-tq-chat-toggle]') !== null`);

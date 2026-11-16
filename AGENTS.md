@@ -4,7 +4,8 @@
 
 - Keep the installed extension vanilla JavaScript/CSS, with no runtime dependencies
   or build. Use pnpm and the committed lockfile for development dependencies.
-  Preserve Twitch-only scope, local settings, and storage-only API permission.
+  Preserve Twitch-only scope, local settings, storage and scripting API permissions,
+  and host access limited to https://www.twitch.tv/* and https://twitch.tv/*.
 - Preserve unrelated working-tree changes. Keep work focused on the request;
   [ROADMAP.md](ROADMAP.md) contains deferred ideas, not rewrite plans.
 - Keep generated ZIPs and private `.browser-tests` snapshots out of commits and
@@ -60,4 +61,6 @@ See [architecture](docs/architecture.md) for ownership and lifecycle details.
   `README.md`, internals in `docs/architecture.md`, results and gaps in
   `docs/validation.md`, standalone ZIP instructions in `extension/INSTALL.txt`,
   history in `CHANGELOG.md`, future work in `ROADMAP.md`, and agent rules here.
+- Keep user guides focused on setup, settings, and practical troubleshooting.
+  Explain background behavior in the architecture notes, not installation steps.
 - Put enforceable checks in tests and scripts rather than relying only on docs.

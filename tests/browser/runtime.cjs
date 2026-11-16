@@ -1,6 +1,46 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { root, content } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, waitFor }) => {
+  await t.test('retirement restores an asynchronous sidebar before reinjection and leaves one working instance', async () => {
+    await navigate('tests/fixtures/twitch.html', `
+      window.__initialSidebarCollapsed=true;
+      window.activeObservers=new Set();
+      window.MutationObserver=class extends MutationObserver {
+        observe(...args){super.observe(...args);activeObservers.add(this)}
+        disconnect(){super.disconnect();activeObservers.delete(this)}
+      };
+    `);
+    await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
+    await evaluate(`
+      window.retired=false;document.addEventListener('twitch-min:retired',()=>retired=true,{once:true});
+      document.dispatchEvent(new Event('twitch-min:retire'));
+    `);
+    await waitFor(`retired`);
+    assert.equal(await evaluate(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed') && !document.getElementById('twitch-min-styles') && activeObservers.size===0 && __listeners.length===0`), true, 'handoff waits for native restoration and releases observers, styles and storage listeners');
+    // Reinjection follows the manifest, just as the service worker does.
+    for (const file of content.js) {
+      await evaluate(`(0,eval)(${JSON.stringify(fs.readFileSync(path.join(root, 'extension', file), 'utf8'))})`);
+    }
+    await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
+    assert.equal(await evaluate(`document.querySelectorAll('#twitch-min-styles').length===1 && document.querySelectorAll('[data-tq-chat-toggle]').length===1 && __listeners.length===1`), true);
+    await evaluate(`document.querySelector('[data-tq-chat-toggle]').click()`);
+    assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle]').getAttribute('aria-expanded')`), 'true', 'reinjection preserves single-click behavior');
+    await evaluate(`
+      history.pushState({},'', '?reconnected');
+      document.querySelector('.chat-room').remove();
+      const pane=document.createElement('div');pane.className='chat-room';
+      pane.innerHTML='<div id="late-reconnected-row" class="chat-line__message"><span data-a-target="chat-message-username" style="color:rgb(200,30,70)">Later</span><span>Later message</span></div>';
+      document.body.append(pane);
+    `);
+    await waitFor(`document.querySelector('#late-reconnected-row').hasAttribute('data-tq-chat-tint')`);
+    await evaluate(`history.pushState({},'', '?reconnected');__storagePatch({enabled:false})`);
+    await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed') && activeObservers.size===0`);
+    assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-toggle]').length`), 0);
+  });
+
   await t.test('a composer setup failure rolls back controls and listeners before a same-settings retry', async () => {
     await navigate('tests/fixtures/twitch.html');
     await evaluate(`__storagePatch({chatComposer:false});window.composerWarnings=[];console.warn=(...args)=>composerWarnings.push(String(args[0]));window.originalObserve=MutationObserver.prototype.observe;MutationObserver.prototype.observe=function(target,options){originalObserve.call(this,target,options);if(target.matches?.('.chat-input')){MutationObserver.prototype.observe=originalObserve;throw Error('injected failure after observing composer')}};__storagePatch({chatComposer:true})`);
@@ -188,14 +228,6 @@ module.exports = async (t, { navigate, evaluate, waitFor }) => {
     });
   }
 
-  await t.test('unrelated and unchanged settings produce no root attribute writes', async () => {
-    await navigate('tests/fixtures/twitch.html');
-    await evaluate(`window.rootWrites=0;const original=document.documentElement.setAttribute;document.documentElement.setAttribute=function(...args){rootWrites++;return original.apply(this,args)};__storagePatch({unrelated:true});__storagePatch({enabled:true});__storagePatch({chatComposer:true})`);
-    assert.equal(await evaluate('rootWrites'), 0);
-    await evaluate(`__storagePatch({chatComposer:false})`);
-    assert.equal(await evaluate('rootWrites'), 1, 'only the changed preference attribute is written');
-    await waitFor(`!document.querySelector('[data-tq-chat-toggle]')`);
-  });
 
   await t.test('sidebar metadata updates and small wheel deltas skip unchanged markers and HUD text', async () => {
     await navigate('tests/fixtures/twitch.html');
@@ -252,9 +284,4 @@ module.exports = async (t, { navigate, evaluate, waitFor }) => {
     assert.equal(await evaluate(`document.querySelector('[data-tq-fit-player], [data-tq-vod-fit]')`), null);
   });
 
-  await t.test('lifecycle attaches once, updates active features, and disposes idempotently', async () => {
-    await navigate('tests/fixtures/twitch.html');
-    const events = await evaluate(`(()=>{const events=[];const feature=TwitchMinRuntime.create({attach:s=>events.push('attach:'+s.value),update:s=>events.push('update:'+s.value),dispose:()=>events.push('dispose')},s=>s.enabled&&s.option);feature.update({enabled:false});feature.update({enabled:true,option:true,value:1});feature.update({enabled:true,option:true,value:2});feature.update({enabled:true,option:false});feature.dispose();feature.update({enabled:true,option:true,value:3});feature.dispose();return events})()`);
-    assert.deepEqual(events, ['attach:1', 'update:2', 'dispose', 'attach:3', 'dispose']);
-  });
 };

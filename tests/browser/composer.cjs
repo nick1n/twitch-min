@@ -1,7 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const { root } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
     await t.test('Chat toggles the composer and preserves drafts without triggering native sends or form submission', async () => {
@@ -83,7 +80,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await evaluate(`document.querySelector('[data-tq-chat-toggle]').getAttribute('aria-controls')`), 'renamed-composer');
     });
 
-    await t.test('Chat toggle follows later and replaced composers, including the supplied live editor', async () => {
+    await t.test('Chat toggle follows later and replaced composers', async () => {
       await navigate('tests/fixtures/twitch.html');
       await evaluate(`document.querySelector('[data-tq-chat-toggle]').click();const old=document.querySelector('.chat-input');old.replaceWith(old.cloneNode(true))`);
       assert.equal(await evaluate(`document.querySelectorAll('[data-tq-chat-toggle]').length`), 1, 'cloned controls are replaced without duplicates');
@@ -101,27 +98,6 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await evaluate(`document.querySelectorAll('[id^="twitch-min-composer-"], [data-tq-chat-toggle], [data-tq-composer-open]').length`), 0, 'generated IDs and markers are removed');
       assert.equal(await evaluate(`document.querySelector('textarea').value`), 'Later draft');
 
-      const snapshotFile = path.join(root, '.browser-tests', 'live.html');
-      if (fs.existsSync(snapshotFile)) {
-        const source = fs.readFileSync(snapshotFile, 'utf8');
-        await evaluate(`(()=>{
-          const snapshot=new DOMParser().parseFromString(${JSON.stringify(source)},'text/html'),owner=snapshot.querySelector('.chat-input').cloneNode(true);
-          owner.querySelectorAll('script,style,link,iframe,object,embed,img').forEach(node=>node.remove());
-          for(const node of [owner,...owner.querySelectorAll('*')])for(const attribute of [...node.attributes])if(/^on/i.test(attribute.name) || /^data-tq-/.test(attribute.name) || ['id','style','src','srcset'].includes(attribute.name))node.removeAttribute(attribute.name);
-          const editor=owner.querySelector('[data-a-target="chat-input"]');editor.textContent='Native live draft';editor.id='native-live-editor';
-          const send=owner.querySelector('[data-a-target="chat-send-button"]');send.disabled=true;window.liveNativeSends=0;send.addEventListener('click',()=>liveNativeSends++);
-          document.querySelector('.chat-input').replaceWith(owner);__storagePatch({chatComposer:true});
-        })()`);
-        await evaluate(`document.querySelector('[data-tq-chat-toggle]').click()`);
-        assert.equal(await evaluate(`document.activeElement.id`), 'native-live-editor');
-        assert.equal(await evaluate(`document.querySelector('#native-live-editor').checkVisibility({checkVisibilityCSS:true})`), true);
-        await evaluate(`document.querySelector('[data-tq-chat-toggle]').click()`);
-        assert.equal(await evaluate(`document.querySelector('#native-live-editor').checkVisibility({checkVisibilityCSS:true})`), false);
-        assert.equal(await evaluate(`document.querySelector('#native-live-editor').textContent`), 'Native live draft');
-        assert.equal(await evaluate(`liveNativeSends`), 0);
-        await evaluate(`__storagePatch({enabled:false})`);
-        assert.equal(await evaluate(`document.querySelectorAll('[id^="twitch-min-composer-"], [data-tq-chat-toggle], [data-tq-composer-open]').length`), 0);
-        assert.equal(await evaluate(`document.querySelector('[data-a-target="chat-send-button"]').disabled`), true);
-      }
+
     });
 };

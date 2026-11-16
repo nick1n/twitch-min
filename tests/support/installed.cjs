@@ -38,7 +38,25 @@ module.exports = async function withInstalledBrowser(run, options = {}) {
         };
         return { evaluate, waitFor, reload };
       }
-      return { id, open, async check() { await Promise.all(active); check(); } };
+      async function reloadExtension() {
+        const control = await browser.newPage();
+        try {
+          await control.goto('chrome://extensions');
+          await control.evaluate(() => chrome.developerPrivate.updateProfileConfiguration({ inDeveloperMode: true }));
+          await control.evaluate(id => new Promise((resolve, reject) => {
+            chrome.developerPrivate.reload(id, {failQuietly:true}, () => {
+              const error=chrome.runtime.lastError;
+              if(error) reject(new Error(error.message)); else resolve();
+            });
+          }), id);
+          const ready = await control.waitForFunction(async id => {
+            const extensions = await chrome.developerPrivate.getExtensionsInfo({ includeDisabled: true });
+            return extensions.some(extension => extension.id === id && extension.state === 'ENABLED');
+          }, { polling: 25, timeout: 10000 }, id);
+          await ready.dispose();
+        } finally { await control.close(); }
+      }
+      return { id, open, reloadExtension, async check() { await Promise.all(active); check(); } };
     }
     let current = await start();
     await run(current, async () => { await current.check(); current = await start(); return current; });

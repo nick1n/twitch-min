@@ -11,18 +11,19 @@ Screenshots: [Before](docs/images/before.png) & [After](docs/images/after.png)
 1. Open `chrome://extensions` (Chrome) or `opera://extensions` (Opera GX).
 2. Enable **Developer mode**, choose **Load unpacked**, and select this
    repository's **extension** folder.
-3. Refresh Twitch tabs. Pin **twitch-min** in the Extensions menu to open settings.
+3. Pin **twitch-min** in the Extensions menu, then open Twitch. Click the
+   extension icon to change your settings.
 
 For release ZIPs, follow the included [INSTALL.txt](extension/INSTALL.txt).
-Keep the loaded folder in place. After replacing its files, reload the extension
-on the extensions page and refresh Twitch. **Remove** uninstalls it and deletes
-saved preferences.
+Keep the loaded folder in place. To update, replace its files and click **Reload**
+for twitch-min on your browser's extensions page. **Remove** uninstalls it and
+deletes saved settings.
 
 ## Settings
 
-Changes apply to open Twitch tabs immediately. **Enable twitch-min** pauses or
-resumes while keeping your choices; **Enable all settings** turns every option on.
-**More settings / Back to top** scrolls the popup.
+Changes apply immediately. Turn **Enabled** off to pause without losing your
+choices. **Enable all settings** turns every option on. Use **More settings** or
+**Back to top** to scroll the list.
 
 All options start on except **Hide top navigation bar** and
 **About & channel panels**.
@@ -43,49 +44,43 @@ All options start on except **Hide top navigation bar** and
 | Chat username tint      | Give messages a background tint that matches the username color. Leave highlighted messages unchanged. |
 | Group consecutive chats | Show the username and first badge once for groups of messages from the same chatter. |
 | Enlarged emote previews | Hover over an emote to see a preview at three times its normal size. |
-| Chat message box        | Click **Chat** to show or hide the message box. Press Enter to send. |
+| Chat message box        | Click **Chat** to show or hide the message box. Press Enter in the message box to send. |
 
-The sidebar expands native lists before filtering. Manual Collapse/Expand stays
-available; turning both sidebar options off restores an initially collapsed
-sidebar.
+The sidebar's **Collapse/Expand** button still works.
 
 While enabled, twitch-min also:
 
-- Shows one badge per visible sender header, with other badge names in its native
-  tooltip.
+- Shows one chat badge per sender. Hover over it to see the other badge names.
 - Hides chat headers, replay message menus, and chat scrollbars.
-- Hides player Clip, the middle speed display, and Follow/Gift/Subscribe overlays.
+- Hides Clip, the extra playback-speed label, and Follow, Gift, and Subscribe overlays.
 - Softens the search border and keeps reward cards in three columns.
 - Expands **Show more** in Following's Recommended channels and Latest videos.
 
-Native badge actions, scrolling, collapsed-chat expansion, and playback controls
-remain available. Turn a switch off to restore that feature, or pause the extension
-to restore everything.
+Playback controls, chat scrolling, and Twitch's button actions remain available.
+Turn a setting off to restore that feature, or pause to restore everything.
+
+## Troubleshooting
+
+If a setting doesn't seem to work:
+
+1. Check that **Enabled** and the setting you want are turned on.
+2. In your browser's extension settings, make sure twitch-min is allowed to run
+   on Twitch.
+3. Refresh the Twitch tab and try again. This can also help after an update.
+
+If the popup shows an error, use **Copy error details** and **Report the issue**.
+Include what happened and the steps to reproduce it. If copying fails, select
+and copy the displayed text manually.
 
 ## Privacy and limits
 
-Runs only on `https://www.twitch.tv/*` and `https://twitch.tv/*`. The only API
-permission is `storage`, used for local settings. There are no credentials, Twitch
-API calls, analytics, backend, remote scripts, or page content uploads. Emote
-previews may load larger images from Twitch's CDN. Hidden Twitch features can
-still load and run.
+Runs only on Twitch and saves your settings in your browser. It doesn't collect
+analytics or upload page content. Larger emote previews load from Twitch's image
+servers. Hiding a Twitch feature doesn't stop it from loading or running.
 
-Twitch layouts vary by account and language; English label fallbacks may miss
-localized controls. Third-party emote markup is not specifically supported.
-If a feature misses its target, check its switch and refresh Twitch. Report
-reproducible issues with steps and a small sanitized HTML example.
-
-If a toggle cannot be confirmed, the popup shows troubleshooting guidance with
-**Copy error details** and a **Report an issue** link. The copied report includes
-the extension name/version, requested state, and diagnostic reason. If automatic
-copying is unavailable, select and copy the displayed details. Reports are not
-uploaded automatically. Refreshing Twitch is a suggested troubleshooting step;
-a missing response does not establish why the change could not be confirmed.
-
-For more detail, right-click inside the popup, choose **Inspect**, and filter its
-Console for `twitch-min`. Logs distinguish a saved preference from an active-tab
-acknowledgement. Twitch's DevTools Console logs page-side application and controller
-errors. Logs include the extension name and installed version and stay local.
+Twitch layouts vary by account and language, so some controls may be missed.
+Third-party emotes aren't specifically supported. Error reports are shared only
+when you choose to copy and submit them.
 
 See [validation notes](docs/validation.md) for tested scenarios and remaining gaps.
 
@@ -101,7 +96,7 @@ pnpm install --frozen-lockfile
 pnpm test
 ```
 
-On Windows, use `pnpm.cmd` if PowerShell blocks `pnpm.ps1`
+On Windows, use `pnpm.cmd` if PowerShell blocks `pnpm.ps1`.
 
 Puppeteer downloads Chrome for Testing during installation; the unused standalone
 Headless Shell download is disabled. Set `CHROME_PATH` to
@@ -112,8 +107,8 @@ and loads trusted fixtures only.
 | Command | Purpose |
 | --- | --- |
 | `pnpm test` | All unit, browser, and packaging checks. |
-| `pnpm run test:unit` | Settings, startup, lifecycle, requests, architecture, docs links, image tooling, and version tagging. |
-| `pnpm run test:browser` | Feature fixtures, installed-extension storage, and harness regressions. |
+| `pnpm run test:unit` | Settings, recovery, lifecycle, and tooling checks. |
+| `pnpm run test:browser` | Feature fixtures, installed-extension checks, and browser harness tests. |
 | `pnpm run test:package` | ZIP contents and failure recovery. |
 | `pnpm run test:soak` | Two-minute message, remount, and pause/resume workload. Set `TWITCH_MIN_SOAK_CYCLES` to change its length. |
 

@@ -1,7 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const { root } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
   await t.test('Browse hides the entire Recent Recaps shelf and restores its native controls on pause', async () => {
@@ -69,26 +66,4 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
     assert.equal(await evaluate('browseScans'), 0);
   });
 
-  const snapshotFile = path.join(root, '.browser-tests/browse.html');
-  await t.test('supplied Browse HTML hides Recent Recaps while keeping filters and live channels', { skip: !fs.existsSync(snapshotFile) }, async () => {
-    await navigate('tests/fixtures/browse.html');
-    const source = fs.readFileSync(snapshotFile, 'utf8');
-    await evaluate(`(()=>{
-      const snapshot=new DOMParser().parseFromString(${JSON.stringify(source)},'text/html');
-      const page=snapshot.querySelector('#directory-game-main-content').cloneNode(true);
-      page.querySelectorAll('script,style,link,iframe,object,embed,video,audio,source').forEach(node=>node.remove());
-      for(const node of [page,...page.querySelectorAll('*')])for(const attribute of [...node.attributes]) {
-        if(/^on/i.test(attribute.name)||/^data-tq-/.test(attribute.name)||['style','src','srcset','poster'].includes(attribute.name))node.removeAttribute(attribute.name);
-      }
-      const heading=[...page.querySelectorAll('h2')].find(node=>node.textContent.replace(/\\s+/g,' ').trim()==='Recent Recaps');
-      const shelf=heading.parentElement.parentElement;shelf.id='snapshot-recaps';
-      shelf.nextElementSibling.id='snapshot-live-directory';
-      document.querySelector('#directory-game-main-content').replaceWith(page);
-    })()`);
-    await waitFor(`document.querySelector('#snapshot-recaps').hasAttribute('data-tq-recent-recaps')`);
-    assert.equal(await isVisible('snapshot-recaps'), false);
-    for (const id of ['directory-game-main-content', 'browse-root-filter-sort-options', 'snapshot-live-directory']) assert.equal(await isVisible(id), true, `${id} stays visible`);
-    await evaluate(`__storagePatch({enabled:false})`);
-    assert.equal(await isVisible('snapshot-recaps'), true);
-  });
 };

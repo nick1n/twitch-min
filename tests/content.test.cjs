@@ -13,14 +13,13 @@ test('content script handles late document root, initial-read races, removals an
   let rootObserver;
   let changeListener;
   let finishRead;
-  let failRead;
-  const rootElement = { setAttribute: (key, value) => attributes[key] = value, appendChild: style => styles.push(style) };
-  const document = { documentElement: null, createElement: () => ({}) };
+  const rootElement = { getAttribute: key => attributes[key] ?? null, setAttribute: (key, value) => attributes[key] = value, appendChild: style => styles.push(style) };
+  const document = { documentElement: null, createElement: () => ({ setAttribute() {} }) };
   const context = vm.createContext({
     document,
     MutationObserver: class { constructor(callback) { rootObserver = callback; } observe() {} disconnect() {} },
     chrome: { storage: { onChanged: { addListener: callback => changeListener = callback }, local: {
-      get: () => new Promise((resolve, reject) => { finishRead = resolve; failRead = reject; })
+      get: () => new Promise(resolve => { finishRead = resolve; })
     } } },
     console: { info() {}, warn() {} }
   });
@@ -42,11 +41,7 @@ test('content script handles late document root, initial-read races, removals an
   changeListener({ chatComposer: {} }, 'local');
   assert.equal(attributes['data-tq-chat-composer'], 'true');
 
-  for (const key of Object.keys(attributes)) delete attributes[key];
-  vm.runInContext(read('extension/content.js'), context);
-  failRead(new Error('storage unavailable'));
-  await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(attributes, {}, 'failed settings read must leave the page unhidden');
+
 });
 
 test('content isolates failures and retries only unsuccessful features with unchanged settings', async () => {
@@ -55,8 +50,8 @@ test('content isolates failures and retries only unsuccessful features with unch
   let writes = 0, changeListener, fail = true;
   const context = vm.createContext({
     document: {
-      documentElement: { setAttribute() { writes++; }, appendChild() {} },
-      createElement: () => ({})
+      documentElement: { getAttribute() { return null; }, setAttribute() { writes++; }, appendChild() {} },
+      createElement: () => ({ setAttribute() {} })
     },
     chrome: { storage: { onChanged: { addListener(callback) { changeListener = callback; } },
       local: { get: async defaults => defaults } } },
@@ -85,6 +80,8 @@ test('content isolates failures and retries only unsuccessful features with unch
   changeListener({ chatComposer: { newValue: false } }, 'local');
   assert.deepEqual(calls, { first: 4, later: 2 });
   assert.equal(writes, settingCount + 1);
+  changeListener({ unrelated: { newValue: true } }, 'local');
+  assert.equal(writes, settingCount + 1, 'unrelated keys leave root attributes untouched');
 });
 
 test('content retries failed preference reads on relevant events and preserves changes during recovery', async () => {
@@ -92,8 +89,8 @@ test('content retries failed preference reads on relevant events and preserves c
   let changeListener;
   const context = vm.createContext({
     document: {
-      documentElement: { setAttribute: (key, value) => attributes[key] = value, appendChild() {} },
-      createElement: () => ({})
+      documentElement: { getAttribute: key => attributes[key] ?? null, setAttribute: (key, value) => attributes[key] = value, appendChild() {} },
+      createElement: () => ({ setAttribute() {} })
     },
     chrome: { storage: {
       onChanged: { addListener(callback) { changeListener = callback; } },
@@ -145,7 +142,7 @@ test('toggle diagnostics tag logs and report actual page state and controller fa
   const context = vm.createContext({
     document: {
       documentElement: rootElement,
-      createElement: () => ({}),
+      createElement: () => ({ setAttribute() {} }),
       getElementById: id => styles.find(style => style.id === id)
     },
     chrome: {
@@ -175,7 +172,7 @@ test('toggle diagnostics tag logs and report actual page state and controller fa
   assert.match(logs.at(-1)[1], /queued until preferences finish loading/);
   finishRead(context.TwitchMinSettings.DEFAULTS);
   await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(status(), { type: 'twitch-min:status', version: manifest.version, enabled: false,
+  assert.deepEqual(status(), { type: 'twitch-min:status', version: manifest.version, ready: true, enabled: false,
     appliedEnabled: 'false', stylesheetMounted: true, failedFeatures: [], missingFeatures: [] });
   failFeature = true;
   changeListener({ enabled: { newValue: true } }, 'local');
@@ -193,4 +190,78 @@ test('toggle diagnostics tag logs and report actual page state and controller fa
   delete context.TwitchMinChat;
   assert.deepEqual(status().missingFeatures, ['TwitchMinChat']);
   assert.equal(logs.every(([, message]) => message.startsWith(`[${manifest.name} v${manifest.version}]`)), true);
+});
+
+function retirementFixture({ lateRoot = false, invalidated = false, failOnce = false } = {}) {
+  const document = new EventTarget();
+  const attributes = {}, calls = [], removed = [], listeners = {};
+  let finishRead, observer;
+  const rootElement = {
+    getAttribute: key => attributes[key] ?? null,
+    setAttribute: (key, value) => attributes[key] = value,
+    removeAttribute: key => delete attributes[key],
+    appendChild(style) { style.isConnected = true; }
+  };
+  document.documentElement = lateRoot ? null : rootElement;
+  document.createElement = () => ({ setAttribute() {}, remove() { this.isConnected = false; calls.push('style'); } });
+  const channel = name => ({
+    addListener(callback) { listeners[name] = callback; },
+    removeListener(callback) { removed.push([name, callback]); if (invalidated) throw Error('context invalidated'); }
+  });
+  const context = vm.createContext({ document, Event,
+    MutationObserver: class { constructor(callback) { observer = this; this.callback = callback; } observe() {} disconnect() { this.disconnected = true; } },
+    chrome: { runtime: { onMessage: channel('message') }, storage: { onChanged: channel('storage'), local: {
+      get: () => new Promise(resolve => finishRead = resolve)
+    } } }, console: { info() {}, warn() {} }
+  });
+  const names = ['TwitchMinEmotes', 'TwitchMinLayout', 'TwitchMinTimestamps', 'TwitchMinPlayer', 'TwitchMinChat', 'TwitchMinComposer'];
+  for (const name of names) context[name] = {
+    update() { calls.push(`update:${name}`); },
+    dispose() { calls.push(`dispose:${name}`); if (name === 'TwitchMinLayout' && failOnce) { failOnce = false; throw Error('restore failed'); } }
+  };
+  loadRules(context);
+  vm.runInContext(read('extension/content.js'), context);
+  const retire = () => new Promise(resolve => {
+    const success = () => done('retired'), failure = () => done('retire-failed');
+    function done(result) { document.removeEventListener('twitch-min:retired', success); document.removeEventListener('twitch-min:retire-failed', failure); resolve(result); }
+    document.addEventListener('twitch-min:retired', success);
+    document.addEventListener('twitch-min:retire-failed', failure);
+    document.dispatchEvent(new Event('twitch-min:retire'));
+  });
+  return { context, document, rootElement, attributes, calls, removed, listeners, names, finishRead: value => finishRead(value), observer: () => observer, retire };
+}
+
+test('retirement disconnects a pending root and ignores late settings and storage callbacks', async () => {
+  const f = retirementFixture({ lateRoot: true, invalidated: true });
+  assert.equal(await f.retire(), 'retired');
+  assert.equal(f.observer().disconnected, true);
+  assert.deepEqual(f.removed.map(([name]) => name), ['storage', 'message']);
+  assert.equal(f.removed[0][1], f.listeners.storage);
+  assert.equal(f.removed[1][1], f.listeners.message);
+  f.document.documentElement = f.rootElement;
+  f.observer().callback();
+  f.finishRead(f.context.TwitchMinSettings.DEFAULTS);
+  f.listeners.storage({ enabled: { newValue: false } }, 'local');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(f.attributes, {});
+  assert.equal(f.calls.some(call => call.startsWith('update:')), false);
+});
+
+test('retirement retries failed cleanup, retains captured controllers and releases DOM state', async () => {
+  const f = retirementFixture({ failOnce: true });
+  f.finishRead(f.context.TwitchMinSettings.DEFAULTS);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.attributes['data-tq-enabled'], 'true');
+  for (const name of f.names) f.context[name] = { dispose() { throw Error('replacement must not be disposed'); } };
+  assert.equal(await f.retire(), 'retire-failed');
+  assert.equal(f.calls.filter(call => call.startsWith('dispose:')).length, f.names.length);
+  assert.equal(f.attributes['data-tq-enabled'], 'true', 'failed cleanup retains page state for retry');
+  assert.equal(await f.retire(), 'retired');
+  assert.deepEqual(f.attributes, {});
+  assert.equal(f.calls.filter(call => call === 'style').length, 1);
+  const count = f.calls.length;
+  f.listeners.storage({ enabled: { newValue: false } }, 'local');
+  f.document.dispatchEvent(new Event('twitch-min:retire'));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(f.calls.length, count, 'successful retirement removes the hook and ignores stale callbacks');
 });

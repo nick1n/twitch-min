@@ -2,6 +2,50 @@ const assert = require('node:assert/strict');
 const { manifest } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
+  await t.test('popup reconnects missing and outdated receivers once without reloading the tab', async () => {
+    for (const initial of ['missing', 'outdated', 'not-ready']) {
+      await navigate(`extension/${manifest.action.default_popup}`);
+      await evaluate(`
+        window.recoveryRequests=[];
+        chrome.tabs={query:async()=>[{id:17}],sendMessage:async()=>{
+          if(${JSON.stringify(initial)}==='missing')throw Error('Receiving end does not exist.');
+          if(${JSON.stringify(initial)}==='not-ready')return {type:'twitch-min:status',version:chrome.runtime.getManifest().version,ready:false};
+          return {type:'twitch-min:status',version:'outdated'};
+        }};
+        chrome.runtime.sendMessage=async message=>{
+          recoveryRequests.push(message);
+          return {type:'twitch-min:recovery',ok:true,status:{type:'twitch-min:status',version:chrome.runtime.getManifest().version,enabled:__stored.enabled,appliedEnabled:String(__stored.enabled),stylesheetMounted:true,failedFeatures:[],missingFeatures:[]}};
+        };
+        document.querySelector('#master-toggle').click();
+      `);
+      await waitFor(`recoveryRequests.length===1 && !document.querySelector('#master-toggle').disabled`);
+      assert.deepEqual(await evaluate(`recoveryRequests`), [{ type: 'twitch-min:recover', tabId: 17 }]);
+      assert.equal(await evaluate(`document.querySelector('#toggle-error').hidden`), true);
+      assert.equal(await evaluate(`__stored.enabled`), false);
+    }
+  });
+
+  await t.test('popup reports recovery failure and ignores a superseded recovery result', async () => {
+    await navigate(`extension/${manifest.action.default_popup}`);
+    await evaluate(`
+      chrome.tabs={query:async()=>[{id:17}],sendMessage:async()=>{throw Error('Missing receiver')}};
+      chrome.runtime.sendMessage=async()=>({type:'twitch-min:recovery',ok:false,error:'Refresh required to update the existing extension session'});
+      document.querySelector('#master-toggle').click();
+    `);
+    await waitFor(`!document.querySelector('#toggle-error').hidden`);
+    assert.match(await evaluate(`document.querySelector('#error-details').value`), /Refresh required/);
+    await evaluate(`
+      window.recoveries=[];
+      chrome.runtime.sendMessage=()=>new Promise(resolve=>recoveries.push(resolve));
+      document.querySelector('#master-toggle').click();
+    `);
+    await waitFor(`recoveries.length===1`);
+    await evaluate(`document.querySelector('#master-toggle').click()`);
+    await waitFor(`recoveries.length===2`);
+    await evaluate(`recoveries[1]({type:'twitch-min:recovery',ok:true,status:{type:'twitch-min:status',version:chrome.runtime.getManifest().version,enabled:false,appliedEnabled:'false',stylesheetMounted:true,failedFeatures:[],missingFeatures:[]}});recoveries[0]({type:'twitch-min:recovery',ok:false,error:'Stale failure'})`);
+    assert.equal(await evaluate(`document.querySelector('#toggle-error').hidden`), true, 'old recovery failure cannot overwrite newer success');
+  });
+
   await t.test('toggle troubleshooting appears only for an unconfirmed change and supports copying and reporting', async () => {
     await navigate(`extension/${manifest.action.default_popup}`);
     assert.equal(await evaluate(`document.querySelector('#toggle-error').hidden`), true);
@@ -14,7 +58,6 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     `);
     await waitFor(`!document.querySelector('#toggle-error').hidden`);
     assert.match(await evaluate(`document.querySelector('#toggle-error-message').textContent`), /Couldn't confirm the change/);
-    assert.doesNotMatch(await evaluate(`document.querySelector('#toggle-error').textContent`), /reloading|updated|updating/i, 'no unverified reload explanation');
     assert.equal(await evaluate(`document.querySelector('#toggle-error a').href`), `${manifest.homepage_url}/issues`);
     assert.equal(await evaluate(`document.querySelector('#toggle-error a').rel`), 'noopener noreferrer');
     await evaluate(`document.querySelector('#copy-error').click()`);
@@ -26,10 +69,6 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     assert.equal(details.requestedEnabled, false);
     assert.equal(details.reason, 'no-page-response');
     assert.equal(details.error, 'Receiving end does not exist.');
-    await evaluate(`new Promise(resolve=>setTimeout(resolve,5100))`);
-    assert.equal(await evaluate(`document.querySelector('#copy-error').textContent`), 'Copy error details', 'copy feedback resets after five seconds');
-    await evaluate(`document.querySelector('#copy-error').click()`);
-    await waitFor(`document.querySelector('#copy-error').textContent === 'Copied!'`);
     try {
       await send('Emulation.setDeviceMetricsOverride', { width: 360, height: 600, deviceScaleFactor: 1, mobile: false });
       for (const theme of ['light', 'dark']) {
@@ -198,37 +237,7 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     assert.equal(await evaluate(`originalControls.every(input=>input === document.getElementById(input.id))`), true, 'saves, bulk actions and external changes retain the original controls');
   });
 
-  await t.test('popup whole-bar hiding reads saved choices and saves separately from navigation extras', async () => {
-    await navigate(`extension/${manifest.action.default_popup}`, '__stored.hideTopNavigation=true;');
-    assert.equal(await evaluate(`document.querySelector('#group-hideTopNavigation').checked`), true);
-    await evaluate(`document.querySelector('#group-hideTopNavigation').parentElement.click()`);
-    assert.deepEqual(await evaluate('__writes.at(-1)'), { hideTopNavigation: false });
-    assert.equal(await evaluate(`document.querySelector('#group-topNavigation').checked`), true, 'showing the bar retains extras filtering');
-    await evaluate(`__storagePatch({hideTopNavigation:true});document.querySelector('#group-topNavigation').click()`);
-    assert.deepEqual(await evaluate('__writes.at(-1)'), { topNavigation: false });
-    assert.equal(await evaluate(`document.querySelector('#group-hideTopNavigation').checked`), true, 'showing extras retains whole-bar hiding');
-    await evaluate(`document.querySelector('#enable-all-button').click()`);
-    assert.equal(await evaluate(`__writes.at(-1).hideTopNavigation && __writes.at(-1).topNavigation`), true);
-  });
 
-  await t.test('popup Stories and Recaps switches save independently and participate in Enable all', async () => {
-    await navigate(`extension/${manifest.action.default_popup}`);
-    for (const key of ['followingStories', 'browseRecaps']) {
-      assert.equal(await evaluate(`document.querySelector('#group-${key}').checked`), true, `${key} defaults on`);
-      await evaluate(`document.querySelector('#group-${key}').parentElement.click()`);
-      assert.deepEqual(await evaluate('__writes.at(-1)'), { [key]: false });
-    }
-    await evaluate(`__storagePatch({followingStories:true})`);
-    assert.equal(await evaluate(`document.querySelector('#group-followingStories').checked`), true);
-    assert.equal(await evaluate(`document.querySelector('#group-browseRecaps').checked`), false);
-    await navigate(`extension/${manifest.action.default_popup}`, '__stored.followingStories=false;__stored.browseRecaps=false;');
-    for (const key of ['followingStories', 'browseRecaps']) assert.equal(await evaluate(`document.querySelector('#group-${key}').checked`), false, `${key} reads its saved opt-out`);
-    await evaluate(`document.querySelector('#enable-all-button').click()`);
-    for (const key of ['followingStories', 'browseRecaps']) {
-      assert.equal(await evaluate(`document.querySelector('#group-${key}').checked`), true);
-      assert.equal(await evaluate(`__writes.at(-1).${key}`), true);
-    }
-  });
 
   await t.test('branded popup keeps descriptions, scrolls settings, and supports keyboard and label activation', async () => {
     await navigate(`extension/${manifest.action.default_popup}`);

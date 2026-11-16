@@ -8,8 +8,9 @@ Working rules: [AGENTS.md](../AGENTS.md). Paths below are repository-relative.
 | File or directory | Responsibility |
 | --- | --- |
 | `extension/manifest.json` | Production script order and assets; fixtures and tooling derive their lists from it. |
-| `extension/shared/settings.js` | Stable preference keys, defaults, attributes, popup labels, and normalization. |
-| `extension/content.js` | Load preferences, mount CSS, and coordinate controllers. |
+| `extension/shared/settings.js` | Stable setting keys, defaults, attributes, popup labels, and normalization. |
+| `extension/content.js` | Load settings, mount CSS, coordinate controllers, and retire an instance. |
+| `extension/background.js` | Reconnect existing Twitch tabs on install, update, startup, or popup request. |
 | `extension/styles/rules-*.js` | Feature CSS; `rules.js` builds the stylesheet in frozen cascade-slot order. |
 | `extension/shared/runtime.js` | Attach/update/dispose lifecycle and failure recovery. |
 | `extension/shared/regions.js` | Shared region discovery and cleanup ownership. |
@@ -19,7 +20,7 @@ Working rules: [AGENTS.md](../AGENTS.md). Paths below are repository-relative.
 
 ## Settings and lifecycle
 
-CSS and controllers activate after saved preferences load, so the native page may
+CSS and controllers activate after saved settings load, so the native page may
 appear briefly. A temporary document-start observer disconnects once the root
 exists. Only one initial settings read runs at a time. Failed reads retain queued
 changes and removals; relevant storage events retry without timers.
@@ -34,19 +35,38 @@ and recovery reads. If both saving and rereading fail, rollback touches only fie
 without newer notifications. Scroll and ResizeObserver events update popup
 navigation without polling.
 
-Master-toggle diagnostics log popup requests, storage failures, and page-side
-application with a name/version prefix derived from the installed manifest.
-After a successful save, the popup queries only the active tab ID and sends one
-read-only status message to its top frame. The response reports the applied root
-attribute, stylesheet presence, and missing/failed controllers. This uses the
-existing storage-only permission declaration; no tab URLs or titles are read.
-Checks run asynchronously with a single two-second response timeout, without
-blocking saves, polling, or persisting results. Newer toggle attempts supersede
-earlier responses. Unconfirmed toggles show conditional troubleshooting and
-refresh guidance; no specific cause is assumed. A new toggle, successful check,
-or external enabled-state change clears the old report. Copying includes only
-extension status fields and diagnostic errors, with selectable text as a clipboard
-fallback. The issue link does not upload or submit the report.
+## Reconnecting open tabs
+
+`background.js` checks open Twitch tabs on install, update, and browser startup.
+Ready instances at the current version stay in place. Other instances are cleaned
+up before replacement. Concurrent requests for the same tab share one recovery
+operation; script and style lists come from the manifest.
+
+The extension uses `storage` for local settings and `scripting` with host access
+limited to `https://www.twitch.tv/*` and `https://twitch.tv/*`. It needs neither
+`tabs` nor `activeTab` permission. Chrome 106 or newer is required to target a
+specific document during reinjection, so navigation can't redirect the operation
+to a different page.
+
+After saving **Enabled**, the popup asks the active tab's top frame for its applied
+state, stylesheet status, and controller failures. A missing, outdated, or unready
+response triggers one recovery attempt through the worker. Status requests have
+a two-second timeout; the popup allows eight seconds for recovery. These checks
+don't block the settings controls. Newer changes supersede earlier results.
+
+Before reinjection, a `twitch-min:retire` DOM event asks the old instance to release
+its controllers, listeners, styles, and attributes. It responds with
+`twitch-min:retired` or `twitch-min:retire-failed`. Plain events work across an
+invalidated extension context; objects passed through `CustomEvent.detail` don't.
+Cleanup waits up to two seconds for native sidebar restoration, and the worker
+waits up to three seconds for the acknowledgement. Failed cleanup or a legacy
+instance without this hook requires a manual refresh. The extension never reloads
+the page itself.
+
+Unconfirmed changes show troubleshooting in the popup. Reports contain extension
+status and errors, not page content, and clear on a new attempt or confirmed
+change. Logs use the name and version from the installed manifest. To debug,
+inspect the popup for save/recovery logs and Twitch's console for controller errors.
 
 ## Regions and controllers
 
@@ -107,6 +127,8 @@ stays active independently when message grouping is off.
 `tests/browser.test.cjs` registers each feature module once, with independent
 fixture state per check. `tests/support/rules.cjs` loads rules in a fresh VM;
 `production.cjs` expands fixture markers. Both follow manifest order.
+
+Browser cases use committed, sanitized fixtures rather than ignored private snapshots.
 
 Architecture checks enforce focused-command coverage, browser registration,
 script order, matching versions, and the reviewed CSS baseline in

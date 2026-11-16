@@ -18,7 +18,6 @@ test('real Chrome: production features and failures', { timeout: 120000 }, async
     await require('./browser/rewards.cjs')(t, browser);
     await require('./browser/popup.cjs')(t, browser);
     await require('./browser/preferences.cjs')(t, browser);
-    await require('./browser/snapshots.cjs')(t, browser);
     await require('./browser/runtime.cjs')(t, browser);
   }, { intercept, initSource });
 });

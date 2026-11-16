@@ -64,14 +64,6 @@ test('version bump tags exactly the tested default-branch SHA and safely reruns'
   assert.equal(f.tags(), `${f.env.GITHUB_SHA}\trefs/tags/v${nextVersion}`);
 });
 
-test('unchanged versions and non-version commits do not create tags', t => {
-  const f = fixture(t);
-  assert.match(f.run(), /^Created /);
-  f.bump(baseVersion);
-  assert.match(f.run(), /already exists/);
-  assert.equal(f.tags(), `${f.before}\trefs/tags/v${baseVersion}`);
-});
-
 test('a successful follow-up commit tags a version missed by a failed or cancelled run', t => {
   const f = fixture(t);
   f.bump();

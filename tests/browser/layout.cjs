@@ -1,7 +1,4 @@
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const { root } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
     await t.test('For You and pagination stay hidden when one native list stalls', async () => {
@@ -322,48 +319,33 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await isVisible('late-turbo'), true, 'navigation switch restores text-only controls');
     });
     await t.test('promoted followed cards keep an unclipped avatar, count and game in a normal compact row', async () => {
-      const snapshotFile = path.join(root, '.browser-tests', 'live.html');
-      for (const variant of ['fixture', ...(fs.existsSync(snapshotFile) ? ['supplied HTML'] : [])]) {
-        await navigate('tests/fixtures/promoted-sidebar.html');
-        if (variant === 'supplied HTML') {
-          const source = fs.readFileSync(snapshotFile, 'utf8');
-          await evaluate(`(()=>{
-            const snapshot=new DOMParser().parseFromString(${JSON.stringify(source)},'text/html');
-            const row=snapshot.querySelector('.side-nav-card__link--promoted-followed').cloneNode(true);
-            row.querySelectorAll('script,style,link,iframe,object,embed,video,audio,source').forEach(node=>node.remove());
-            for(const node of [row,...row.querySelectorAll('*')])for(const attribute of [...node.attributes]) {
-              if(/^on/i.test(attribute.name) || /^data-tq-/.test(attribute.name) || ['id','style','src','srcset'].includes(attribute.name))node.removeAttribute(attribute.name);
-            }
-            row.id='promoted-row';document.querySelector('#promoted-row').replaceWith(row);
-          })()`);
-        }
-        const href = await evaluate(`(()=>{
-          const row=document.querySelector('#promoted-row');
-          const targets={avatar:'.tw-avatar',status:'.side-nav-card__live-status',count:'.side-nav-card__live-status span[aria-hidden="true"]',game:'.side-nav-promoted-followed-card__content p',title:'.side-nav-promoted-followed-card__title',sponsor:'.side-nav-promoted-followed-card__sponsorship',gradient:'.side-nav-promoted-followed-card__gradient',tooltip:'.side-nav-card__link__tooltip-arrow',art:'.tw-avatar + img'};
-          for(const [id,selector] of Object.entries(targets))row.querySelector(selector).id='promoted-'+id;
-          window.promotedClicks=0;row.addEventListener('click',event=>{event.preventDefault();promotedClicks++});return row.getAttribute('href');
-        })()`);
-        for (const id of ['promoted-avatar','promoted-count','promoted-game']) assert.equal(await isVisible(id), true, `${variant}: ${id} remains visible`);
-        for (const id of ['promoted-title','promoted-sponsor','promoted-gradient','promoted-tooltip','promoted-art']) assert.equal(await isVisible(id), false, `${variant}: ${id} is hidden`);
-        const geometry = () => evaluate(`(()=>{const rect=id=>{const r=document.getElementById(id).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};return Object.fromEntries(['promoted-row','promoted-avatar','promoted-status','promoted-game','reference-row'].map(id=>[id,rect(id)]))})()`);
-        const rects = await geometry(), row = rects['promoted-row'], avatar = rects['promoted-avatar'], count = rects['promoted-status'], game = rects['promoted-game'];
-        assert.equal(row.width, 144, variant);
-        assert.equal(row.height, rects['reference-row'].height, `${variant}: same compact height as an ordinary channel`);
-        assert.equal(avatar.width, 26, variant); assert.equal(avatar.height, 26, variant);
-        assert.ok(avatar.y >= row.y && avatar.bottom <= row.bottom, `${variant}: the full avatar stays inside its row`);
-        assert.ok(count.x >= avatar.right, `${variant}: count appears beside the avatar`);
-        assert.equal(count.x, game.x, `${variant}: game aligns with the count`);
-        assert.ok(game.y >= count.bottom && game.right <= row.right, `${variant}: game fits below the count`);
-        assert.equal(await evaluate(`getComputedStyle(document.querySelector('#promoted-count')).fontSize`), '13px');
-        assert.equal(await evaluate(`getComputedStyle(document.querySelector('#promoted-game')).fontSize`), '12px');
-        await evaluate(`document.querySelector('#promoted-count').textContent='101K';const game=document.querySelector('#promoted-game');game.textContent='Another current game';game.title='Another current game';document.querySelector('#promoted-row').click()`);
-        assert.equal(await evaluate(`promotedClicks`), 1, `${variant}: native link handlers survive`);
-        assert.equal((await geometry())['promoted-row'].height, row.height, `${variant}: native count/game updates preserve row height`);
-        await evaluate(`__storagePatch({sidebarLabels:false})`);
-        for (const id of ['promoted-title','promoted-sponsor','promoted-gradient']) assert.equal(await isVisible(id), true, `${variant}: ${id} restores`);
-        assert.ok((await geometry())['promoted-row'].height > row.height, `${variant}: native card sizing restores`);
-        assert.equal(await evaluate(`document.querySelector('#promoted-row').getAttribute('href')`), href, `${variant}: native destination stays intact`);
-      }
+      await navigate('tests/fixtures/promoted-sidebar.html');
+      const href = await evaluate(`(()=>{
+        const row=document.querySelector('#promoted-row');
+        const targets={avatar:'.tw-avatar',status:'.side-nav-card__live-status',count:'.side-nav-card__live-status span[aria-hidden="true"]',game:'.side-nav-promoted-followed-card__content p',title:'.side-nav-promoted-followed-card__title',sponsor:'.side-nav-promoted-followed-card__sponsorship',gradient:'.side-nav-promoted-followed-card__gradient',tooltip:'.side-nav-card__link__tooltip-arrow',art:'.tw-avatar + img'};
+        for(const [id,selector] of Object.entries(targets))row.querySelector(selector).id='promoted-'+id;
+        window.promotedClicks=0;row.addEventListener('click',event=>{event.preventDefault();promotedClicks++});return row.getAttribute('href');
+      })()`);
+      for (const id of ['promoted-avatar','promoted-count','promoted-game']) assert.equal(await isVisible(id), true, `${id} remains visible`);
+      for (const id of ['promoted-title','promoted-sponsor','promoted-gradient','promoted-tooltip','promoted-art']) assert.equal(await isVisible(id), false, `${id} is hidden`);
+      const geometry = () => evaluate(`(()=>{const rect=id=>{const r=document.getElementById(id).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};return Object.fromEntries(['promoted-row','promoted-avatar','promoted-status','promoted-game','reference-row'].map(id=>[id,rect(id)]))})()`);
+      const rects = await geometry(), row = rects['promoted-row'], avatar = rects['promoted-avatar'], count = rects['promoted-status'], game = rects['promoted-game'];
+      assert.equal(row.width, 144);
+      assert.equal(row.height, rects['reference-row'].height, `same compact height as an ordinary channel`);
+      assert.equal(avatar.width, 26); assert.equal(avatar.height, 26);
+      assert.ok(avatar.y >= row.y && avatar.bottom <= row.bottom, `the full avatar stays inside its row`);
+      assert.ok(count.x >= avatar.right, `count appears beside the avatar`);
+      assert.equal(count.x, game.x, `game aligns with the count`);
+      assert.ok(game.y >= count.bottom && game.right <= row.right, `game fits below the count`);
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('#promoted-count')).fontSize`), '13px');
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector('#promoted-game')).fontSize`), '12px');
+      await evaluate(`document.querySelector('#promoted-count').textContent='101K';const game=document.querySelector('#promoted-game');game.textContent='Another current game';game.title='Another current game';document.querySelector('#promoted-row').click()`);
+      assert.equal(await evaluate(`promotedClicks`), 1, `native link handlers survive`);
+      assert.equal((await geometry())['promoted-row'].height, row.height, `native count/game updates preserve row height`);
+      await evaluate(`__storagePatch({sidebarLabels:false})`);
+      for (const id of ['promoted-title','promoted-sponsor','promoted-gradient']) assert.equal(await isVisible(id), true, `${id} restores`);
+      assert.ok((await geometry())['promoted-row'].height > row.height, `native card sizing restores`);
+      assert.equal(await evaluate(`document.querySelector('#promoted-row').getAttribute('href')`), href, `native destination stays intact`);
     });
 
 };

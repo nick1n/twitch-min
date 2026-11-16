@@ -97,16 +97,16 @@ test('local Markdown link extraction ignores code and remote destinations', () =
   assert.deepEqual(localLinks(sample), ['missing.md', 'folder/a b.png', 'folder/a b.md']);
 });
 
-test('manifest is Twitch-only, storage-only, with unique local assets', () => {
+test('manifest permits only local settings and Twitch-only recovery with unique local assets', () => {
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual(manifest.permissions, ['storage']);
-  assert.equal(manifest.background, undefined);
-  assert.equal(manifest.host_permissions, undefined);
+  assert.deepEqual(manifest.permissions, ['storage', 'scripting']);
+  assert.deepEqual(manifest.background, { service_worker: 'background.js' });
+  assert.deepEqual(manifest.host_permissions, manifest.content_scripts[0].matches);
   assert.deepEqual(manifest.content_scripts[0].matches, ['https://www.twitch.tv/*', 'https://twitch.tv/*']);
   assert.equal(manifest.content_scripts[0].run_at, 'document_start');
   assert.equal(new Set(content.js).size, content.js.length, 'content scripts are loaded once');
   assert.equal(new Set(content.css).size, content.css.length, 'content styles are loaded once');
-  for (const file of [...manifest.content_scripts[0].js, ...manifest.content_scripts[0].css, manifest.action.default_popup]) {
+  for (const file of [...manifest.content_scripts[0].js, ...manifest.content_scripts[0].css, manifest.action.default_popup, manifest.background.service_worker]) {
     assert.ok(fs.existsSync(path.join(root, 'extension', file)), file);
   }
   for (const file of Object.values(manifest.icons)) {

@@ -4,29 +4,28 @@ INSTALL
 1. Extract the ZIP and keep the extracted folder in place.
 2. Open chrome://extensions (Chrome) or opera://extensions (Opera GX).
 3. Enable Developer mode, choose Load unpacked, and select the folder
-   containing manifest.json. No build or dependency installation is needed.
-4. Refresh Twitch tabs. Pin twitch-min in the Extensions menu to open settings.
+   containing manifest.json.
+4. Pin twitch-min in the Extensions menu, then open Twitch.
 
 USE
-Each switch explains its effect. Changes apply immediately.
-Enable twitch-min pauses/resumes while keeping your choices.
-Enable all settings turns every option on.
-More settings / Back to top scrolls the list.
+Click the extension icon to change settings. Turn Enabled off to pause without
+losing your choices. Enable all settings turns every option on.
 
 All options start on except Hide top navigation bar and About & channel panels.
-Chat toggles the editor without sending or losing drafts; Enter sends
-normally. Disabling a switch restores that feature; pausing restores everything.
+Click Chat to show or hide the message box without losing your draft.
+Press Enter in the message box to send.
 
-PRIVACY AND LIMITS
-Runs only on HTTPS twitch.tv pages, with or without www. The only API permission
-is storage, for local settings. No credentials, analytics, backend, remote scripts,
-or page content uploads. Emote previews may load larger images from Twitch's CDN.
-Hidden Twitch features can still run. Layouts and languages vary; signed-in-only
-behavior still needs validation.
+TROUBLESHOOTING
+If a setting doesn't work, check that Enabled and the setting are turned on.
+Make sure your browser allows twitch-min to run on Twitch, then refresh the tab.
+
+If the popup shows an error, click Copy error details and Report the issue.
+Describe what happened and how to reproduce it. If copying fails, select and
+copy the displayed text manually.
 
 UPDATE OR REMOVE
-Replace the files in the loaded folder, reload twitch-min on the extensions
-page, and refresh Twitch. Keep the folder while the extension is installed.
-Remove on the extension card uninstalls it and deletes saved preferences.
+Replace the files in the same folder, then click Reload for twitch-min on your
+browser's extensions page. To uninstall, click Remove; this also deletes your
+saved settings.
 
-Full guide, known limits, and issues: https://github.com/nick1n/twitch-min
+Full guide and privacy information: https://github.com/nick1n/twitch-min

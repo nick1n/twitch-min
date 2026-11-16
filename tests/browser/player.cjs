@@ -18,24 +18,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       await evaluate(`__storagePatch({channelActions:true});__storagePatch({enabled:false})`);
       for (const id of ['channel-menu', 'video-menu', 'late-channel-menu']) assert.equal(await isVisible(id), true, `${id} restores on master pause`);
 
-      for (const [file, selector] of [['live.html', '[data-a-target="report-button-more-button"]'], ['test.html', 'button[aria-label="Video Options"]']]) {
-        const snapshotFile = path.join(root, '.browser-tests', file);
-        if (!fs.existsSync(snapshotFile)) continue;
-        const source = fs.readFileSync(snapshotFile, 'utf8');
-        await evaluate(`(()=>{
-          const snapshot=new DOMParser().parseFromString(${JSON.stringify(source)},'text/html');
-          const native=snapshot.querySelector(${JSON.stringify(selector)});
-          const scope=native.closest('.channel-info-content') ? 'channel-info-content' : 'channel-root__info';
-          const button=native.cloneNode(true);
-          button.querySelectorAll('script,style,link,iframe,object,embed,video,audio,source').forEach(node=>node.remove());
-          for(const node of [button,...button.querySelectorAll('*')])for(const attribute of [...node.attributes])if(/^on/i.test(attribute.name)||/^data-tq-/.test(attribute.name)||['id','style','src','srcset'].includes(attribute.name))node.removeAttribute(attribute.name);
-          button.id='snapshot-channel-menu';const region=document.createElement('div');region.className=scope;region.append(button);document.querySelector('#snapshot-channel-menu')?.parentElement.remove();document.body.append(region);__storagePatch({enabled:true});
-        })()`);
-        assert.equal(await isVisible('snapshot-channel-menu'), false, `${file}: native menu markup hides`);
-        await evaluate(`__storagePatch({channelActions:false})`);
-        assert.equal(await isVisible('snapshot-channel-menu'), true, `${file}: native menu markup restores`);
-        await evaluate(`__storagePatch({channelActions:true})`);
-      }
+
     });
 
     await t.test('channel Bits variants hide and subscription buttons keep only icons with accessible names and native actions', async () => {
@@ -71,25 +54,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await isVisible('channel-bits-alt'), true, 'master switch restores the channel Bits control');
       assert.equal(await evaluate(`getComputedStyle(document.querySelector('#subscribe-label')).clipPath`), 'none');
 
-      const snapshotFile = path.join(root, '.browser-tests', 'live.html');
-      if (fs.existsSync(snapshotFile)) {
-        await evaluate(`__storagePatch({enabled:true})`);
-        const source = fs.readFileSync(snapshotFile, 'utf8');
-        await evaluate(`(()=>{
-          const snapshot=new DOMParser().parseFromString(${JSON.stringify(source)},'text/html');
-          const support=snapshot.querySelector('.metadata-layout__support').cloneNode(true);
-          support.querySelectorAll('script,style,link,iframe,object,embed').forEach(node=>node.remove());
-          for(const node of [support,...support.querySelectorAll('*')])for(const attribute of [...node.attributes])if(/^on/i.test(attribute.name) || ['id','style','src','srcset'].includes(attribute.name))node.removeAttribute(attribute.name);
-          support.querySelector('[data-a-target="top-nav-get-bits-button"]').id='snapshot-channel-bits';
-          support.querySelector('[data-a-target="subscribe-button"]').id='snapshot-channel-subscribe';
-          document.body.append(support);
-        })()`);
-        assert.equal(await isVisible('snapshot-channel-bits'), false, 'the actual live Bits control hides');
-        assert.equal(await isVisible('snapshot-channel-subscribe'), true, 'the actual live subscription button stays visible');
-        assert.equal(await evaluate(`getComputedStyle(document.querySelector('#snapshot-channel-subscribe [data-a-target="tw-core-button-label-text"]')).clipPath`), 'inset(50%)');
-        assert.equal(await evaluate(`[...document.querySelectorAll('#snapshot-channel-subscribe .tw-core-button-icon svg')].every(icon=>icon.checkVisibility({checkVisibilityCSS:true}))`), true, 'native subscription icons and caret stay visible');
-        assert.equal(await evaluate(`document.querySelector('#snapshot-channel-subscribe').getAttribute('aria-label')`), 'Subscribe');
-      }
+
     });
 
     await t.test('wheel over video adjusts volume, respects bounds and leaves page/chat/zoom/menu scrolling alone', async () => {
