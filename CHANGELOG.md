@@ -3,6 +3,12 @@
 Release history, newest first. For current checks and limits, see
 [validation notes](docs/validation.md).
 
+## 0.27.0 - Direct release downloads
+
+- Publish validated release ZIPs from CI and link the latest download in the README.
+- Package only the contents of the extension folder, including its MIT license.
+- Refresh README preview captures and the sidebar fixture.
+
 ## 0.26.0 - Tab recovery and settings troubleshooting
 
 - Keep open Twitch tabs working after extension updates and retry disconnected
