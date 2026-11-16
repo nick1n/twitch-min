@@ -111,7 +111,7 @@ async function run() {
     }
     for (const state of ['before', 'after']) {
       const file = path.join(output, `${state}.png`);
-      const size = optimizePreview(file);
+      const size = await optimizePreview(file);
       process.stdout.write(`${file}: ${size.before} -> ${size.after} bytes (lossless)\n`);
     }
     for (const demo of ['combined', 'sidebar', 'chat', 'nav']) {
@@ -119,7 +119,7 @@ async function run() {
         demo === 'combined' ? 'before-after.gif' : `${demo}-before-after.gif`);
       const originals = ['before', 'after'].map(state => path.join(
         demo === 'combined' ? output : frames, demo === 'combined' ? `${state}.png` : `${demo}-${state}.png`));
-      encodePreviews(...originals, file, Object.values(colors));
+      await encodePreviews(...originals, file, Object.values(colors));
       const decoded = await evaluate(`(async()=>{
         const originals=${JSON.stringify(originals.map(file => fs.readFileSync(file).toString('base64')))};
         const exact=new Set(${JSON.stringify(Object.values(colors))}.map(color=>parseInt(color.slice(1),16)));
@@ -165,7 +165,7 @@ async function run() {
     // Quantize the published PNGs after GIF encoding to avoid double quantization.
     for (const state of ['before', 'after']) {
       const file = path.join(output, `${state}.png`);
-      const size = optimizePreview(file, { indexed: true, reservedColors: Object.values(colors) });
+      const size = await optimizePreview(file, { indexed: true, reservedColors: Object.values(colors) });
       assert.ok(size.after < 30000, 'published PNG stays below 30 KB');
       process.stdout.write(`${file}: ${size.before} -> ${size.after} bytes (palette compressed)\n`);
     }

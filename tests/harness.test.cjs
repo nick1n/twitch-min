@@ -4,8 +4,24 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const withBrowser = require('./support/chrome.cjs');
-const withInstalledBrowser = require('./support/installed.cjs');
+const withChrome = require('./support/launch.cjs');
 const { intercept, initSource, manifest, root } = require('./support/production.cjs');
+const chromePath = require('./support/chrome-path.cjs');
+const puppeteer = require('puppeteer');
+
+test('browser selection defaults to Puppeteer and preserves explicit overrides', async () => {
+  const previous = process.env.CHROME_PATH;
+  try {
+    delete process.env.CHROME_PATH;
+    assert.equal(await chromePath(), await puppeteer.executablePath());
+    process.env.CHROME_PATH = '/missing/environment-chrome';
+    assert.equal(await chromePath(), '/missing/environment-chrome');
+    assert.equal(await chromePath('/missing/configured-chrome'), '/missing/configured-chrome');
+  } finally {
+    if (previous === undefined) delete process.env.CHROME_PATH;
+    else process.env.CHROME_PATH = previous;
+  }
+});
 
 function trackProfiles(t) {
   const profiles = [];
@@ -16,76 +32,6 @@ function trackProfiles(t) {
   });
   t.after(() => mkdirMock.mock.restore());
   return profiles;
-}
-
-test('Chrome cleanup completes after process exit without waiting for inherited stderr to close', { timeout: 5000 }, async t => {
-  const { EventEmitter } = require('node:events');
-  const { PassThrough } = require('node:stream');
-  const childProcess = require('node:child_process');
-  const profiles = trackProfiles(t);
-  const child = new EventEmitter();
-  child.stderr = new PassThrough();
-  child.kill = () => true;
-  const spawnMock = mock.method(childProcess, 'spawn', () => {
-    process.nextTick(() => child.emit('exit', 1, null));
-    return child;
-  });
-  // Load a separate harness instance with the fake child. It deliberately never
-  // emits close, reproducing an inherited pipe still held by a descendant.
-  const modulePath = require.resolve('./support/chrome.cjs');
-  const cached = require.cache[modulePath];
-  let isolatedBrowser;
-  try {
-    delete require.cache[modulePath];
-    isolatedBrowser = require(modulePath);
-  } finally {
-    require.cache[modulePath] = cached;
-    spawnMock.mock.restore();
-  }
-  await assert.rejects(isolatedBrowser(() => assert.fail('exited child must not run checks'), {
-    chromePath: process.execPath,
-  }), /Chrome exited before exposing/);
-  assert.equal(child.stderr.destroyed, true);
-  assert.equal(profiles.length, 1);
-  assert.equal(fs.existsSync(profiles[0]), false);
-});
-
-test('Chrome startup waits through locked and partially written port files', { timeout: 30000 }, async t => {
-  const profiles = trackProfiles(t);
-  const readFile = fs.readFileSync;
-  let attempts = 0;
-  const readMock = mock.method(fs, 'readFileSync', (file, ...args) => {
-    if (String(file).endsWith('DevToolsActivePort')) {
-      attempts++;
-      if (attempts === 1) throw Object.assign(new Error('temporarily locked'), { code: 'EBUSY' });
-      if (attempts === 2) return '';
-      if (attempts === 3) return '9222\n/devtools/browser/partial';
-    }
-    return readFile(file, ...args);
-  });
-  t.after(() => readMock.mock.restore());
-  await withBrowser(async ({ evaluate }) => assert.equal(await evaluate('1 + 1'), 2));
-  assert.ok(attempts >= 4, 'Chrome connects only after a readable, complete port file');
-  assert.equal(fs.existsSync(profiles[0]), false);
-});
-
-for (const state of ['locked', 'incomplete']) {
-  test(`Chrome startup bounds a persistently ${state} port file and cleans its profile`, { timeout: 5000 }, async t => {
-    const profiles = trackProfiles(t);
-    const readFile = fs.readFileSync;
-    const readMock = mock.method(fs, 'readFileSync', (file, ...args) => {
-      if (String(file).endsWith('DevToolsActivePort')) {
-        if (state === 'locked') throw Object.assign(new Error('still locked'), { code: 'EBUSY' });
-        return '9222\n/devtools/browser/partial';
-      }
-      return readFile(file, ...args);
-    });
-    t.after(() => readMock.mock.restore());
-    await assert.rejects(withBrowser(() => assert.fail('invalid endpoint must not run checks'), { startupTimeoutMs: 1000 }),
-      state === 'locked' ? /readable, complete.*Last port-file error: EBUSY/ : /readable, complete/);
-    assert.equal(profiles.length, 1);
-    assert.equal(fs.existsSync(profiles[0]), false);
-  });
 }
 
 test('Chrome releases an intercepted old-document image after navigation', { timeout: 10000 }, async () => {
@@ -137,32 +83,20 @@ test('Chrome harness still rejects an invalid interception ID without a confirme
 });
 
 for (const failure of ['missing executable', 'early process exit']) {
-  test(`installed-extension harness cleans its profile after ${failure}`, { timeout: 5000 }, async t => {
-    const profiles = trackProfiles(t);
-    const chromePath = failure === 'missing executable'
-      ? path.join(root, '.browser-tests', `missing-installed-chrome-${randomUUID()}.exe`) : process.execPath;
-    await assert.rejects(withInstalledBrowser(() => assert.fail('failed launch must not run checks'), { chromePath }), error => {
-      assert.ok(error.message.includes(chromePath), 'launch diagnostics identify the executable');
-      assert.match(error.message, failure === 'missing executable' ? /ENOENT/ : /Chrome debugging pipe closed/);
-      return true;
-    });
-    assert.equal(profiles.length, 1);
-    assert.equal(fs.existsSync(profiles[0]), false, 'the failed run removes only its isolated profile');
-  });
-}
-
-for (const failure of ['missing executable', 'early process exit']) {
   test(`Chrome harness reports ${failure} promptly and removes its profile`, { timeout: 5000 }, async t => {
     const profiles = trackProfiles(t);
     const chromePath = failure === 'missing executable'
       ? path.join(root, '.browser-tests', `missing-chrome-${randomUUID()}.exe`) : process.execPath;
-    await assert.rejects(withBrowser(() => assert.fail('a failed launch must not run feature checks'), { chromePath }), error => {
+    await assert.rejects(withChrome(async launch => {
+      await launch();
+      assert.fail('a failed launch must not run feature checks');
+    }, { chromePath }), error => {
       assert.ok(error.message.includes(chromePath), 'diagnostics include the executable path');
       if (failure === 'missing executable') {
-        assert.match(error.message, /Chrome failed to start:[\s\S]*ENOENT/);
+        assert.match(error.message, /Chrome failed to start[\s\S]*not found|ENOENT/i);
       } else {
-        assert.match(error.message, /Chrome exited before exposing.*exit code \d+/);
-        assert.match(error.message, /Chrome stderr:[\s\S]*--headless=new/, 'stderr explains why the child failed');
+        assert.match(error.message, /Chrome failed to start/);
+        assert.ok(error.cause, 'the original Puppeteer launch failure is retained');
       }
       return true;
     });
@@ -171,37 +105,13 @@ for (const failure of ['missing executable', 'early process exit']) {
   });
 }
 
-for (const stage of ['target response', 'target body', 'WebSocket handshake']) {
-  test(`Chrome harness bounds a stalled ${stage} and removes its profile`, { timeout: 30000 }, async t => {
-    const profiles = trackProfiles(t);
-    let signal, socket;
-    const fetchMock = mock.method(globalThis, 'fetch', async (_url, options) => {
-      signal = options.signal;
-      const stalled = () => new Promise((resolve, reject) => {
-        signal.addEventListener('abort', () => reject(signal.reason), { once: true });
-      });
-      if (stage === 'target response') return stalled();
-      return { json: stage === 'target body' ? stalled : async () => [{ type: 'page', webSocketDebuggerUrl: 'ws://127.0.0.1:1/stalled' }] };
-    });
-    t.after(() => fetchMock.mock.restore());
-    if (stage === 'WebSocket handshake') {
-      const WebSocket = globalThis.WebSocket;
-      globalThis.WebSocket = class extends EventTarget {
-        static OPEN = 1;
-        constructor() { super(); this.readyState = 0; socket = this; }
-        close() { this.readyState = 3; }
-      };
-      t.after(() => { globalThis.WebSocket = WebSocket; });
-    }
-    const message = stage === 'WebSocket handshake' ? /Chrome debugging WebSocket connection timed out/
-      : /Chrome debugging target request timed out/;
-    await assert.rejects(withBrowser(() => assert.fail('stalled startup must not run feature checks'), { connectionTimeoutMs: 100 }), message);
-    if (socket) assert.equal(socket.readyState, 3, 'the stalled socket is closed');
-    else assert.equal(signal.aborted, true, 'the stalled request or body is aborted');
-    assert.equal(profiles.length, 1);
-    assert.equal(fs.existsSync(profiles[0]), false, 'connection failure leaves no test profile behind');
-  });
-}
+test('Puppeteer cleans its profile after failed assertions', { timeout: 15000 }, async t => {
+  const profiles = trackProfiles(t);
+  await assert.rejects(withBrowser(async () => { throw new Error('callback-failure-probe'); }),
+    /callback-failure-probe/);
+  assert.equal(profiles.length, 1);
+  assert.equal(fs.existsSync(profiles[0]), false);
+});
 
 test('Chrome harness reports startup exceptions before assertions', { timeout: 30000 }, async () => {
   await assert.rejects(withBrowser(async ({ navigate }) => {

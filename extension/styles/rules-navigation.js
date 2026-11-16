@@ -6,6 +6,11 @@
   const FOLLOWING = globalThis.TwitchMinSelectors.following;
 
   globalThis.TwitchMinNavigationRules = Object.freeze([
+    [32.1, {
+      key: 'enabled',
+      selectors: ['#twilight-sticky-footer-root'],
+      declaration: 'display: none !important;'
+    }],
     [2, {
       key: 'enabled',
       selectors: [`${TOP_NAV} input[type="search"]`, `${TOP_NAV} [data-a-target="nav-search-box"] .tw-combo-input`, `${TOP_NAV} [data-a-target="nav-search-box"] .tw-combo-input__input`],

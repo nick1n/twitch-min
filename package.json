@@ -1,6 +1,6 @@
 {
   "name": "twitch-min",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "private": true,
   "license": "MIT",
   "author": "Nicholas Ness",
@@ -12,10 +12,11 @@
   "bugs": {
     "url": "https://github.com/nick1n/twitch-min/issues"
   },
-  "description": "Local Twitch cosmetic and interactive enhancements with dependency-free checks",
+  "description": "A browser extension that hides Twitch promos, shrinks the sidebar, and simplifies chat to keep the video and chat the main focus.",
+  "packageManager": "pnpm@12.21.0",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
-    "test:unit": "node --test tests/architecture.test.cjs tests/content.test.cjs tests/interceptions.test.cjs tests/runtime.test.cjs tests/settings.test.cjs tests/tag-version.test.cjs",
+    "test:unit": "node --test tests/architecture.test.cjs tests/content.test.cjs tests/interceptions.test.cjs tests/runtime.test.cjs tests/settings.test.cjs tests/tag-version.test.cjs tests/tooling.test.cjs",
     "test:browser": "node --test tests/browser.test.cjs tests/extension.test.cjs tests/harness.test.cjs",
     "test:package": "node --test tests/package.test.cjs",
     "test:soak": "node scripts/soak.cjs",
@@ -23,5 +24,10 @@
   },
   "engines": {
     "node": ">=26"
+  },
+  "devDependencies": {
+    "fflate": "0.8.3",
+    "puppeteer": "25.17.0",
+    "sharp": "0.35.5"
   }
 }

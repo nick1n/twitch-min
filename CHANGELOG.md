@@ -1,15 +1,23 @@
 # Changelog
 
-Release history, newest first. Signed-in Twitch verification remains pending;
-see [validation notes](docs/validation.md) for current checks and limits.
+Release history, newest first. For current checks and limits, see
+[validation notes](docs/validation.md).
+
+## 0.25.0 - Sticky footer cleanup and development tooling
+
+- Hide Twitch's sticky footer while the extension is enabled.
+- Combine and optimize README previews; document Opera GX installation.
+- Use pnpm with locked development dependencies and Linux CI.
+- Use Puppeteer for browser checks, Sharp for image tooling, and fflate for ZIPs.
+- Refresh extension descriptions and simplify project documentation.
 
 ## 0.24.0 - Reliability fixes and DOM optimizations
 
-- Keep sidebar headers styled during pending pagination and native replacements.
+- Keep sidebar headers styled while pagination waits or Twitch replaces headings.
 - Detect Following and Browse regions that receive their IDs after mounting.
 - Share region discovery scans between identical selectors.
 - Cache sender-run lookups within each chat update.
-- Restore emote preview state when native tooltips hide through visibility changes.
+- Clean up emote previews when native tooltips become hidden.
 - Stop observing direct edits to existing timestamp text nodes.
 - Skip unchanged player-fit and composer metadata writes.
 - Add a repository skill for local release preparation.
@@ -17,9 +25,8 @@ see [validation notes](docs/validation.md) for current checks and limits.
 ## 0.23.0 - Sidebar reliability and README previews
 
 - Keep compact sidebar sizing while Show more is pending.
-- Add anonymized README GIF previews with native Twitch icons.
-- Group previews and add the README title logo.
-- Add dependency-free GIF capture and regeneration.
+- Add grouped, anonymized README previews with native Twitch icons and a title logo.
+- Add GIF capture and regeneration tooling.
 
 ## 0.22.0 - Navigation controls and release automation
 

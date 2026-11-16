@@ -39,7 +39,7 @@ test('installed extension: real storage, popup, isolated world, tabs, reload and
     }
     assert.equal(await popup.evaluate(`chrome.storage.local.get('chatTints').then(value => value.chatTints)`), false);
     await first.evaluate(`document.documentElement.setAttribute('data-before-reload','true')`);
-    await first.command('Page.reload');
+    await first.reload();
     await first.waitFor(`document.readyState === 'complete' && !document.documentElement.hasAttribute('data-before-reload') && document.documentElement.getAttribute('data-tq-chat-tints') === 'false'`);
     assert.equal(await first.evaluate(`document.querySelector('[data-tq-chat-tint]')`), null, 'reload reads the saved setting');
     assert.equal(await first.evaluate(`getComputedStyle(document.querySelector('.top-nav')).display`), 'none', 'reload retains whole-bar hiding');

@@ -1,6 +1,21 @@
 const assert = require('node:assert/strict');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
+  await t.test('logged-out sticky footer hides on mount and navigation and restores on pause', async () => {
+    await navigate('tests/fixtures/twitch.html');
+    // Sanitized root from the logged-out snapshot; no generated classes needed.
+    await evaluate(`document.body.insertAdjacentHTML('beforeend', '<footer id="twilight-sticky-footer-root"><button id="footer-signup">Sign up</button></footer><footer id="ordinary-footer">Other footer</footer>')`);
+    assert.equal(await isVisible('footer-signup'), false);
+    assert.equal(await isVisible('ordinary-footer'), true);
+    assert.equal(await evaluate(`document.querySelector('#twilight-sticky-footer-root').getBoundingClientRect().height`), 0);
+    await evaluate(`__storagePatch({enabled:false})`);
+    assert.equal(await isVisible('footer-signup'), true);
+    await evaluate(`__storagePatch({enabled:true});history.pushState({}, '', '?logged-out');const footer=document.querySelector('#twilight-sticky-footer-root');footer.replaceWith(footer.cloneNode(true))`);
+    assert.equal(await isVisible('footer-signup'), false);
+    await evaluate(`__storagePatch({enabled:false})`);
+    assert.equal(await isVisible('footer-signup'), true);
+  });
+
   await t.test('whole top navigation hiding is opt-in, independent, gap-free and restores native controls', async () => {
     await navigate('tests/fixtures/twitch.html');
     assert.equal(await isVisible('top-bell'), true, 'the bar stays visible by default');
@@ -45,7 +60,7 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
 
   await t.test('enabled settings hide targets and preserve intended UI, including saved About opt-in', async () => {
     await navigate('tests/fixtures/twitch.html', '__stored.channelAbout=true;');
-    await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
+    await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
     for (const id of ['top-bits','top-turbo','top-turbo-gift','top-turbo-test','top-turbo-text','luna-offers','shouts','sidebar-for-you','sidebar-streak','sidebar-channel-name','sidebar-hype','stray-avatar-text','stray-nested-text','offline-transition','offline-channel','other-section','show-more','channel-bell','channel-bits','channel-gift','video-share','video-share-label','vod-channel-card','vod-recommendations','about','panels','chat-header','leaderboard','composer','chat-send','player-clip','player-clip-subscribe','player-speed-display','player-follow','player-gift','player-subscribe']) {
       assert.equal(await isVisible(id), false, `${id} should be hidden`);
     }

@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID, createHash } = require('node:crypto');
-const { createZip, readZip } = require('./zip.cjs');
+const { zipSync, unzipSync } = require('fflate');
 
 const root = path.resolve(__dirname, '..');
 const sourceRoot = path.join(root, 'extension');
@@ -50,18 +50,20 @@ fs.mkdirSync(output, { recursive: true });
 const archive = path.join(output, `twitch-min-${manifest.version}.zip`);
 const temporaryArchive = path.join(output, `.package-${randomUUID()}.zip`);
 try {
-  fs.writeFileSync(temporaryArchive, createZip([...sources].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
-    .map(([name, source]) => ({ name, data: source.data }))), { flag: 'wx' });
-  const entries = readZip(fs.readFileSync(temporaryArchive));
+  fs.writeFileSync(temporaryArchive, zipSync(Object.fromEntries([...sources]
+    .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+    .map(([name, source]) => [name, source.data]))), { flag: 'wx' });
+  const entries = Object.entries(unzipSync(fs.readFileSync(temporaryArchive)))
+    .map(([name, data]) => ({ name, data }));
   if (entries.length !== sources.size) throw new Error('Archive file count differs from source.');
   const seen = new Set();
   for (const { name, data } of entries) {
-    if (!sources.has(name) || seen.has(name)) throw new Error(`Unexpected archive entry: ${name}`);
+    if (!sources.has(name)) throw new Error(`Unexpected archive entry: ${name}`);
     seen.add(name);
     if (hash(data) !== sources.get(name).hash) throw new Error(`Archive content differs from source: ${name}`);
   }
   for (const asset of assets) if (asset != null && !seen.has(asset)) throw new Error(`Missing archive asset: ${asset}`);
-  if (JSON.parse(entries.find(entry => entry.name === 'manifest.json').data).version !== pkg.version) {
+  if (JSON.parse(Buffer.from(entries.find(entry => entry.name === 'manifest.json').data)).version !== pkg.version) {
     throw new Error('Archived manifest version differs from package.');
   }
   fs.renameSync(temporaryArchive, archive);

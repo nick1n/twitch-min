@@ -1,46 +1,32 @@
-twitch-min - Chrome and Opera GX extension
+twitch-min - Chrome and Opera GX
 
 INSTALL
-1. Extract the ZIP completely and keep the extracted folder.
-2. Open your browser's extensions page and enable Developer mode:
-   Chrome: chrome://extensions
-   Opera GX: opera://extensions
-3. Choose Load unpacked and select the folder containing manifest.json.
-4. Refresh existing Twitch tabs. Pin twitch-min in the Extensions menu.
-
-No build or dependency installation is needed. This is an unpacked installation.
-The ZIP can also be used as a Chrome Web Store upload package; creating it does
-not publish anything.
+1. Extract the ZIP and keep the extracted folder in place.
+2. Open chrome://extensions (Chrome) or opera://extensions (Opera GX).
+3. Enable Developer mode, choose Load unpacked, and select the folder
+   containing manifest.json. No build or dependency installation is needed.
+4. Refresh Twitch tabs. Pin twitch-min in the Extensions menu to open settings.
 
 USE
-Options start on except Hide top navigation bar and About & lower channel
-section, which default off.
-Enabled pauses/resumes while keeping your choices.
-Enable all settings turns every option on and appears only when useful.
-More settings / Back to top scrolls the list. Each switch has a short description.
+Each switch explains its effect. Changes apply immediately.
+Enable twitch-min pauses/resumes while keeping your choices.
+Enable all settings turns every option on.
+More settings / Back to top scrolls the list.
 
-Features include a compact avatar/count/game sidebar, fewer navigation and
-channel extras, a fitted video area, shorter replay times, author-color chat
-tints, consecutive-sender grouping, enlarged emote previews, and wheel volume.
-
-Chat shows/hides the editor without sending or losing drafts. Enter inside the
-editor keeps Twitch's normal send behavior. Hover/focus an emote for a 3x native
-tooltip preview; leave or press Escape to dismiss. Scroll over the video to adjust
-volume; chat/sidebar/menu scrolling and Ctrl+wheel zoom remain native.
-
-The sidebar expands native lists before filtering. Pausing both sidebar options
-restores an initially collapsed sidebar. Replay times keep their original seek
-targets. Native playback, volume, Settings, theatre, and fullscreen remain usable.
-Disabling a feature restores it; clearing Enabled restores all native behavior.
+All options start on except Hide top navigation bar and About & lower channel
+section. Chat toggles the editor without sending or losing drafts; Enter sends
+normally. Disabling a switch restores that feature; pausing restores everything.
 
 PRIVACY AND LIMITS
-Runs only on twitch.tv and uses only storage permission for local settings.
-No credentials, analytics, backend, or page content uploads. Emote previews may
-load a larger image from Twitch's CDN. Hidden Twitch features can still run.
-Twitch layouts and languages vary; signed-in-only variants still need validation.
+Runs only on HTTPS twitch.tv pages, with or without www. The only API permission
+is storage, for local settings. No credentials, analytics, backend, remote scripts,
+or page content uploads. Emote previews may load larger images from Twitch's CDN.
+Hidden Twitch features can still run. Layouts and languages vary; signed-in-only
+behavior still needs validation.
 
-UPDATES AND REMOVAL
-After replacing files, reload twitch-min at chrome://extensions (Chrome) or
-opera://extensions (Opera GX), then refresh Twitch.
-Keep the extracted folder for as long as the extension is installed.
-Choose Remove on the extension card to uninstall and delete saved preferences.
+UPDATE OR REMOVE
+Replace the files in the loaded folder, reload twitch-min on the extensions
+page, and refresh Twitch. Keep the folder while the extension is installed.
+Remove on the extension card uninstalls it and deletes saved preferences.
+
+Full guide, known limits, and issues: https://github.com/nick1n/twitch-min

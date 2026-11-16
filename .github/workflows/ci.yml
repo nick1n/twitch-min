@@ -20,8 +20,27 @@ jobs:
           node-version: 'lts/*'
           check-latest: true
           package-manager-cache: false
-      - run: npm test
-      - run: npm run package
+      - name: Set up pnpm
+        id: pnpm
+        run: |
+          npm install --global "$(node -p "require('./package.json').packageManager")"
+          echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache pnpm store
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm.outputs.store }}
+          key: ${{ runner.os }}-${{ runner.arch }}-pnpm-${{ hashFiles('package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-pnpm-
+      - name: Cache Puppeteer browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/puppeteer/chrome
+          key: ${{ runner.os }}-${{ runner.arch }}-puppeteer-${{ hashFiles('pnpm-lock.yaml', '.puppeteerrc.cjs') }}
+      - run: pnpm install --frozen-lockfile
+      - name: Ensure test browser is installed
+        run: pnpm exec puppeteer browsers install chrome
+      - run: pnpm test
+      - run: pnpm run package
       - name: Identify validated package
         id: package
         shell: bash

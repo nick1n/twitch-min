@@ -1,50 +1,52 @@
-# Validation notes
+# Validation
 
-## Current verification and limitations
+Recorded results below are from earlier checks. Reproduction commands are in the
+[README](../README.md#development).
 
-Latest successful full run: **November 15, 2026**, Node 26.3.0,
-Chrome 157.0.8103.51. All **190 tests** and packaging passed after the sidebar,
-tooltip, and DOM update fixes. The Windows sandbox account hit error
-1909; final checks ran outside it.
+## Latest recorded results
 
-The earlier 125-second offline soak passed 60 pause/resume cycles, 12,000 message insertions,
-and 12 region remounts. No tracked mutation/resize observers, document/window
-listeners, or temporary markers remained after pause. Fixture theatre entry/exit
-also passed. This verifies cleanup and bounded visible DOM, not every possible
-heap leak or live Twitch performance.
+**November 15, 2026:** all **186 tests** and packaging passed after the tooling
+migration, using Node 26.3.0 and Puppeteer Chrome for Testing 157.0.8103.50.
+That run required execution outside the Windows sandbox.
 
-Still unverified:
+An earlier 125-second offline soak passed 60 pause/resume cycles, 12,000 message
+insertions, 12 region remounts, and theatre entry/exit. Pause left no tracked
+mutation/resize observers, document/window listeners, or temporary markers.
+This checks cleanup and bounded visible DOM, not all heap leaks or live performance.
+Soak output stays in ignored `.browser-tests/soak-results.json`.
 
-- Signed-in live/replay navigation, authenticated composer/drafts, and live
-  fullscreen, pending at the user's direction.
-- Headless fullscreen: Chrome denied permission.
+## Automated coverage
+
+| Check | What it verifies |
+| --- | --- |
+| Feature fixtures | Appearance, activation/restoration, late mounts, navigation, storage failures, tooltips, and cross-pane ownership. |
+| Installed-extension smoke | Real storage and isolated scripts, both Twitch origins, non-Twitch scope, popup changes, reload, and restart. |
+| Harness regressions | Launcher and assertion cleanup, page exceptions/rejections, request cancellation, retired documents/frames, and interception errors. |
+| Popup | Light/dark layout, readable help, keyboard/label activation, scroll navigation, and stable enable-all layout. |
+| Image tooling | PNG dimensions and theme colors; GIF frames, timing, and looping. |
+| Packaging | Required assets, root manifest, exact ZIP contents, and preservation of the previous archive on failure. |
+
+Browser checks use offline fixtures in temporary profiles. Installed-extension
+checks open the popup page; they do not test the browser-action popup's lifetime
+or authenticated Twitch layouts.
+
+## Live checks and remaining gaps
+
+**November 13, 2026:** a signed-out busy live channel passed sidebar
+compaction/restoration, chat tinting, composer visibility, emote preview, and native
+theatre checks. This used T3 preview with Chrome 152.0.7977.169 / Electron 44.10.1,
+injected production scripts in manifest order, and mocked storage. It was a DOM
+compatibility check, not an installed-extension test. The editor could not receive
+focus while signed out. Pause removed extension markers without extension warnings.
+
+Still pending:
+
+- Signed-in live/replay navigation, authenticated composer/drafts, busy chat,
+  repeated pause/resume, and initially expanded/collapsed sidebars.
+- Live fullscreen; headless Chrome denied fullscreen permission.
+- Longer enabled-versus-paused profiling of observers, layout reads, and retained
+  DOM. Record browser, page type, workload, and steps.
 - Hosted CI execution, artifact upload, and run cancellation.
 
-See the [roadmap](../ROADMAP.md#validate-the-current-architecture-first) for live
-scenarios and [development commands](../README.md#development) to reproduce checks.
-Soak results are written to ignored `.browser-tests/soak-results.json`.
-
-## What the checks establish
-
-| Check | Coverage and boundary |
-| --- | --- |
-| Offline feature fixtures | Appearance, activation/restoration, late mounts, navigation, storage failures, tooltip ownership, and cross-pane transfers; remote requests stay local or blocked. |
-| Unpacked-extension smoke | Real Chrome storage, isolated scripts, both Twitch origins, non-Twitch scope, popup changes, reload, and restart in a temporary profile; no live account. |
-| Harness regressions | Locked/partial port files, bounded failure cleanup, out-of-order cancellations, retired document/frame requests, and genuine interception errors. |
-| Popup checks | Light/dark layout, readable blurbs, keyboard/label activation, hidden scrollbars, scroll navigation without row highlighting, and stable enable-all layout. |
-| Packaging | Required assets, root manifest, byte-for-byte ZIP contents, and preservation of the previous archive on failure. |
-
-## Signed-out live smoke (November 13, 2026)
-
-Checked a busy live channel (`https://www.twitch.tv/jynxzi`) in T3 preview,
-Chrome 152.0.7977.169 / Electron 44.10.1. The profile was signed out with no installed
-extension; production scripts/CSS were injected in manifest order with mocked
-storage. This exercised live DOM compatibility, not installation or authenticated use.
-
-Sidebar compaction/restoration, chat tinting, composer visibility, emote preview,
-and native theatre mode were exercised. The signed-out editor did not accept focus.
-Pausing removed extension markers, no extension warning was recorded, and the
-injection and test tab were cleaned up.
-
-Intermediate popup designs and older fixture runs are superseded by current
-results. Release history is in [CHANGELOG.md](../CHANGELOG.md).
+Turn reproduced failures into small sanitized fixtures. Keep private snapshots
+out of Git and releases. [ROADMAP.md](../ROADMAP.md) tracks future work.

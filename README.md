@@ -1,10 +1,6 @@
 # ![twitch-min logo](extension/icons/icon32.png) twitch-min
 
-A browser extension for a simpler Twitch: a compact sidebar, streamlined chat,
-larger emote previews, and wheel volume control. No build or dependency install
-is needed to use it.
-
-## Before and after
+A browser extension that hides Twitch promos, shrinks the sidebar, and simplifies chat to keep the video and chat the main focus.
 
 ![Top navigation, sidebar, and chat before and after twitch-min.](docs/images/before-after.gif)
 
@@ -12,139 +8,136 @@ Screenshots: [Before](docs/images/before.png) & [After](docs/images/after.png)
 
 ## Install locally
 
-1. Open `chrome://extensions` in Chrome or `opera://extensions` in Opera GX
-   and enable **Developer mode**.
-2. Choose **Load unpacked** and select this repository's **extension** folder.
-3. Refresh existing Twitch tabs.
-4. Pin **twitch-min** in your browser's Extensions menu and open its popup.
+1. Open `chrome://extensions` (Chrome) or `opera://extensions` (Opera GX).
+2. Enable **Developer mode**, choose **Load unpacked**, and select this
+   repository's **extension** folder.
+3. Refresh Twitch tabs. Pin **twitch-min** in the Extensions menu to open settings.
 
-For a packaged download, extract `twitch-min-<version>.zip` and load the folder
-containing `manifest.json`. Keep that folder: your browser loads the extension from it.
-See [INSTALL.txt](extension/INSTALL.txt) for standalone ZIP instructions.
-
-After updates, reload the extension at `chrome://extensions` (Chrome) or
-`opera://extensions` (Opera GX) and refresh Twitch.
-**Remove** uninstalls it and deletes its saved preferences.
+For release ZIPs, follow the included [INSTALL.txt](extension/INSTALL.txt).
+Keep the loaded folder in place. After replacing its files, reload the extension
+on the extensions page and refresh Twitch. **Remove** uninstalls it and deletes
+saved preferences.
 
 ## Settings
 
-Options start on except **Hide top navigation bar** and **About & lower channel
-section**, which default off.
-Changes update open Twitch tabs immediately. **Enabled** pauses
-or resumes without changing your choices. **Enable all settings** turns everything
-on; it appears only when useful and keeps its layout space when hidden.
-**More settings / Back to top** scrolls the list without changing a setting.
+Changes apply to open Twitch tabs immediately. **Enable twitch-min** pauses or
+resumes while keeping your choices; **Enable all settings** turns every option on.
+**More settings / Back to top** scrolls the popup.
+
+All options start on except **Hide top navigation bar** and
+**About & lower channel section**.
 
 | Switch | Effect |
 | --- | --- |
-| Top navigation extras | Hide Luna/Prime offers, Shouts, Gift Turbo, and Bits; keep search, notifications, whispers, and account controls. |
-| Hide top navigation bar | Hide the entire bar, including search, notifications, and account controls. Off by default. |
-| Sidebar sections | Keep online Followed, Recommended, and Similar channels; hide offline rows and other sections. |
-| Compact sidebar | Show avatars, viewer counts, and games in a narrow sidebar; hide names and promotional extras. |
+| Top navigation extras | Hide promotional links; keep search, notifications, whispers, and account controls. |
+| Hide top navigation bar | Hide the entire top bar, including its search and account controls. |
+| Sidebar sections | Keep online Followed, Recommended, and Similar channels. |
+| Compact sidebar | Show avatars, viewer counts, and games in a narrow sidebar. |
 | Channel action extras | Hide Share, the three-dot menu, the channel bell, Bits, and Gift a Sub; keep Follow and subscription icons/dropdowns. |
 | About & lower channel section | Hide About, panels, the replay channel card, and recommendations; fit the video above its details. |
-| Wheel volume | Scroll over the video to change volume; chat, sidebar, menu scrolling, and Ctrl+wheel zoom stay native. |
-| Following Stories | Hide the Stories strip above the Following page tabs. |
-| Browse Recent Recaps | Hide Recent Recaps on Browse pages; keep filters and live channel listings. |
-| Chat leaderboard | Hide gift/cheer rankings and goal carousel slides. |
+| Wheel volume | Scroll over the video to adjust volume. Chat, sidebar, menu scrolling, and Ctrl+wheel zoom stay native. |
+| Following Stories | Hide the Stories strip above the Following tabs. |
+| Browse Recent Recaps | Hide Recent Recaps; keep Browse filters and live channels. |
+| Chat leaderboard | Hide gift, cheer, and goal carousel slides. |
 | Short video chat times | Show hours:minutes: `1:32:56` becomes `1:32`, and `5:26` becomes `0:05`. Seek targets stay unchanged. |
-| Chat author tints | Add a subtle author-color background without replacing native highlights. |
-| Group consecutive messages | Show repeated sender names once, hide their repeated badges, and separate sender groups with black borders. |
-| Enlarged emote previews | Hover or focus an emote for a 3x image inside Twitch's native tooltip. Escape, scrolling, or leaving dismisses it. |
-| Chat message composer | Use **Chat** to show or hide the editor instead of leaving it open. |
+| Chat author tints | Add subtle author-color backgrounds while preserving native highlights. |
+| Group consecutive messages | Show repeated names and badges once, with black borders between sender groups. |
+| Enlarged emote previews | Show a 3x image in Twitch's tooltip on hover or focus. Escape, scrolling, or leaving dismisses it. |
+| Chat message composer | Use **Chat** to toggle the editor without sending or losing drafts. Enter still sends normally. |
 
-**Chat** never sends a message. It preserves drafts; Enter inside the editor keeps
-Twitch's normal send behavior. Disabling the composer option restores the native
-editor and Send button.
+The sidebar expands native lists before filtering. Manual Collapse/Expand stays
+available; turning both sidebar options off restores an initially collapsed
+sidebar.
 
-The sidebar uses Twitch's native expand and Show More controls before filtering.
-Collapse/Expand stays available, and a manual collapse is respected while active.
-Compact sidebar hides the scrollbar in both expanded and collapsed views.
-Pausing both sidebar options restores native sidebar controls and re-collapses
-the sidebar if it started collapsed.
+While enabled, twitch-min also:
 
-While the extension is enabled, it also:
-
-- Keeps one badge per visible sender header; hover/focus it for other badge names
-  in Twitch's tooltip. Native badge actions remain available.
-- Hides chat headers, replay message menus, and chat scrollbars. Native scrolling
-  and the collapsed chat's expand control remain available.
+- Shows one badge per visible sender header, with other badge names in its native
+  tooltip.
+- Hides chat headers, replay message menus, and chat scrollbars.
 - Hides player Clip, the middle speed display, and Follow/Gift/Subscribe overlays.
-  Playback, volume, Settings, speed adjustment, theatre, and fullscreen remain.
 - Softens the search border and keeps reward cards in three columns.
-- Automatically expands **Show more** in Recommended channels and Latest videos
-  on the Following page. Native tabs and list controls remain.
+- Expands **Show more** in Following's Recommended channels and Latest videos.
 
-Turn a switch off to restore that feature's native behavior, or clear **Enabled**
-to restore everything. The extension does not replace Twitch's player or chat.
+Native badge actions, scrolling, collapsed-chat expansion, and playback controls
+remain available. Turn a switch off to restore that feature, or pause the extension
+to restore everything.
 
-## Privacy and permissions
+## Privacy and limits
 
-- Runs only on `https://www.twitch.tv/*` and `https://twitch.tv/*`.
-- Uses only the `storage` API permission, for local settings.
-- No credentials, Twitch API calls, analytics, backend, remote scripts, or page
-  content uploads. Emote previews may request a larger image from Twitch's CDN.
-- Hiding is cosmetic: Twitch can still load and run hidden features.
+Runs only on `https://www.twitch.tv/*` and `https://twitch.tv/*`. The only API
+permission is `storage`, used for local settings. There are no credentials, Twitch
+API calls, analytics, backend, remote scripts, or page content uploads. Emote
+previews may load larger images from Twitch's CDN. Hidden Twitch features can
+still load and run.
 
-## Limits and troubleshooting
+Twitch layouts vary by account and language; English label fallbacks may miss
+localized controls. Third-party emote markup is not specifically supported.
+If a feature misses its target, check its switch and refresh Twitch. Report
+reproducible issues with steps and a small sanitized HTML example.
 
-Twitch layouts vary by account and language. English label fallbacks can miss
-localized controls; third-party emote markup is not specifically supported.
-Check the switch and refresh Twitch if something stays visible. For a reproducible
-issue, provide steps and a small sanitized HTML example rather than a full page.
-
-Tests use offline fixtures and an isolated installed-extension profile. Signed-in
-Twitch checks remain pending. See [validation notes](docs/validation.md) for
-verified scenarios and limits, and [CHANGELOG.md](CHANGELOG.md) for release history.
+See [validation notes](docs/validation.md) for tested scenarios and remaining gaps.
 
 ## Development
 
-Full checks need Git, the latest Node.js LTS, and recent Chrome.
-No `npm install` is needed. Use `npm.cmd` on Windows if PowerShell blocks `npm.ps1`;
-set `CHROME_PATH` when Chrome is outside the standard locations.
+Install Git and a Node.js version that meets `engines.node` in
+[package.json](package.json). Install pnpm, then run these commands from the
+repository root:
 
-```powershell
-npm.cmd test
-npm.cmd run package
+```sh
+npm install --global pnpm
+pnpm install --frozen-lockfile
+pnpm test
 ```
 
-| Focused command | Checks | Requires |
-| --- | --- | --- |
-| `npm run test:unit` | Settings, startup, lifecycle, requests, manifest, CSS, docs links, and version tagging | Node + Git |
-| `npm run test:browser` | Offline features, real extension storage, and harness failures | Node + Chrome |
-| `npm run test:package` | ZIP contents and failure recovery | Node |
-| `npm run test:soak` | Two-minute message/remount/pause stress workload | Node + Chrome |
+On Windows, use `pnpm.cmd` if PowerShell blocks `pnpm.ps1`.
 
-Packaging includes the MIT license and verifies source assets and ZIP bytes before
-replacing `dist/twitch-min-<version>.zip`; failure preserves the previous archive. It does not
-publish a release. [CI](.github/workflows/ci.yml) runs tests and packaging on Linux
-with the latest Node LTS and retains the ZIP as an artifact. Extract the artifact
-wrapper to obtain the installable ZIP.
+Puppeteer downloads Chrome for Testing during installation; the unused standalone
+Headless Shell download is disabled. Set `CHROME_PATH` to
+use another Chrome executable. Browser checks use temporary profiles and offline
+fixtures, never your everyday profile. The harness runs Chrome with `--no-sandbox`
+and loads trusted fixtures only.
 
-After CI passes on a default-branch push, it creates a missing `v<version>` Git tag
-at the tested commit, using the version in `package.json`. Package and manifest
-versions must match. Existing tags are never moved; pull requests and other
-branches do not tag. If a bump's run fails or is cancelled, the next successful run
-can tag that version. The tag job uses GitHub's built-in token with `contents: write`;
-no extra secret is needed. It does not publish a GitHub Release or attach the ZIP
-to the tag; the ZIP remains available as the CI artifact above.
+| Command | Purpose |
+| --- | --- |
+| `pnpm test` | All unit, browser, and packaging checks. |
+| `pnpm run test:unit` | Settings, startup, lifecycle, requests, architecture, docs links, image tooling, and version tagging. |
+| `pnpm run test:browser` | Feature fixtures, installed-extension storage, and harness regressions. |
+| `pnpm run test:package` | ZIP contents and failure recovery. |
+| `pnpm run test:soak` | Two-minute message, remount, and pause/resume workload. Set `TWITCH_MIN_SOAK_CYCLES` to change its length. |
 
-Browser checks use temporary profiles and locally fulfilled/blocked requests,
-never your everyday profile. The harness uses `--no-sandbox` for this managed
-Windows environment and loads trusted fixtures only. Private snapshots and
-results stay in ignored `.browser-tests/`; ZIPs stay in ignored `dist/`.
+Development dependencies are locked in [pnpm-lock.yaml](pnpm-lock.yaml) and excluded
+from the installed extension. See [tooling details](docs/architecture.md#development-tooling)
+for Puppeteer, Sharp, fflate, and their installation scripts.
 
-Set `TWITCH_MIN_SOAK_CYCLES` to change the soak length. Regenerate PNG icons with
-`node scripts/generate-icons.cjs` (Node built-ins only).
-Regenerate the README GIF and palette-compressed PNGs with `node scripts/capture-previews.cjs`
-on Windows with Node and Chrome; no extra packages are needed.
-PNG color reduction keeps the core UI colors exact while merging similar edge shades.
+### Packaging and CI
 
-For implementation and test ownership, see [architecture.md](docs/architecture.md).
-Working rules are in [AGENTS.md](AGENTS.md); deferred work is in [ROADMAP.md](ROADMAP.md).
+Run `pnpm run package` to create `dist/twitch-min-<version>.zip`. It packages
+`extension/` and the MIT license, validates assets and ZIP contents, and preserves
+the previous archive on failure. The version comes from the matching package and
+manifest versions.
 
-## License
+[CI](.github/workflows/ci.yml) runs tests and packaging on Linux with the latest
+Node LTS and a frozen lockfile. Download and extract its artifact wrapper to get
+the installable ZIP. Successful default-branch pushes also create a missing
+`v<version>` tag at the tested commit; existing tags are never moved. Packaging
+and CI do not publish a GitHub Release or attach the ZIP to the tag.
 
-Licensed under the [MIT License](LICENSE).
+### Images
+
+After installing development dependencies:
+
+- `node scripts/generate-icons.cjs` regenerates PNG icons from
+  `extension/icons/logo.svg`.
+- `node scripts/capture-previews.cjs` uses Chrome and offline fixtures to regenerate
+  the README GIF and PNGs in `docs/images/`.
+
+## Reference
+
+- [Architecture](docs/architecture.md): implementation and tooling.
+- [Validation](docs/validation.md): recorded results and unverified scenarios.
+- [Contributing rules](AGENTS.md): repository working instructions.
+- [Roadmap](ROADMAP.md): future work and triggers for deferred refactors.
+- [Changelog](CHANGELOG.md): release history.
+- [MIT license](LICENSE).
 
 ![twitch-min logo](extension/icons/icon128.png)

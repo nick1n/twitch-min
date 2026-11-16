@@ -1,64 +1,63 @@
 # Repository instructions
 
-## Scope and working practices
+## Scope
 
-- Keep the extension vanilla JavaScript/CSS and dependency-free, with no build
-  required for local installation. Preserve its Twitch-only scope, local settings,
-  and storage-only API permission.
-- Preserve unrelated working-tree changes. Keep changes focused on the requested
-  behavior; the deferred ideas in [ROADMAP.md](ROADMAP.md) are not rewrite plans.
-- Keep generated ZIPs and private `.browser-tests` HTML snapshots out of commits
-  and packaged releases. Use small sanitized fixtures for reproduced issues.
+- Keep the installed extension vanilla JavaScript/CSS, with no runtime dependencies
+  or build. Use pnpm and the committed lockfile for development dependencies.
+  Preserve Twitch-only scope, local settings, and storage-only API permission.
+- Preserve unrelated working-tree changes. Keep work focused on the request;
+  [ROADMAP.md](ROADMAP.md) contains deferred ideas, not rewrite plans.
+- Keep generated ZIPs and private `.browser-tests` snapshots out of commits and
+  release contents. Use small sanitized fixtures for reproduced issues.
 
-## Architecture and behavior
+## Implementation
 
-- See [docs/architecture.md](docs/architecture.md) for architecture details.
-  Treat `extension/manifest.json` as the production script-order source of truth;
-  do not maintain duplicate script lists in fixtures or tooling.
-- Keep stable preference definitions in `extension/shared/settings.js`. Preserve saved
-  keys and defaults unless the task intentionally changes them.
-- Keep cosmetic CSS in the matching `extension/styles/rules-*.js` module and DOM behavior
-  in `extension/controllers/`. Shared selectors belong in `extension/shared/selectors.js`;
-  feature-specific selectors stay with their feature. Scope comma-separated
-  descendant selectors with `:is(...)` and avoid broad button/chat selectors.
-- Keep shared discovery in `extension/shared/regions.js` and lifecycle support in
-  `extension/shared/runtime.js`. Register teardown before DOM changes or observer setup.
+See [architecture](docs/architecture.md) for ownership and lifecycle details.
+
+- Derive production script lists from `extension/manifest.json`; do not duplicate
+  them in tooling or fixtures.
+- Keep preference definitions in `extension/shared/settings.js`. Preserve saved
+  keys and defaults unless intentionally changing them.
+- Put cosmetic CSS in the matching `extension/styles/rules-*.js` module and DOM
+  behavior in `extension/controllers/`. Shared selectors belong in
+  `extension/shared/selectors.js`; feature-specific selectors stay with the feature.
+  Scope comma-separated descendant selectors with `:is(...)`; avoid broad
+  button/chat selectors.
+- Use `extension/shared/regions.js` for discovery and `extension/shared/runtime.js` for
+  lifecycle support. Register teardown before DOM changes or observer setup.
   Release observers, listeners, temporary attributes, styles, and controls on
-  pause or disposal, including failed setup and detached regions.
-- Keep mutation work scoped to affected regions and subtrees. Do not introduce
-  document-wide scans on ordinary chat updates or timer-based retry loops.
+  pause/disposal, including failed setup and detached regions.
+- Scope mutation work to affected regions and subtrees. No document-wide scans
+  on ordinary chat updates or timer-based retry loops.
 - Preserve native handlers, accessible names, drafts, timestamp seek targets,
   and retained player controls. Turning a feature off must restore native behavior.
-- Sidebar collapse behavior belongs in `extension/controllers/layout.js`, with compact row
-  styles in `extension/styles/rules-sidebar.js`. Preserve native metadata, overlay height,
-  and the obligation to restore an initially collapsed sidebar.
+- Keep sidebar collapse behavior in `extension/controllers/layout.js` and compact
+  rows in `extension/styles/rules-sidebar.js`. Preserve native metadata, overlay
+  height, and restoration of an initially collapsed sidebar.
 
 ## Validation
 
-- Run `npm.cmd test` after code changes on Windows (`npm test` where supported).
-  The full suite requires Node as declared in `package.json`, and an installed Chrome. See [README.md](README.md#development) for focused commands;
-  set `CHROME_PATH` when Chrome is outside the standard locations.
-- For intentional cosmetic changes, review and update
-  `tests/rules-baseline.json` along with relevant behavior assertions. Do not
-  update the baseline just to silence an unexplained CSS regression.
-- For packaging changes, run `npm.cmd run package` as well. Packaging uses
-  Node.js and verifies source assets and ZIP contents before replacing
-  the release archive; it does not publish a release.
+- Follow [development setup](README.md#development) and run `pnpm test` after code
+  changes. Run `pnpm run package` for packaging changes. Use `pnpm.cmd` on Windows
+  when needed; focused commands and browser requirements are in the README.
+- For intentional cosmetic changes, review `tests/rules-baseline.json` and update
+  it with relevant behavior assertions. Never update it to silence an unexplained
+  CSS regression.
 - For DOM behavior changes, cover activation, pause/restoration, later mounts,
-  and navigation where relevant. Keep browser fixtures offline; block or fulfill
-  remote requests locally.
-- Distinguish fixture verification from signed-in Twitch verification. Report
-  checks that could not run and any live variants still requiring validation.
-  Documentation-only edits need a diff/link review, not the browser suite.
+  and navigation where relevant. Keep browser fixtures offline; fulfill remote
+  requests locally or block them.
+- Report checks that could not run and live variants still needing validation.
+  Distinguish fixture results from signed-in Twitch verification.
+- Documentation-only edits need a diff/link review, not the browser suite.
 
 ## Versions and documentation
 
-- Keep explicit release numbers only in `package.json`,
-  `extension/manifest.json`, and `CHANGELOG.md`. Keep package and manifest versions
-  equal; derive archive names and tooling references from those files. Use version
-  placeholders in other documentation. Do not bump versions unless requested.
-- Put agent working instructions here, installation/features/development reference
-  in `README.md`, implementation details in `docs/architecture.md`, ZIP-user instructions in `extension/INSTALL.txt`, release history
-  in `CHANGELOG.md`, and future work in `ROADMAP.md`.
-- Link to existing explanations instead of duplicating them. Keep enforceable
-  checks in tests and scripts rather than relying solely on these instructions.
+- Keep explicit release numbers only in `package.json`, `extension/manifest.json`,
+  and `CHANGELOG.md`. Package and manifest versions must match. Derive archive
+  names and tooling references from them; use placeholders in other docs.
+  Do not bump versions unless requested.
+- Keep each topic in one place and link to it: usage and development in
+  `README.md`, internals in `docs/architecture.md`, results and gaps in
+  `docs/validation.md`, standalone ZIP instructions in `extension/INSTALL.txt`,
+  history in `CHANGELOG.md`, future work in `ROADMAP.md`, and agent rules here.
+- Put enforceable checks in tests and scripts rather than relying only on docs.

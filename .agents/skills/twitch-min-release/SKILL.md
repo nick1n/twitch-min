@@ -5,59 +5,43 @@ description: Prepare local twitch-min releases when asked to bump the version or
 
 # twitch-min release
 
-Prepare a local release using the repository's existing checks. Creating or
-editing this skill does not itself request a release.
+## Determine the target
 
-## Establish the release
-
-- Work from the twitch-min repository root; verify `package.json` identifies it.
-  Read [repository instructions](../../../AGENTS.md), the
-  [development guide](../../../README.md#development), both version files,
-  [CHANGELOG.md](../../../CHANGELOG.md), and the working-tree status/diff.
-- Identify changes since the previous release using version tags or version-change
-  history, plus relevant working-tree changes. A clean working tree can still
+- From the repository root, confirm `package.json` identifies twitch-min. Read
+  [AGENTS.md](../../../AGENTS.md), the [development guide](../../../README.md#development),
+  both version files, [CHANGELOG.md](../../../CHANGELOG.md), and the working-tree diff.
+- Identify changes since the previous release using tags or version-change history,
+  including relevant working-tree and untracked files. A clean tree can still
   contain unreleased commits.
-- Use the requested major, minor, patch, or exact version. If that choice is
-  missing from the request and session instructions, ask for it while reviewing
-  the changes; do not guess a bump.
-- Compare working-tree versions with their committed versions to recognize a
-  release already in progress. Complete a partial or completed bump for this
-  release rather than incrementing twice, unless another bump is explicitly
-  requested. Resolve inconsistent files from the requested target and existing
-  diff; ask only if the intended target remains ambiguous.
+- Use the requested major, minor, patch, or exact version. If the request and session
+  do not specify one, ask while reviewing changes; do not guess.
+- Compare working-tree and committed versions. Finish a release already in progress
+  rather than bumping twice, unless requested. Resolve mismatches from the intended
+  target and existing diff; ask only if the target remains ambiguous.
 
-## Update versions and release notes
+## Update and validate
 
-- Set `package.json` and `extension/manifest.json` to the same target version.
-  Follow the repository's rules for version references elsewhere.
-- Add or finish the target version's entry at the top of `CHANGELOG.md`, matching
-  its existing heading style. Do not create duplicate entries for the same release.
-- Summarize implemented changes within the requested release scope, including
-  relevant untracked files. Use short, direct bullets with one change per bullet.
-  Omit unimplemented proposals and test-run narration; preserve older entries.
-- Preserve unrelated edits. Review the release diff for unintended changes.
+1. Set `package.json` and `extension/manifest.json` to the same target version.
+   Follow the repository's rules for other version references.
+2. Add or finish that version's top changelog entry, using the existing heading
+   style. Summarize implemented changes in short bullets; omit proposals and
+   test-run narration. Preserve older entries and avoid duplicates.
+3. Follow the development guide to install dependencies and run the full test
+   script, then the package script. Use the existing asset/ZIP validation and
+   derive the archive path from the package output or target version.
+4. Confirm both versions and the newest changelog entry agree. Review the diff
+   for unrelated changes and run `git diff --check` on edited release files.
 
-## Validate and package
+Fix failed checks within the authorized release scope and rerun affected checks.
+If the environment blocks validation, report the blocker and leave readiness
+unconfirmed.
 
-1. Confirm the package version, manifest version, and newest changelog entry agree.
-2. Run the repository's full test script, then its package script. Current Windows
-   commands are `npm.cmd test` and `npm.cmd run package`; use the current
-   `package.json` and development guide as the authority if commands change.
-3. Use the existing scripts to enforce asset and ZIP checks. Derive the archive
-   path from the target version or package output, rather than hardcoding it.
-4. Run `git diff --check` for the edited release files and review their diff.
+## Hand off
 
-If a check fails, diagnose it and fix issues within the authorized release scope
-before rerunning the affected checks. If an environment requirement blocks a
-check, report it and leave validation incomplete; do not claim release readiness.
+Report the target version, brief changelog summary, test/package results, and a
+link to the validated ZIP. Distinguish fixture checks from signed-in Twitch checks
+as required by AGENTS.md.
 
-## Report and hand off
-
-Report the target version, a brief changelog summary, test/package results, and a
-link to the validated ZIP when packaging succeeds. Distinguish fixture checks
-from signed-in Twitch verification as required by the repository instructions.
-
-Local release preparation does not authorize committing, pushing, creating tags,
-or publishing. Perform those actions only when explicitly requested. The current
-CI workflow creates missing version tags after a successful default-branch push;
-consult `.github/workflows/ci.yml` before describing or changing that behavior.
+Editing this skill does not request a release. Release preparation does not
+authorize committing, pushing, tagging, or publishing; do those only when requested.
+Consult `.github/workflows/ci.yml` before describing its automatic tagging behavior.
