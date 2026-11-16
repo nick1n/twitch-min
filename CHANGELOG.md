@@ -3,13 +3,16 @@
 Release history, newest first. For current checks and limits, see
 [validation notes](docs/validation.md).
 
-## Unreleased
+## 0.26.0 - Tab recovery and settings troubleshooting
 
 - Keep open Twitch tabs working after extension updates and retry disconnected
   settings changes without reloading the page.
 - Show troubleshooting with copyable error details and an issue link when a
   change can't be confirmed.
+- Keep sidebar headings styled and pagination controls hidden while lists load.
+- Preserve announcement card borders when grouping chat messages.
 - Remove redundant tests and keep browser checks based on committed fixtures.
+- Simplify setup instructions and clarify settings descriptions.
 
 ## 0.25.0 - Sticky footer cleanup and development tooling
 

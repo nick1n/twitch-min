@@ -18,7 +18,7 @@
     {"key": "chatTints", "default": true, "attribute": "data-tq-chat-tints", "title": "Chat username tint", "description": "Give messages a background tint that matches the username color. Leave highlighted messages unchanged."},
     {"key": "chatGrouping", "default": true, "attribute": "data-tq-chat-grouping", "title": "Group consecutive chats", "description": "Show the username and first badge once for groups of messages from the same chatter."},
     {"key": "emotePreviews", "default": true, "attribute": "data-tq-emote-previews", "title": "Enlarged emote previews", "description": "Hover over an emote to see a preview at three times its normal size."},
-    {"key": "chatComposer", "default": true, "attribute": "data-tq-chat-composer", "title": "Chat message box", "description": "Click Chat to show or hide the message box. Press Enter to send."}
+    {"key": "chatComposer", "default": true, "attribute": "data-tq-chat-composer", "title": "Chat message box", "description": "Click Chat to show or hide the message box. Press Enter in the message box to send."}
   ].map(Object.freeze));
 
   const DEFAULTS = Object.freeze(Object.fromEntries(DEFINITIONS.map(setting => [setting.key, setting.default])));

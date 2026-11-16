@@ -55,8 +55,8 @@ label {
 header {
   position: relative;
   justify-content: space-between;
-  gap: 12px;
   padding-bottom: 10px;
+  gap: 12px;
   border-bottom: 1px solid transparent;
 }
 
@@ -66,8 +66,8 @@ header {
 
 h1 {
   margin: 0;
-  font-size: 16px;
   font-weight: 650;
+  font-size: 16px;
 }
 
 .title-line {
@@ -92,14 +92,14 @@ h1 {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 3px;
   min-height: 44px;
+  gap: 3px;
 }
 
 .controls label {
-  gap: 6px;
   min-height: 24px;
   padding: 0 5px;
+  gap: 6px;
   border-radius: 4px;
   cursor: pointer;
 }
@@ -111,17 +111,15 @@ input {
   cursor: pointer;
 }
 
-#enable-all-button {
-  &[hidden] {
-    display: block;
-    visibility: hidden;
-  }
+#enable-all-button[hidden] {
+  display: block;
+  visibility: hidden;
 }
 
 #groups {
+  flex: 0 1 auto;
   min-height: 0;
   max-height: 480px;
-  flex: 0 1 auto;
   overflow-y: auto;
   scrollbar-width: none;
 
@@ -141,9 +139,9 @@ input {
 
 #enable-all-button,
 #more-settings {
+  padding: 0 6px;
   border: 0;
   border-radius: 4px;
-  padding: 0 6px;
   background: none;
   color: var(--muted);
   font: inherit;
@@ -155,14 +153,14 @@ input {
 .settings-heading {
   margin: 12px 6px 2px;
   color: var(--muted);
-  font-size: .85em;
   font-weight: 650;
+  font-size: .85em;
 }
 
 .setting {
   position: relative;
-  gap: 12px;
   padding: 8px 6px;
+  gap: 12px;
   border-bottom: 1px solid transparent;
   border-radius: 4px;
   cursor: pointer;
@@ -170,13 +168,13 @@ input {
 
 header::after,
 .setting:not(:last-child)::after {
-  content: '';
   position: absolute;
-  left: 6px;
   right: 6px;
   bottom: -1px;
+  left: 6px;
   height: 1px;
   background: var(--line);
+  content: '';
   pointer-events: none;
 }
 
@@ -284,9 +282,9 @@ label:has(input:disabled) {
   width: 100%;
   height: 72px;
   margin-top: 6px;
-  resize: none;
+  border: 1px solid var(--line);
   background: var(--background);
   color: var(--text);
-  border: 1px solid var(--line);
   font: inherit;
+  resize: none;
 }
