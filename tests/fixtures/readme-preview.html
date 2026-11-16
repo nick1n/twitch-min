@@ -63,6 +63,7 @@
   .side-nav-card__link--offline [data-a-target="side-nav-live-status"]::before { display:none; }
   #show-more { color:#bf94ff; font-size:12px; margin:4px 8px; }
   .viewing-area { flex:1; min-width:0; background:#0e0e10; padding:22px 14px; }
+  body:not([data-state="after"]) .viewing-area p { visibility:hidden; }
   .video-surface { height:202px; background:var(--preview-surface); border:1px solid var(--preview-button); border-radius:5px; display:flex; align-items:center; justify-content:center; }
   .viewing-area p { margin-top:13px; font-size:11px; line-height:17px; color:var(--preview-muted); }
   .placeholder-line { height:5px; margin-top:12px; background:var(--preview-button); border-radius:3px; }
@@ -175,8 +176,8 @@
   document.querySelectorAll('[data-icon]').forEach(button => button.insertAdjacentHTML('afterbegin', icons[button.dataset.icon]));
   const sections = [
     ['Followed Channels', [['Channel 1','Just Chatting','420'],['Channel 2','Retro','69'],['Channel 3','Offline','']]],
-    ['Recommended Channels', [['Channel 4','Art','67'],['Channel 5','Music','320']]],
-    ['Example Viewers Also Watch', [['Channel 6','Minecraft','1.3K'],['Channel 7','Stardew Valley','620']]]
+    ['Live Channels', [['Channel 4','Art','67'],['Channel 5','Music','320']]],
+    ['Viewers Also Watch', [['Channel 6','Minecraft','1.3K'],['Channel 7','Stardew Valley','620']]]
   ];
   document.querySelector('#demo-sidebar-sections').innerHTML = sections.map(([heading, rows], index) => `<section class="side-nav-section" aria-label="${heading}"><div class="${index ? 'side-nav-header' : 'followed-side-nav-header'}"><h3>${heading}</h3></div>${rows.map(([name,game,count]) => `<div class="side-nav-card"><a class="side-nav-card__link ${count ? '' : 'side-nav-card__link--offline'}" href="/example" aria-label="${name}"><div class="side-nav-card__avatar"><div class="tw-avatar"><img src="${icons.avatar}" alt="Anonymous avatar"></div></div><div class="native-details"><div><div data-a-target="side-nav-card-metadata"><div class="side-nav-card__title">${name}</div><div class="side-nav-card__metadata"><p>${game}</p></div></div><div data-a-target="side-nav-live-status"><span aria-hidden="true">${count}</span></div></div></div></a></div>`).join('')}</section>`).join('');
   const badge = (name, image) => `<span class="badge-layout"><button data-a-target="chat-badge" aria-label="${name}"><img class="chat-badge" alt="${name} badge" src="${image}"></button></span>`;

@@ -27,6 +27,12 @@ async function run() {
         if (enabled && demo === 'sidebar') await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
         if (enabled && demo === 'chat') await waitFor(`document.querySelector('[data-tq-chat-continuation]') && document.querySelector('[data-tq-time]') && document.querySelector('[data-tq-chat-toggle]')`);
         await evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+        if (demo === 'sidebar') {
+          if (!enabled) assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('.sidebar-toolbar h2, .side-nav-section h3'), heading=>heading.textContent)`),
+            ['For You', 'Followed Channels', 'Live Channels', 'Viewers Also Watch'], 'before image uses native sidebar headings');
+          assert.equal(await evaluate(`getComputedStyle(document.querySelector('.viewing-area p')).visibility`),
+            enabled ? 'visible' : 'hidden', 'viewing-area caption appears only in the after image');
+        }
         if (enabled && demo === 'sidebar') {
           const centers = await evaluate(`(()=>{
             const button=document.querySelector('[data-a-target="side-nav-arrow"]').getBoundingClientRect();
