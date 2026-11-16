@@ -92,4 +92,5 @@ jobs:
             exit 0
           fi
           mv "dist/twitch-min-$version.zip" dist/twitch-min.zip
-          gh release create "$tag" dist/twitch-min.zip --repo "$GITHUB_REPOSITORY" --verify-tag --title "$tag" --generate-notes
+          node scripts/release-notes.cjs > dist/release-notes.md
+          gh release create "$tag" dist/twitch-min.zip --repo "$GITHUB_REPOSITORY" --verify-tag --title "$tag" --notes-file dist/release-notes.md

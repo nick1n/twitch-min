@@ -265,6 +265,14 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
         assert.equal(layout.logo, true, 'the brand logo loads');
         assert.equal(await evaluate(`document.querySelector('#reload-hint').checkVisibility()`), false, `${theme}: refresh guidance stays hidden during normal use`);
         assert.equal(layout.labels, true, 'the whole setting label remains a usable click target');
+          assert.equal(await evaluate(`(()=>{
+            const on=document.querySelector('input:checked'),off=document.querySelector('input:not(:checked)');
+            const track=getComputedStyle(on),thumb=getComputedStyle(on,'::before');
+            return track.appearance==='none' && track.backgroundColor==='rgb(145, 70, 255)'
+              && thumb.backgroundColor==='rgb(255, 255, 255)'
+              && thumb.transform!==getComputedStyle(off,'::before').transform
+              && on.getBoundingClientRect().width===30 && off.getBoundingClientRect().width===30;
+          })()`), true, `${theme}: switches show an accent track and distinct thumb positions`);
       }
       const { root } = await send('DOM.getDocument');
       const { nodeId } = await send('DOM.querySelector', { nodeId: root.nodeId, selector: '#group-chatComposer' });
@@ -316,6 +324,21 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     assert.equal(await evaluate(`document.querySelector('#groups').scrollHeight-document.querySelector('#groups').clientHeight-document.querySelector('#groups').scrollTop <= 1`), true, 'the action scrolls all the way to the bottom');
     await evaluate(`document.querySelector('#more-settings').click()`);
     await waitFor(`document.querySelector('#groups').scrollTop === 0 && document.querySelector('#more-settings').textContent === 'More settings ↓'`);
+    assert.equal(await evaluate(`(()=>{
+      const list=document.querySelector('#groups');
+      document.querySelector('#more-settings').click();
+      return list.scrollTop===0;
+    })()`), true, 'animated scrolling does not jump straight to the bottom');
+    await waitFor(`document.querySelector('#more-settings').textContent === 'Back to top ↑'`);
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    try {
+      assert.equal(await evaluate(`(()=>{
+        document.querySelector('#more-settings').click();
+        return document.querySelector('#groups').scrollTop;
+      })()`), 0, 'reduced motion returns to the top immediately');
+    } finally {
+      await send('Emulation.setEmulatedMedia', { features: [] });
+    }
     assert.equal(await evaluate(`document.activeElement.id`), 'more-settings', 'scrolling up keeps focus on the scroll button');
     assert.equal(await evaluate(`document.querySelector('.setting:focus-within')`), null, 'returning to the top does not highlight a setting');
     await evaluate(`document.querySelector('#more-settings').focus()`);

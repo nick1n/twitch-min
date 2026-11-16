@@ -393,13 +393,36 @@
   }
 
   const sizeObserver = new ResizeObserver(updateScrollCue);
+  let scrollFrame = 0;
+  function cancelScroll() {
+    cancelAnimationFrame(scrollFrame);
+    scrollFrame = 0;
+  }
+  groupList.addEventListener('wheel', cancelScroll, { passive: true });
+  groupList.addEventListener('touchstart', cancelScroll, { passive: true });
   moreSettings.addEventListener('click', () => {
+    cancelScroll();
     const atBottom = groupList.scrollHeight - groupList.clientHeight - groupList.scrollTop <= 1;
-    groupList.scrollTop = atBottom ? 0 : groupList.scrollHeight;
+    const start = groupList.scrollTop;
+    const target = atBottom ? 0 : groupList.scrollHeight - groupList.clientHeight;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      groupList.scrollTop = target;
+    } else {
+      const started = performance.now();
+      const step = (now) => {
+        const progress = Math.min((now - started) / 150, 1);
+        groupList.scrollTop = start + (target - start) * (1 - (1 - progress) ** 3);
+        scrollFrame = progress < 1 ? requestAnimationFrame(step) : 0;
+      };
+      scrollFrame = requestAnimationFrame(step);
+    }
     moreSettings.focus({ preventScroll: true });
     updateScrollCue();
   });
   window.addEventListener('pagehide', () => {
+    cancelScroll();
+    groupList.removeEventListener('wheel', cancelScroll);
+    groupList.removeEventListener('touchstart', cancelScroll);
     resetCopyFeedback();
     sizeObserver.disconnect();
     groupList.removeEventListener('scroll', updateScrollCue);

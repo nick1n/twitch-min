@@ -9,13 +9,16 @@ Screenshots: [Before](docs/images/before.png) & [After](docs/images/after.png)
 ## Install locally
 
 [Download the latest release ZIP](https://github.com/nick1n/twitch-min/releases/latest/download/twitch-min.zip)
-and follow the included [INSTALL.txt](extension/INSTALL.txt).
+and follow these steps, also included in [INSTALL.txt](extension/INSTALL.txt):
 
-1. Open `chrome://extensions` (Chrome) or `opera://extensions` (Opera GX).
-2. Enable **Developer mode**, choose **Load unpacked**, and select this
-   repository's **extension** folder.
-3. Pin **twitch-min** in the Extensions menu, then open Twitch. Click the
+1. Extract the ZIP and keep the extracted folder in place.
+2. Open `chrome://extensions` (Chrome) or `opera://extensions` (Opera GX).
+3. Enable **Developer mode**, choose **Load unpacked**, and select the extracted
+   folder containing `manifest.json`.
+4. Pin **twitch-min** in the Extensions menu, then open Twitch. Click the
    extension icon to change your settings.
+
+If installing from a repository checkout, select its **extension** folder instead.
 
 Keep the loaded folder in place. To update, replace its files and click **Reload**
 for twitch-min on your browser's extensions page. **Remove** uninstalls it and
@@ -130,6 +133,7 @@ Node LTS and a frozen lockfile. Download and extract its artifact wrapper to get
 the installable ZIP. Successful default-branch pushes also create a missing
 `v<version>` tag at the tested commit; existing tags are never moved. CI
 then publishes a GitHub Release with the validated archive named `twitch-min.zip`.
+The release description uses the matching newest entry in [CHANGELOG.md](CHANGELOG.md).
 Publication only proceeds when the version tag points to the tested commit;
 existing releases and tags are never overwritten.
 

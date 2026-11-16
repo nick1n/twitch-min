@@ -5,7 +5,10 @@ INSTALL
 2. Open chrome://extensions (Chrome) or opera://extensions (Opera GX).
 3. Enable Developer mode, choose Load unpacked, and select the folder
    containing manifest.json.
-4. Pin twitch-min in the Extensions menu, then open Twitch.
+4. Pin twitch-min in the Extensions menu, then open Twitch. Click the
+   extension icon to change your settings.
+
+If installing from a repository checkout, select its extension folder instead.
 
 USE
 Click the extension icon to change settings. Turn Enabled off to pause without
@@ -28,4 +31,4 @@ Replace the files in the same folder, then click Reload for twitch-min on your
 browser's extensions page. To uninstall, click Remove; this also deletes your
 saved settings.
 
-Full guide and privacy information: https://github.com/nick1n/twitch-min
+Full guide and privacy information: https://github.com/nick1n/twitch-min#readme
