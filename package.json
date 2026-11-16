@@ -19,7 +19,7 @@
     "test:browser": "node --test tests/browser.test.cjs tests/extension.test.cjs tests/harness.test.cjs",
     "test:package": "node --test tests/package.test.cjs",
     "test:soak": "node scripts/soak.cjs",
-    "package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1"
+    "package": "node scripts/package.cjs"
   },
   "engines": {
     "node": ">=26"

@@ -85,11 +85,13 @@ async function run() {
           context.beginPath();context.roundRect(x+.5,y+.5,width-1,height-1,10);context.stroke();
         }
         card(padding,padding,contentWidth,nav.height,()=>{
-          context.fillStyle=colors.surface;context.fillRect(padding,padding,contentWidth,header);
+          context.fillStyle=colors.header;context.fillRect(padding,padding,contentWidth,header);
           context.fillStyle=colors.page;context.fillRect(padding,padding+header,contentWidth,nav.height-header);
           context.fillStyle=colors.surface;context.fillRect(padding,padding+88,contentWidth,56);
           // Extend the flat navigation background, keeping all text and icons at 1:1.
-          context.drawImage(nav,0,0,500,header,padding,padding,500,header);
+          context.drawImage(nav,0,0,300,header,padding,padding,300,header);
+          context.drawImage(nav,nav.width/2-50,0,100,header,
+            padding+contentWidth/2-50,padding,100,header);
           context.drawImage(nav,500,0,220,header,padding+contentWidth-220,padding,220,header);
           context.drawImage(nav,0,header,nav.width,nav.height-header,
             padding+contentWidth-nav.width,padding+header,nav.width,nav.height-header);
@@ -159,6 +161,13 @@ async function run() {
         fs.writeFileSync(path.join(frames, `${demo}-gif-frame-${index}.png`), Buffer.from(frame.png, 'base64'));
       });
       process.stdout.write(`${file}\n`);
+    }
+    // Quantize the published PNGs after GIF encoding to avoid double quantization.
+    for (const state of ['before', 'after']) {
+      const file = path.join(output, `${state}.png`);
+      const size = optimizePreview(file, { indexed: true, reservedColors: Object.values(colors) });
+      assert.ok(size.after < 30000, 'published PNG stays below 30 KB');
+      process.stdout.write(`${file}: ${size.before} -> ${size.after} bytes (palette compressed)\n`);
     }
   }, { intercept, initSource });
 }

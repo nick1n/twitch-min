@@ -8,7 +8,7 @@ is needed to use it.
 
 ![Top navigation, sidebar, and chat before and after twitch-min.](docs/images/before-after.gif)
 
-Lossless screenshots: [Before](docs/images/before.png) · [After](docs/images/after.png).
+Screenshots: [Before](docs/images/before.png) & [After](docs/images/after.png)
 
 ## Install locally
 
@@ -99,7 +99,7 @@ verified scenarios and limits, and [CHANGELOG.md](CHANGELOG.md) for release hist
 
 ## Development
 
-Full checks need Git, the latest Node.js LTS, recent Chrome, and Windows PowerShell.
+Full checks need Git, the latest Node.js LTS, and recent Chrome.
 No `npm install` is needed. Use `npm.cmd` on Windows if PowerShell blocks `npm.ps1`;
 set `CHROME_PATH` when Chrome is outside the standard locations.
 
@@ -110,14 +110,14 @@ npm.cmd run package
 
 | Focused command | Checks | Requires |
 | --- | --- | --- |
-| `npm.cmd run test:unit` | Settings, startup, lifecycle, requests, manifest, CSS, docs links, and version tagging | Node + Git |
-| `npm.cmd run test:browser` | Offline features, real extension storage, and harness failures | Node + Chrome |
-| `npm.cmd run test:package` | ZIP contents and failure recovery | Node + Windows PowerShell |
-| `npm.cmd run test:soak` | Two-minute message/remount/pause stress workload | Node + Chrome |
+| `npm run test:unit` | Settings, startup, lifecycle, requests, manifest, CSS, docs links, and version tagging | Node + Git |
+| `npm run test:browser` | Offline features, real extension storage, and harness failures | Node + Chrome |
+| `npm run test:package` | ZIP contents and failure recovery | Node |
+| `npm run test:soak` | Two-minute message/remount/pause stress workload | Node + Chrome |
 
 Packaging includes the MIT license and verifies source assets and ZIP bytes before
 replacing `dist/twitch-min-<version>.zip`; failure preserves the previous archive. It does not
-publish a release. [CI](.github/workflows/ci.yml) runs tests and packaging on Windows
+publish a release. [CI](.github/workflows/ci.yml) runs tests and packaging on Linux
 with the latest Node LTS and retains the ZIP as an artifact. Extract the artifact
 wrapper to obtain the installable ZIP.
 
@@ -135,9 +135,10 @@ Windows environment and loads trusted fixtures only. Private snapshots and
 results stay in ignored `.browser-tests/`; ZIPs stay in ignored `dist/`.
 
 Set `TWITCH_MIN_SOAK_CYCLES` to change the soak length. Regenerate PNG icons with
-`python scripts/generate_icons.py` (standard library only).
-Regenerate the README GIFs and losslessly optimized PNGs with `node scripts/capture-previews.cjs`
+`node scripts/generate-icons.cjs` (Node built-ins only).
+Regenerate the README GIF and palette-compressed PNGs with `node scripts/capture-previews.cjs`
 on Windows with Node and Chrome; no extra packages are needed.
+PNG color reduction keeps the core UI colors exact while merging similar edge shades.
 
 For implementation and test ownership, see [architecture.md](docs/architecture.md).
 Working rules are in [AGENTS.md](AGENTS.md); deferred work is in [ROADMAP.md](ROADMAP.md).

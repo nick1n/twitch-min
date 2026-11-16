@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { readZip } = require('../scripts/zip.cjs');
 const { spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
@@ -25,7 +26,7 @@ function fixture(t) {
     fs.rmSync(target, { recursive: true, force: true });
   });
   fs.mkdirSync(path.join(dir, 'scripts'));
-  fs.copyFileSync(path.join(root, 'scripts/package.ps1'), path.join(dir, 'scripts/package.ps1'));
+  for (const file of ['package.cjs', 'zip.cjs']) fs.copyFileSync(path.join(root, 'scripts', file), path.join(dir, 'scripts', file));
   fs.copyFileSync(path.join(root, 'package.json'), path.join(dir, 'package.json'));
   fs.copyFileSync(path.join(root, 'LICENSE'), path.join(dir, 'LICENSE'));
   fs.cpSync(path.join(root, 'extension'), path.join(dir, 'extension'), { recursive: true });
@@ -37,16 +38,12 @@ function fixture(t) {
   return dir;
 }
 
-function powershell(args, cwd) {
-  const result = spawnSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', ...args], {
-    cwd, encoding: 'utf8', timeout: 30000, windowsHide: true,
+function run(dir) {
+  const result = spawnSync(process.execPath, [path.join(dir, 'scripts/package.cjs')], {
+    cwd: dir, encoding: 'utf8', timeout: 30000, windowsHide: true,
   });
   assert.ifError(result.error);
   return result;
-}
-
-function run(dir) {
-  return powershell(['-File', path.join(dir, 'scripts/package.ps1')], dir);
 }
 
 function assertPreserved(dir) {
@@ -59,35 +56,58 @@ test('packaging replaces stale output with all source files at ZIP root, byte fo
   const dir = fixture(t);
   fs.mkdirSync(path.join(dir, 'extension/nested'));
   fs.writeFileSync(path.join(dir, 'extension/nested/.binary'), Buffer.from([0, 1, 128, 255]));
+  fs.writeFileSync(path.join(dir, 'extension/nested/café.txt'), 'UTF-8 filename');
   const result = run(dir);
   assert.equal(result.status, 0, result.stderr);
   assert.ok(result.stdout.includes(archiveName));
-  const inspect = powershell(['-Command', `
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $zip = [IO.Compression.ZipFile]::OpenRead((Join-Path (Get-Location) 'dist/${archiveName}'))
-    try {
-      $files = @($zip.Entries | ForEach-Object {
-        $stream = $_.Open(); $bytes = [IO.MemoryStream]::new()
-        try { $stream.CopyTo($bytes); @{ name = $_.FullName; data = [Convert]::ToBase64String($bytes.ToArray()) } }
-        finally { $stream.Dispose(); $bytes.Dispose() }
-      })
-      ConvertTo-Json -InputObject $files -Compress
-    } finally { $zip.Dispose() }
-  `], dir);
-  assert.equal(inspect.status, 0, inspect.stderr);
-  const entries = JSON.parse(inspect.stdout);
+  const entries = readZip(fs.readFileSync(path.join(dir, 'dist', archiveName)));
   const source = path.join(dir, 'extension');
   const names = fs.readdirSync(source, { recursive: true }).filter(name => fs.statSync(path.join(source, name)).isFile());
   assert.deepEqual(entries.map(entry => entry.name).sort(), [...names.map(name => name.split(path.sep).join('/')), 'LICENSE'].sort());
   for (const entry of entries) {
     const file = entry.name === 'LICENSE' ? path.join(dir, 'LICENSE') : path.join(source, entry.name);
-    assert.deepEqual(Buffer.from(entry.data, 'base64'), fs.readFileSync(file), entry.name);
+    assert.deepEqual(entry.data, fs.readFileSync(file), entry.name);
   }
   const manifest = JSON.parse(Buffer.from(entries.find(entry => entry.name === 'manifest.json').data, 'base64'));
   assert.equal(manifest.version, version);
   assert.deepEqual(manifest.permissions, ['storage']);
   assert.deepEqual(manifest.content_scripts[0].matches, ['https://www.twitch.tv/*', 'https://twitch.tv/*']);
   assertPreserved(dir);
+});
+
+test('Node icon generator preserves the former Python raster algorithm', t => {
+  const dir = fixture(t);
+  fs.copyFileSync(path.join(root, 'scripts/generate-icons.cjs'), path.join(dir, 'scripts/generate-icons.cjs'));
+  const result = spawnSync(process.execPath, [path.join(dir, 'scripts/generate-icons.cjs')], { encoding: 'utf8' });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
+  // Hash decoded scanlines, independent of zlib compression choices.
+  const expected = {
+    16: 'c6fc632c88437f93f0e75db98498866a69d86235aace0103efa556e9566ea140',
+    32: 'aa98c0b9f2206290d0f791403a01c84f6515c0bd63531e42b31e31b69d9b5bdf',
+    48: '77ac0422beaf62cbd58c93d5bbbf3643c1678dcfdcc08c0b7bfe86a9b96e0c01',
+    128: '82b5438361af13e93bf38f0420a50185dbe7a26814fb2f3540301987dfa4a9ae',
+  };
+  for (const [size, hash] of Object.entries(expected)) {
+    const bytes = fs.readFileSync(path.join(dir, `extension/icons/icon${size}.png`));
+    assert.equal(bytes.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+    const parts = [];
+    for (let offset = 8; offset < bytes.length;) {
+      const length = bytes.readUInt32BE(offset);
+      const data = bytes.subarray(offset + 8, offset + 8 + length);
+      const type = bytes.subarray(offset + 4, offset + 8);
+      assert.equal(require('node:zlib').crc32(Buffer.concat([type, data])), bytes.readUInt32BE(offset + 8 + length));
+      if (type.toString() === 'IHDR') {
+        assert.equal(data.readUInt32BE(0), Number(size));
+        assert.equal(data.readUInt32BE(4), Number(size));
+        assert.equal(data[8], 8); assert.equal(data[9], 6);
+      }
+      if (type.toString() === 'IDAT') parts.push(data);
+      offset += length + 12;
+    }
+    const pixels = require('node:zlib').inflateSync(Buffer.concat(parts));
+    assert.equal(require('node:crypto').createHash('sha256').update(pixels).digest('hex'), hash);
+  }
 });
 
 test('packaging rejects a missing license and preserves the previous release', t => {
@@ -97,18 +117,6 @@ test('packaging rejects a missing license and preserves the previous release', t
   assert.notEqual(result.status, 0);
   assert.ok(result.stderr.includes('LICENSE'), result.stderr);
   assert.deepEqual(fs.readFileSync(path.join(dir, 'dist', archiveName)), oldRelease);
-  assertPreserved(dir);
-});
-
-test('packaging succeeds when Get-FileHash is unavailable', t => {
-  const dir = fixture(t);
-  const result = powershell(['-Command', `
-    function Get-FileHash { throw 'Get-FileHash is unavailable' }
-    & ./scripts/package.ps1
-  `], dir);
-  assert.equal(result.status, 0, result.stderr);
-  assert.ok(result.stdout.includes(archiveName));
-  assert.notDeepEqual(fs.readFileSync(path.join(dir, 'dist', archiveName)), oldRelease);
   assertPreserved(dir);
 });
 
@@ -153,19 +161,15 @@ test('packaging rejects a package/manifest version mismatch', t => {
 
 test('archive validation rejects same-name corruption and cleans its temporary ZIP', t => {
   const dir = fixture(t);
-  const script = path.join(dir, 'scripts/package.ps1');
+  const script = path.join(dir, 'scripts/package.cjs');
   const source = fs.readFileSync(script, 'utf8');
-  const marker = '    $zip = [IO.Compression.ZipFile]::OpenRead($temporaryArchive)';
+  const marker = '  const entries = readZip(fs.readFileSync(temporaryArchive));';
   assert.equal(source.split(marker).length, 2);
-  // Fault injection in the disposable script retains names but changes bytes
-  // after archive creation, before the production content validator runs.
+  // Replace one entry with a valid ZIP containing different bytes before validation.
   fs.writeFileSync(script, source.replace(marker, `
-    $damaged = [IO.Compression.ZipFile]::Open($temporaryArchive, [IO.Compression.ZipArchiveMode]::Update)
-    try {
-        $damaged.GetEntry('shared/runtime.js').Delete()
-        $writer = [IO.StreamWriter]::new($damaged.CreateEntry('shared/runtime.js').Open())
-        try { $writer.Write('corrupted module') } finally { $writer.Dispose() }
-    } finally { $damaged.Dispose() }
+  const damaged = readZip(fs.readFileSync(temporaryArchive));
+  damaged.find(entry => entry.name === 'shared/runtime.js').data = Buffer.from('corrupted module');
+  fs.writeFileSync(temporaryArchive, createZip(damaged));
 ${marker}`));
   const result = run(dir);
   assert.notEqual(result.status, 0);

@@ -2,55 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { readPng } = require('./png.cjs');
-
-function makePalette(images, reservedColors) {
-  const counts = new Map();
-  for (const { colors } of images) for (const color of colors) counts.set(color, (counts.get(color) || 0) + 1);
-  const sorted = [...counts].sort((a, b) => b[1] - a[1]);
-  const rgb = color => [color >>> 16, color >>> 8 & 255, color & 255];
-  // Pin theme colors even when small icons use them less often than text edges.
-  const exact = new Set(reservedColors.map(color => {
-    assert.match(color, /^#[\da-f]{6}$/i, 'six-digit RGB palette color');
-    return Number.parseInt(color.slice(1), 16);
-  }));
-  assert.ok(exact.size <= 64, 'leave palette space for screenshot colors');
-  for (const [color] of sorted) {
-    if (exact.size === 64) break;
-    exact.add(color);
-  }
-  const palette = [...exact].map(rgb);
-  const describe = entries => {
-    const ranges = [0, 1, 2].map(axis => Math.max(...entries.map(e => e[axis])) - Math.min(...entries.map(e => e[axis])));
-    const axis = ranges.indexOf(Math.max(...ranges));
-    const weight = entries.reduce((sum, entry) => sum + entry[3], 0);
-    return { entries, axis, weight, score: ranges[axis] * weight };
-  };
-  const remaining = sorted.filter(([color]) => !exact.has(color));
-  const buckets = remaining.length ? [describe(remaining.map(([color, count]) => [...rgb(color), count]))] : [];
-  while (palette.length + buckets.length < 256) {
-    buckets.sort((a, b) => b.score - a.score);
-    const bucket = buckets[0];
-    if (!bucket || bucket.entries.length < 2) break;
-    buckets.shift();
-    bucket.entries.sort((a, b) => a[bucket.axis] - b[bucket.axis]);
-    let total = 0, split = 0;
-    while (split < bucket.entries.length - 1 && total < bucket.weight / 2) total += bucket.entries[split++][3];
-    buckets.push(describe(bucket.entries.slice(0, split)), describe(bucket.entries.slice(split)));
-  }
-  for (const bucket of buckets) palette.push([0, 1, 2].map(axis => Math.round(bucket.entries.reduce((sum, entry) => sum + entry[axis] * entry[3], 0) / bucket.weight)));
-  const lookup = new Map();
-  for (const [color] of counts) {
-    const target = rgb(color);
-    let distance = Infinity, best = 0;
-    palette.forEach((candidate, index) => {
-      const next = candidate.reduce((sum, value, axis) => sum + (value - target[axis]) ** 2, 0);
-      if (next < distance) { distance = next; best = index; }
-    });
-    lookup.set(color, best);
-  }
-  while (palette.length < 256) palette.push([0, 0, 0]);
-  return { palette: Buffer.from(palette.flat()), lookup };
-}
+const makePalette = require('./preview-palette.cjs');
 
 function lzw(indices) {
   let dictionary = new Map(), next = 258, prefix = indices[0];
@@ -92,15 +44,45 @@ function encodePreviews(before, after, output, reservedColors = []) {
   const { width, height } = images[0];
   assert.equal(images[1].width, width);
   assert.equal(images[1].height, height);
-  const { palette, lookup } = makePalette(images, reservedColors);
+  const { palette, lookup } = makePalette(images, reservedColors, 128);
   const size = Buffer.alloc(4);
   size.writeUInt16LE(width); size.writeUInt16LE(height, 2);
   const parts = [Buffer.from('GIF89a'), size, Buffer.from([0xf7, 0, 0]), palette,
     Buffer.from([0x21, 0xff, 11]), Buffer.from('NETSCAPE2.0'), Buffer.from([3, 1, 0, 0, 0])];
+  let previous;
   for (const image of images) {
-    // Full frames, three seconds each, looping indefinitely.
-    parts.push(Buffer.from([0x21, 0xf9, 4, 8, 44, 1, 0, 0, 0x2c, 0, 0, 0, 0]), size, Buffer.from([0]),
-      lzw(Uint8Array.from(image.colors, color => lookup.get(color))));
+    const indices = Uint8Array.from(image.colors, color => lookup.get(color));
+    let left = 0, top = 0, right = width - 1, bottom = height - 1, transparent = -1;
+    if (previous) {
+      // Keep the previous frame, writing only its changed bounding rectangle.
+      const used = new Set(indices);
+      transparent = Array.from({ length: 256 }, (_, index) => index).find(index => !used.has(index)) ?? -1;
+      left = width; top = height; right = -1; bottom = -1;
+      indices.forEach((index, offset) => {
+        if (index === previous[offset]) return;
+        const x = offset % width, y = Math.floor(offset / width);
+        left = Math.min(left, x); right = Math.max(right, x);
+        top = Math.min(top, y); bottom = Math.max(bottom, y);
+      });
+      if (right < 0) left = top = right = bottom = 0;
+    }
+    const frameWidth = right - left + 1, frameHeight = bottom - top + 1;
+    const frame = new Uint8Array(frameWidth * frameHeight);
+    for (let y = 0; y < frameHeight; y++) {
+      for (let x = 0; x < frameWidth; x++) {
+        const source = (top + y) * width + left + x;
+        frame[y * frameWidth + x] = previous && transparent >= 0 && indices[source] === previous[source]
+          ? transparent : indices[source];
+      }
+    }
+    const descriptor = Buffer.alloc(10);
+    descriptor[0] = 0x2c;
+    descriptor.writeUInt16LE(left, 1); descriptor.writeUInt16LE(top, 3);
+    descriptor.writeUInt16LE(frameWidth, 5); descriptor.writeUInt16LE(frameHeight, 7);
+    // Disposal 1 retains pixels under transparent areas. First frame fully resets each loop.
+    parts.push(Buffer.from([0x21, 0xf9, 4, transparent >= 0 ? 5 : 4, 44, 1,
+      transparent >= 0 ? transparent : 0, 0]), descriptor, lzw(frame));
+    previous = indices;
   }
   parts.push(Buffer.from([0x3b]));
   fs.writeFileSync(output, Buffer.concat(parts));

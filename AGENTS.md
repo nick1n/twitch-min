@@ -36,14 +36,13 @@
 ## Validation
 
 - Run `npm.cmd test` after code changes on Windows (`npm test` where supported).
-  The full suite requires Node as declared in `package.json`, an installed Chrome,
-  and Windows PowerShell. See [README.md](README.md#development) for focused commands;
+  The full suite requires Node as declared in `package.json`, and an installed Chrome. See [README.md](README.md#development) for focused commands;
   set `CHROME_PATH` when Chrome is outside the standard locations.
 - For intentional cosmetic changes, review and update
   `tests/rules-baseline.json` along with relevant behavior assertions. Do not
   update the baseline just to silence an unexplained CSS regression.
 - For packaging changes, run `npm.cmd run package` as well. Packaging uses
-  Windows PowerShell and verifies source assets and ZIP contents before replacing
+  Node.js and verifies source assets and ZIP contents before replacing
   the release archive; it does not publish a release.
 - For DOM behavior changes, cover activation, pause/restoration, later mounts,
   and navigation where relevant. Keep browser fixtures offline; block or fulfill

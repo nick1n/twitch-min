@@ -1,4 +1,4 @@
-// Opaque 8-bit PNG reader shared by preview encoding and lossless optimization.
+// Opaque 8-bit RGB, RGBA, and indexed PNG reader for preview tooling.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const zlib = require('node:zlib');
@@ -6,7 +6,7 @@ const zlib = require('node:zlib');
 function readPng(file) {
   const bytes = fs.readFileSync(file);
   assert.equal(bytes.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
-  let width, height, channels;
+  let width, height, channels, palette;
   const chunks = [];
   for (let offset = 8; offset < bytes.length;) {
     const length = bytes.readUInt32BE(offset);
@@ -16,10 +16,12 @@ function readPng(file) {
       width = data.readUInt32BE(0);
       height = data.readUInt32BE(4);
       assert.equal(data[8], 8, '8-bit screenshot');
-      assert.ok(data[9] === 2 || data[9] === 6, 'RGB or RGBA screenshot');
+      assert.ok([2, 3, 6].includes(data[9]), 'RGB, indexed, or RGBA screenshot');
       assert.equal(data[12], 0, 'non-interlaced screenshot');
-      channels = data[9] === 2 ? 3 : 4;
+      channels = data[9] === 3 ? 1 : data[9] === 2 ? 3 : 4;
     }
+    if (type === 'PLTE') palette = data;
+    if (type === 'tRNS') assert.ok([...data].every(alpha => alpha === 255), 'opaque indexed PNG');
     if (type === 'IDAT') chunks.push(data);
     offset += length + 12;
   }
@@ -45,7 +47,10 @@ function readPng(file) {
   for (let i = 0; i < colors.length; i++) {
     const offset = i * channels;
     if (channels === 4) assert.equal(pixels[offset + 3], 255, 'opaque screenshot');
-    colors[i] = pixels[offset] << 16 | pixels[offset + 1] << 8 | pixels[offset + 2];
+    const source = channels === 1 ? palette : pixels;
+    const sourceOffset = channels === 1 ? pixels[offset] * 3 : offset;
+    assert.ok(source && sourceOffset + 2 < source.length, 'valid PNG pixel or palette index');
+    colors[i] = source[sourceOffset] << 16 | source[sourceOffset + 1] << 8 | source[sourceOffset + 2];
   }
   return { width, height, colors };
 }

@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -20,14 +20,13 @@ jobs:
           node-version: 'lts/*'
           check-latest: true
           package-manager-cache: false
-      - run: npm.cmd test
-      - run: npm.cmd run package
+      - run: npm test
+      - run: npm run package
       - name: Identify validated package
         id: package
-        shell: pwsh
+        shell: bash
         run: |
-          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          "path=dist/twitch-min-$version.zip" >> $env:GITHUB_OUTPUT
+          node -e "require('node:fs').appendFileSync(process.env.GITHUB_OUTPUT, 'path=dist/twitch-min-' + require('./package.json').version + '.zip\n')"
       - name: Upload validated package
         uses: actions/upload-artifact@v7
         with:
@@ -38,7 +37,7 @@ jobs:
   tag:
     needs: test
     if: github.event_name == 'push' && github.event.deleted == false && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: write

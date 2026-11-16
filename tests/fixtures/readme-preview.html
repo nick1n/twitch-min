@@ -2,7 +2,7 @@
 <html lang="en" class="tw-root--theme-dark"><head><meta charset="utf-8">
 <title>twitch-min previews</title>
 <style>
-  /* Flat UI colors sampled from the supplied Twitch dark-theme screenshot.
+  /* Twitch dark-theme UI colors, plus a dark logo-purple presentation header.
      Keep these variables as the generator's composition and GIF palette source. */
   :root {
     color-scheme: dark;
@@ -10,6 +10,7 @@
     --preview-button:#2f2f35; --preview-text:#efeff1; --preview-muted:#adadb8;
     --preview-live:#eb0400; --preview-primary:#9147ff; --preview-accent:#bf94ff;
     --preview-profile:#00c7ac;
+    --preview-header:#281440;
     --color-text-base:var(--preview-text);
     --color-background-button-primary-default:var(--preview-primary);
     --color-background-button-primary-hover:#772ce8;
@@ -24,9 +25,12 @@
   .preview { display:none; width:420px; background:#0e0e10; }
   body[data-demo="sidebar"] #preview-sidebar, body[data-demo="chat"] #preview-chat,
   body[data-demo="nav"] #preview-nav { display:block; }
-  .preview-header { height:66px; display:flex; align-items:center; justify-content:space-between; padding:0 18px; border-bottom:1px solid #303035; background:var(--preview-surface); }
+  .preview-header { position:relative; height:66px; display:flex; align-items:center; justify-content:space-between; padding:0 18px; border-bottom:1px solid #303035; background:var(--preview-header); }
   .preview-header h1 { font-size:15px; letter-spacing:-.2px; }
-  .state { border:1px solid #53535f; border-radius:20px; padding:6px 12px; color:var(--preview-muted); font-size:12px; font-weight:700; }
+  .preview-heading { display:flex; align-items:center; gap:10px; }
+  .preview-logo { display:none; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:32px; height:32px; }
+  body[data-state="after"] .preview-logo { display:block; }
+  .state { border:1px solid #53535f; border-radius:20px; padding:6px 12px; color:var(--preview-muted); background:var(--preview-surface); font-size:12px; font-weight:700; }
   body[data-state="after"] .state { color:var(--preview-text); background:var(--preview-primary); border-color:var(--preview-primary); }
   .sidebar-scene { display:flex; height:520px; overflow:hidden; }
   .side-nav { width:240px; flex:none; background:var(--preview-sidebar); }
@@ -78,6 +82,7 @@
   .vod-message__header { display:flex; align-items:baseline; flex:none; }
   .vod-message__header button { padding:0; color:#92929f; font-size:12px; line-height:inherit; }
   .vod-message__header p { line-height:normal; }
+  body[data-state="before"] .vod-message { align-items:center; }
   .message-content { min-width:0; flex:1; }
   .badge-layout { display:inline-flex; vertical-align:-3px; margin-right:3px; }
   .badge-layout button { padding:0; }
@@ -150,7 +155,7 @@
   </div></div>
 </section>
 <section class="preview" id="preview-nav">
-  <header class="preview-header"><div><h1>Top navigation · right side</h1></div><span class="state">Before</span></header>
+  <header class="preview-header"><div class="preview-heading"><img class="preview-logo" src="../../extension/icons/icon32.png" alt="twitch-min logo"><h1>Top navigation · right side</h1></div><span class="state">Before</span></header>
   <div class="nav-scene"><nav class="top-nav" data-a-target="top-nav-container"><div class="nav-right">
     <div class="top-nav__prime"><button class="nav-icon" aria-label="Prime offers" data-a-target="prime-offers-icon" data-icon="crown"><span class="notification-count">2</span></button></div>
     <button class="nav-icon" aria-label="Notifications" data-a-target="activity-feed-button" data-icon="bell"></button>
