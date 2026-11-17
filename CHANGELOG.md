@@ -3,6 +3,12 @@
 Release history, newest first. For current checks and limits, see
 [validation notes](docs/validation.md).
 
+## 0.29.0 - Mouse side button seeking and sidebar cleanup
+
+- Use mouse Back and Forward buttons over the video to skip back 30 seconds or
+  ahead 1 minute, with live rewind and return-to-live support.
+- Hide late-loading streak promotions while sidebar pagination is pending.
+
 ## 0.28.0 - Popup polish and changelog release notes
 
 - Style settings as toggle switches with keyboard focus and forced-colors support.
