@@ -5,12 +5,29 @@ Implementation: [architecture](architecture.md).
 
 ## Latest recorded results
 
-**November 16, 2026:** all **184 tests** passed with Node 26.3.0 and Puppeteer's
-Chrome for Testing. The full run took about ten seconds. ZIP validation passed.
+**November 17, 2026:** all **191 tests** passed with Node 26.3.0 and Puppeteer's
+Chrome for Testing. The full run took about twelve seconds. ZIP validation passed.
 
 Browser results come from offline fixtures, not signed-in Twitch or a
-store-delivered extension update. Checks ran outside the Windows sandbox because
-its execution account was locked.
+store-delivered extension update.
+
+Side-button seeking passed fixture checks for recordings, live rewind buffers,
+playback bounds, single seeks per press, opt-out, pause/resume, and replacement
+players after navigation. Physical mouse navigation suppression and signed-in
+Twitch live-buffer variants still need manual verification. A user confirmed that
+synthetic scrubber mouse events enter Twitch's recording timeline. Offline checks
+cover that transition, seeking relative to the recording end, replacement video,
+and cancellation on opt-out, pause, navigation, removal, or Forward at live.
+The extension's complete live-to-rewind flow still needs signed-in validation.
+Forward reaching or passing the seekable end invokes the native Skip to Live
+button once in fixtures; hidden, disabled, and missing controls retain normal
+clamping. This uses the supplied English accessible label; translated Live
+controls and the complete return-to-live flow still need signed-in validation.
+Non-rewindable live fixtures retain native side-button behavior without changing
+the video buffer, including placeholder and short seekable ranges, missing or
+unusable scrubbers, and later mounts of usable rewind controls. Removing the
+scrubber cancels a pending transition. Real non-rewindable streams still need
+signed-in verification.
 
 ## Automated coverage
 

@@ -4,6 +4,174 @@ const path = require('node:path');
 const { root } = require('../support/production.cjs');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => {
+    await t.test('non-rewindable live streams never seek their buffer despite reported seekable ranges', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await evaluate(`window.liveDuration=Infinity;window.liveTime=587;window.liveWrites=0;window.nativeClicks=0;window.rangeEnd=1073741824;
+        Object.defineProperties(document.querySelector('#stream-video'),{
+          duration:{get:()=>liveDuration},currentTime:{get:()=>liveTime,set:value=>{liveTime=value;liveWrites++}},
+          seekable:{get:()=>({length:1,start:()=>0,end:()=>rangeEnd})}
+        });
+        document.querySelector('#player').addEventListener('click',event=>{if(event.target.matches('[data-a-target="player-seekbar"]'))nativeClicks++});`);
+      const mouse = (button,type='mousedown') => evaluate(`(()=>{const event=new MouseEvent(${JSON.stringify(type)},{bubbles:true,cancelable:true,button:${button}});document.querySelector('#stream-video').dispatchEvent(event);return event.defaultPrevented})()`);
+      const bar = '<div data-a-target="player-seekbar" style="width:200px;height:10px"></div>';
+      for (const markup of [
+        '',
+        bar.replace('style="','hidden style="'),
+        bar.replace('width:200px','display:none;width:200px'),
+        bar.replace('width:200px','visibility:hidden;width:200px'),
+        bar.replace('width:200px','width:0px'),
+        bar.replace('style="','aria-disabled="true" style="'),
+        '<div inert>'+bar+'</div>',
+        '<div aria-disabled="true">'+bar+'</div>'
+      ]) {
+        await evaluate(`document.querySelector('#live-controls')?.remove();document.querySelector('#player').insertAdjacentHTML('beforeend',${JSON.stringify('<div id="live-controls">'+markup+'</div>')})`);
+        for(const button of [3,4]) for(const type of ['mousedown','mouseup','auxclick']) {
+          assert.equal(await mouse(button,type),false,'unusable live controls preserve native side-button behavior');
+        }
+        assert.equal(await evaluate('liveTime'),587);
+        assert.equal(await evaluate('liveWrites'),0);
+        assert.equal(await evaluate('nativeClicks'),0);
+      }
+      await evaluate(`rangeEnd=588;document.querySelector('#live-controls').remove()`);
+      await mouse(3);
+      assert.equal(await evaluate('liveWrites'),0,'a realistic short live range is not sufficient either');
+      await evaluate(`document.querySelector('#player').insertAdjacentHTML('beforeend',${JSON.stringify(bar)})`);
+      assert.equal(await mouse(3),true,'later usable scrubber enables native rewind');
+      assert.equal(await evaluate('nativeClicks'),1);
+      assert.equal(await evaluate('liveWrites'),0,'live currentTime remains untouched during transition');
+      await evaluate(`document.querySelector('[data-a-target="player-seekbar"]').remove()`);
+      await evaluate(`rangeEnd=5000;liveDuration=5000;document.querySelector('#stream-video').dispatchEvent(new Event('durationchange'))`);
+      assert.equal(await evaluate('liveWrites'),0,'removing rewind controls cancels pending work');
+      await evaluate(`history.pushState({},'', '?seekable-again');liveDuration=Infinity;document.querySelector('#player').insertAdjacentHTML('beforeend',${JSON.stringify(bar)})`);
+      await mouse(3);
+      await evaluate(`liveDuration=5000;document.querySelector('#stream-video').dispatchEvent(new Event('loadedmetadata'))`);
+      assert.equal(await evaluate('liveTime'),4970,'a later supported stream still rewinds');
+    });
+
+    await t.test('Forward reaching the rewind limit invokes the native Skip to Live button once', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await evaluate(`window.seekTime=100;window.seekDuration=300;window.liveClicks=0;window.seekWrites=0;
+        Object.defineProperties(document.querySelector('#stream-video'),{
+          duration:{get:()=>seekDuration},currentTime:{get:()=>seekTime,set:value=>{seekTime=value;seekWrites++}},
+          seekable:{get:()=>({length:1,start:()=>10,end:()=>seekDuration===Infinity?1073741824:290})}
+        });
+        document.querySelector('#player').insertAdjacentHTML('beforeend','<div data-a-target="player-seekbar" style="width:200px;height:10px"></div><button id="skip-live" aria-label="Skip to Live">Live</button>');
+        document.querySelector('#skip-live').addEventListener('click',()=>{liveClicks++;seekDuration=Infinity;seekTime=587});
+        document.body.insertAdjacentHTML('beforeend','<button aria-label="Skip to Live" id="outside-live">Other player</button>');
+        document.querySelector('#outside-live').addEventListener('click',()=>{throw new Error('Clicked outside player')});`);
+      const press = (button=4, type='mousedown') => evaluate(`document.querySelector('#stream-video').dispatchEvent(new MouseEvent(${JSON.stringify(type)},{bubbles:true,cancelable:true,button:${button}}))`);
+      await press();
+      assert.equal(await evaluate('seekTime'),160);
+      assert.equal(await evaluate('liveClicks'),0,'ordinary jumps stay on the recording');
+      await evaluate('seekTime=230');
+      await press();
+      assert.equal(await evaluate('liveClicks'),1,'exactly reaching seekable end returns to live, even before duration');
+      assert.equal(await evaluate('seekWrites'),1,'native Live click replaces a direct media seek');
+      for (const type of ['mouseup','auxclick']) await press(4,type);
+      await press();
+      assert.equal(await evaluate('liveClicks'),1,'release phases and Forward already at live do not click again');
+      await evaluate('seekDuration=300;seekTime=280');
+      await press();
+      assert.equal(await evaluate('liveClicks'),2,'overshooting also returns to live');
+      await evaluate('seekDuration=300;seekTime=280');
+      await press(3);
+      assert.equal(await evaluate('seekTime'),250,'Back never invokes Live');
+      for (const state of ['hidden','disabled','aria-disabled']) {
+        await evaluate(`(()=>{seekTime=280;const button=document.querySelector('#skip-live');button.hidden=${state==='hidden'};button.disabled=${state==='disabled'};button.setAttribute('aria-disabled',${JSON.stringify(String(state==='aria-disabled'))})})()`);
+        await press();
+        assert.equal(await evaluate('seekTime'),290,state+' Live control falls back to clamping');
+        assert.equal(await evaluate('liveClicks'),2);
+      }
+      await evaluate(`document.querySelector('#skip-live').remove();seekTime=280`);
+      await press();
+      assert.equal(await evaluate('seekTime'),290,'missing Live control preserves VOD end behavior');
+    });
+
+    await t.test('live side-button rewind enters the native recording timeline before seeking', async () => {
+      const setup = async () => {
+        await navigate('tests/fixtures/twitch.html');
+        await evaluate(`window.liveDuration=Infinity;window.liveTime=587;window.liveWrites=0;window.nativeSeeks=[];
+          window.installLiveVideo=video=>Object.defineProperties(video,{
+            duration:{configurable:true,get:()=>liveDuration},
+            currentTime:{configurable:true,get:()=>liveTime,set:value=>{liveTime=value;liveWrites++}},
+            seekable:{configurable:true,get:()=>({length:1,start:()=>0,end:()=>liveDuration===Infinity?1073741824:liveDuration})}
+          });installLiveVideo(document.querySelector('#stream-video'));
+          const bar=document.createElement('div');bar.setAttribute('data-a-target','player-seekbar');bar.style.cssText='width:200px;height:10px';document.querySelector('#player').append(bar);
+          for(const type of ['mousedown','mouseup','click'])bar.addEventListener(type,event=>nativeSeeks.push({type:event.type,button:event.button,x:event.clientX}));`);
+      };
+      const press = button => evaluate(`(()=>{const event=new MouseEvent('mousedown',{bubbles:true,cancelable:true,button:${button}});document.querySelector('#stream-video').dispatchEvent(event);return event.defaultPrevented})()`);
+      const ready = () => evaluate(`liveDuration=4521.05;document.querySelector('#stream-video').dispatchEvent(new Event('durationchange'))`);
+      await setup();
+      assert.equal(await press(4),true);
+      assert.equal(await evaluate('liveWrites'),0,'Forward at live does not seek the placeholder timeline');
+      assert.equal(await press(3),true);
+      assert.deepEqual(await evaluate('nativeSeeks.map(event=>event.type)'),['mousedown','mouseup','click']);
+      assert.equal(await evaluate(`nativeSeeks.every(event=>event.button===0 && Math.abs(event.x-document.querySelector('[data-a-target="player-seekbar"]').getBoundingClientRect().left-196)<1)`),true);
+      assert.equal(await evaluate('liveWrites'),0,'no direct seek on the live timeline');
+      await press(3);
+      assert.equal(await evaluate('nativeSeeks.length'),3,'repeated Back does not restart a pending transition');
+      await ready();
+      assert.equal(await evaluate('liveTime'),4491.05,'seek relative to the new recording end, not the old live clock');
+      await press(3);
+      assert.equal(await evaluate('liveTime'),4461.05);
+      await press(4);
+      assert.equal(await evaluate('liveTime'),4521.05);
+      for(const action of [
+        '__storagePatch({sideButtonSeek:false})',
+        '__storagePatch({enabled:false})',
+        `document.querySelector('#stream-video').dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true,button:4}))`,
+        `document.querySelector('#player').remove()`,
+        `history.pushState({},'', '?different-stream')`
+      ]) {
+        await setup();
+        await press(3);
+        await evaluate(action);
+        if(action.includes('.remove()')) {
+          await evaluate('liveDuration=4521.05');
+        } else await ready();
+        assert.equal(await evaluate('liveWrites'),0,action+' cancels the pending seek');
+      }
+      await setup();
+      await press(3);
+      await evaluate(`liveDuration=4521.05;const old=document.querySelector('#stream-video'),replacement=old.cloneNode(true);installLiveVideo(replacement);old.replaceWith(replacement)`);
+      await waitFor('liveWrites===1');
+      assert.equal(await evaluate('liveTime'),4491.05,'replacement video completes the pending transition');
+      await evaluate(`document.querySelector('#stream-video').dispatchEvent(new Event('loadedmetadata'))`);
+      assert.equal(await evaluate('liveWrites'),1,'completion releases media listeners');
+    });
+
+    await t.test('side buttons seek recordings once, respect bounds and restore native behavior', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      const prepare = `window.seekTime=100;window.seekWrites=0;Object.defineProperties(document.querySelector('#stream-video'),{duration:{configurable:true,get:()=>300},currentTime:{configurable:true,get:()=>seekTime,set:value=>{seekTime=value;seekWrites++}},seekable:{configurable:true,get:()=>({length:1,start:()=>10,end:()=>290})}})`;
+      await evaluate(prepare);
+      const mouse = (target, button, type = 'mousedown') => evaluate(`(()=>{const event=new MouseEvent(${JSON.stringify(type)},{bubbles:true,cancelable:true,button:${button}});document.querySelector(${JSON.stringify(target)}).dispatchEvent(event);return {time:seekTime,writes:seekWrites,prevented:event.defaultPrevented}})()`);
+      assert.deepEqual(await mouse('#stream-video', 3), { time:70, writes:1, prevented:true });
+      for (const type of ['mouseup','auxclick']) assert.deepEqual(await mouse('#stream-video',3,type), {time:70,writes:1,prevented:true});
+      assert.deepEqual(await mouse('#player',4), {time:130,writes:2,prevented:true});
+      await evaluate('seekTime=20');
+      assert.equal((await mouse('#stream-video',3)).time,10);
+      await evaluate('seekTime=280');
+      assert.equal((await mouse('#stream-video',4)).time,290);
+      for (const [target,button] of [['#messages',3],['#player-menu',4],['#stream-video',0],['#stream-video',1],['#stream-video',2]]) {
+        assert.equal((await mouse(target,button)).prevented,false);
+      }
+      await evaluate(`Object.defineProperty(document.querySelector('#stream-video'),'duration',{configurable:true,value:Infinity})`);
+      assert.deepEqual(await mouse('#stream-video',3),{time:290,writes:4,prevented:false},'live ranges alone do not authorize seeking');
+      assert.deepEqual(await mouse('#stream-video',4),{time:290,writes:4,prevented:false},'Forward also leaves live playback untouched without a scrubber');
+      await evaluate(`Object.defineProperty(document.querySelector('#stream-video'),'seekable',{configurable:true,value:{length:0}})`);
+      assert.equal((await mouse('#stream-video',3)).prevented,false,'live streams without a buffer retain native behavior');
+      await evaluate(prepare);
+      await evaluate('__storagePatch({sideButtonSeek:false})');
+      assert.deepEqual(await mouse('#stream-video',3), {time:100,writes:0,prevented:false});
+      await evaluate('__storagePatch({sideButtonSeek:true});__storagePatch({enabled:false})');
+      assert.equal((await mouse('#stream-video',3)).prevented,false,'pause releases listeners');
+      await evaluate(`__storagePatch({enabled:true});history.pushState({},'', '?side-buttons');document.querySelector('#stream-video').replaceWith(document.querySelector('#stream-video').cloneNode(true))`);
+      await evaluate(prepare);
+      assert.deepEqual(await mouse('#stream-video',4), {time:160,writes:1,prevented:true});
+      await evaluate('__storagePatch({enabled:false});__storagePatch({enabled:true})');
+      assert.deepEqual(await mouse('#stream-video',3), {time:130,writes:2,prevented:true});
+    });
+
     await t.test('channel action extras hide live and VOD three-dot menus and restore native handlers', async () => {
       await navigate('tests/fixtures/twitch.html', '__stored.channelActions=false;');
       for (const id of ['channel-menu', 'video-menu']) assert.equal(await isVisible(id), true, `${id} respects the saved opt-out`);

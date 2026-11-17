@@ -191,7 +191,7 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     assert.equal(await evaluate(`document.querySelectorAll('#groups input').length === TwitchMinSettings.GROUPS.length`), true);
     assert.deepEqual(await evaluate(`[...document.querySelectorAll('#groups input')].map(input=>input.id)`), [
       'group-topNavigation', 'group-hideTopNavigation', 'group-sidebarSections', 'group-sidebarLabels', 'group-channelActions',
-      'group-channelAbout', 'group-wheelVolume', 'group-followingStories', 'group-browseRecaps', 'group-chatLeaderboard', 'group-chatTimestamps',
+      'group-channelAbout', 'group-wheelVolume', 'group-sideButtonSeek', 'group-followingStories', 'group-browseRecaps', 'group-chatLeaderboard', 'group-chatTimestamps',
       'group-chatTints', 'group-chatGrouping', 'group-emotePreviews', 'group-chatComposer'
     ]);
     assert.deepEqual(await evaluate(`[...document.querySelectorAll('#groups h2')].map(heading=>[heading.textContent,heading.nextElementSibling.querySelector('input').id])`), [

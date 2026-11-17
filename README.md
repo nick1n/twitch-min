@@ -42,6 +42,7 @@ All options start on except **Hide top navigation bar** and
 | Channel action extras   | Hide Share, the three-dot menu, the channel bell, Bits, and Gift a Sub. Keep Follow and subscription icons. |
 | About & channel panels  | Hide the About section, channel card, and channel panels below the video. |
 | Mouse wheel volume      | Use the scroll wheel over the video to change the volume. |
+| Mouse side button seeking | Over the video, Back skips back 30 seconds and Forward skips ahead 1 minute. |
 | Following Stories       | Hide Stories at the top of the Following page. |
 | Browse Recent Recaps    | Hide the Recent Recaps section on the Browse page. |
 | Chat leaderboard        | Hide the gift rankings, cheer rankings, and goals shown above chat. |

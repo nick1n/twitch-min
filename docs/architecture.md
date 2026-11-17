@@ -86,8 +86,25 @@ subtrees rather than rescanning the document on chat updates.
 | `chat-badges.js` | Share chat's row pass; own badge wrappers, cross-region transfers, native tooltips, and delegated listeners. |
 | `timestamps.js` | Handle inserted, replaced, removed, and moved leaves; preserve native text and seek targets. Direct text/attribute edits are not observed. |
 | `emotes.js` | Add an image to a matching native tooltip; release it on dismissal, navigation, removal, or pause. |
-| `player.js` | Wheel-volume feedback and fitted VOD portals; observe player/metadata independently of chat. Fitting excludes theatre/fullscreen. |
+| `player.js` | Wheel-volume feedback, side-button seeking within available playback ranges, and fitted VOD portals; observe player/metadata independently of chat. Fitting excludes theatre/fullscreen. |
 | `composer.js` | Preserve drafts and native Send state; release temporary controls, IDs, and listeners on pause. |
+
+### Live rewind
+
+Side-button Back on an infinite-duration video with a usable native seekbar sends a
+mouse click near the seekbar's end to request Twitch's recording timeline. The
+live video may report a placeholder seekable range spanning far beyond its
+actual buffer. Live playback requires a visible, enabled, nonzero-size scrubber;
+reported media ranges alone never authorize seeking or direct live `currentTime`
+changes. Without that control, native side-button behavior remains in place.
+Once media events or video replacement expose a finite duration,
+the controller seeks 30 seconds before that recording's end. The live and
+recording clocks are separate. Forward reaching or passing the seekable end clicks
+the player's visible, enabled `button[aria-label="Skip to Live"]` when present;
+otherwise seeking clamps normally. Forward at live stays at live and cancels a
+pending rewind. Temporary media listeners and the player-scoped observer release on
+completion, manual seeking, pause, opt-out, region removal, or history events;
+completion also rejects a changed URL.
 
 ### Sidebar and page shelves
 

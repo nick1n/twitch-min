@@ -5,6 +5,147 @@
   let enabled = false;
   let hud = null;
   let timer = null;
+  let sideButtonsEnabled = false;
+  const SIDE_BUTTON_EVENTS = ['mousedown', 'mouseup', 'auxclick'];
+  let stopSeekRegions = null;
+  let pendingRewind = null;
+
+  function cancelRewind() {
+    pendingRewind?.dispose();
+    pendingRewind = null;
+  }
+
+  function liveSeekbar(player) {
+    const bar = player.querySelector('[data-a-target="player-seekbar"]');
+    if (!bar || bar.closest('[hidden], [inert], [disabled], [aria-disabled="true"]') ||
+        !bar.checkVisibility({ checkVisibilityCSS: true })) return null;
+    const rect = bar.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 ? bar : null;
+  }
+
+  function seekEnd(video) {
+    const limit = Number.isFinite(video.duration) ? video.duration : Infinity;
+    const ranges = video.seekable;
+    return Math.min(limit, ranges.length ? ranges.end(ranges.length - 1) : limit);
+  }
+
+  function seekVideo(video, desired) {
+    const ranges = video.seekable;
+    const start = ranges.length ? ranges.start(0) : 0;
+    const end = seekEnd(video);
+    desired = Math.max(start, Math.min(end, desired));
+    let next = desired;
+    if (ranges.length) {
+      let distance = Infinity;
+      for (let i = 0; i < ranges.length; i++) {
+        const candidate = Math.max(ranges.start(i), Math.min(ranges.end(i), desired));
+        if (Math.abs(candidate - desired) < distance) {
+          next = candidate;
+          distance = Math.abs(candidate - desired);
+        }
+      }
+    }
+    video.currentTime = next;
+  }
+
+  function rewindLive(player, bar) {
+    if (pendingRewind?.player === player) return;
+    cancelRewind();
+    const rect = bar.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const url = location.href;
+    const transition = { player, dispose };
+    const observer = new MutationObserver(finish);
+    function dispose() {
+      observer.disconnect();
+      for (const type of ['durationchange', 'loadedmetadata']) player.removeEventListener(type, finish, true);
+      player.removeEventListener('mousedown', onManualSeek, true);
+      window.removeEventListener('popstate', cancelRewind);
+      window.removeEventListener('hashchange', cancelRewind);
+    }
+    function onManualSeek(event) {
+      if (event.isTrusted && event.button === 0) cancelRewind();
+    }
+    function finish() {
+      // Let the native event handler finish switching media before seeking.
+      queueMicrotask(() => {
+        if (pendingRewind !== transition) return;
+        if (!player.isConnected || location.href !== url) { cancelRewind(); return; }
+        const video = [...player.querySelectorAll('video')].find(video =>
+          video.checkVisibility({ checkVisibilityCSS: true }) && Number.isFinite(video.duration) && video.duration > 0);
+        if (!video) {
+          if (!liveSeekbar(player)) cancelRewind();
+          return;
+        }
+        cancelRewind();
+        seekVideo(video, video.duration - 30);
+      });
+    }
+    // Own all temporary work before asking Twitch to change its media source.
+    pendingRewind = transition;
+    try {
+      for (const type of ['durationchange', 'loadedmetadata']) player.addEventListener(type, finish, true);
+      player.addEventListener('mousedown', onManualSeek, true);
+      window.addEventListener('popstate', cancelRewind);
+      window.addEventListener('hashchange', cancelRewind);
+      observer.observe(player, { childList: true, subtree: true });
+      // Twitch's live scrubber loads the recording timeline. Its live video
+      // exposes a placeholder seekable range that cannot request older footage.
+      for (const type of ['mousedown', 'mouseup', 'click']) {
+        bar.dispatchEvent(new MouseEvent(type, {
+          bubbles: true, cancelable: true, view: window, button: 0,
+          buttons: type === 'mousedown' ? 1 : 0,
+          clientX: rect.left + rect.width * 0.98,
+          clientY: rect.top + rect.height / 2
+        }));
+      }
+      finish();
+    } catch (error) {
+      cancelRewind();
+      throw error;
+    }
+  }
+
+  function onSideButton(event) {
+    if (!sideButtonsEnabled || (event.button !== 3 && event.button !== 4)) return;
+    const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+    if (!target || target.closest('[role="menu"], [role="dialog"], [data-a-target="player-settings-menu"]')) return;
+    const player = target.closest(PLAYER);
+    if (!player) return;
+    const bar = liveSeekbar(player);
+    const videos = [...player.querySelectorAll('video')].filter(video =>
+      video.checkVisibility({ checkVisibilityCSS: true }));
+    const video = videos.find(video => !video.paused) || videos[0];
+    if (!video) return;
+    // Live media can report a placeholder seekable range even without DVR.
+    // Only Twitch's usable scrubber authorizes a live-to-recording transition;
+    // never change currentTime on the infinite live timeline itself.
+    if (video.duration === Infinity ? !bar : !Number.isFinite(video.duration) || video.duration <= 0) {
+      cancelRewind();
+      return;
+    }
+
+    // Cancel every phase, but seek only once per press. Browsers differ in
+    // which phase triggers their native Back/Forward action.
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.type !== 'mousedown') return;
+    if (video.duration === Infinity && bar) {
+      if (event.button === 3) rewindLive(player, bar);
+      else cancelRewind();
+      return;
+    }
+    cancelRewind();
+    const desired = video.currentTime + (event.button === 3 ? -30 : 60);
+    if (event.button === 4 && desired >= seekEnd(video)) {
+      const live = player.querySelector('button[aria-label="Skip to Live"]');
+      if (live && !live.disabled && live.getAttribute('aria-disabled') !== 'true' && live.checkVisibility({ checkVisibilityCSS: true })) {
+        live.click();
+        return;
+      }
+    }
+    seekVideo(video, desired);
+  }
   function attachFit(region, onCleanup) {
     let source = null;
     let portal = null;
@@ -165,6 +306,23 @@
 
   let stopFitRegions = null;
   function update(settings) {
+    const seekEnabled = settings.sideButtonSeek === true;
+    if (seekEnabled !== sideButtonsEnabled) {
+      sideButtonsEnabled = seekEnabled;
+      if (seekEnabled) {
+        stopSeekRegions = globalThis.TwitchMinRegions.watch(PLAYER, (player, onCleanup) => {
+          onCleanup(() => { if (pendingRewind?.player === player) cancelRewind(); });
+        }, stop => { stopSeekRegions = stop; });
+      } else {
+        cancelRewind();
+        stopSeekRegions?.();
+        stopSeekRegions = null;
+      }
+      for (const type of SIDE_BUTTON_EVENTS) {
+        if (seekEnabled) document.addEventListener(type, onSideButton, { capture: true, passive: false });
+        else document.removeEventListener(type, onSideButton, true);
+      }
+    }
     const wheelEnabled = settings.wheelVolume !== false;
     if (wheelEnabled !== enabled) {
       enabled = wheelEnabled;
@@ -191,7 +349,7 @@
       enabled = false;
       document.removeEventListener('wheel', onWheel, true);
       clearHUD();
-      update({ channelAbout: false, wheelVolume: false });
+      update({ channelAbout: false, wheelVolume: false, sideButtonSeek: false });
     }
   });
 })();

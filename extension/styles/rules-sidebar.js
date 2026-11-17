@@ -16,7 +16,14 @@
         '.side-nav-card__link.side-nav-card__link--offline',
         '.side-nav-card:has(.side-nav-card__link--offline)',
         '.tw-transition:has(.side-nav-card__link--offline)',
-        '.side-nav-card:has(.side-nav-card__avatar--offline)',
+        '.side-nav-card:has(.side-nav-card__avatar--offline)'
+      ].map(selector => `${SIDEBAR} ${selector}`),
+      declaration: "display: none !important;"
+    }],
+    [6.05, {
+      key: "sidebarSections",
+      // Streak promos do not depend on native channel pagination completing.
+      selectors: [
         '[role="group"][aria-label*="streak" i]',
         '[aria-label^="Save your Streak" i]',
         '.side-nav-card__link div:has(> p[title^="Watch Streak" i])',
@@ -25,7 +32,7 @@
         '.side-nav-streaks',
         '.side-nav-streak',
         '.side-nav-card__streak'
-      ].map(selector => `${SIDEBAR} ${selector}`),
+      ].map(selector => `${HEADINGS} ${selector}`),
       declaration: "display: none !important;"
     }],
     [6.1, {

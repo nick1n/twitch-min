@@ -4,7 +4,7 @@ const { loadRules } = require('./support/rules.cjs');
 
 test('settings declaration derives the stable storage and popup API', () => {
   const { TwitchMinSettings: api } = loadRules();
-  const keys = ['enabled', 'topNavigation', 'hideTopNavigation', 'sidebarSections', 'sidebarLabels', 'channelActions', 'channelAbout', 'wheelVolume', 'followingStories', 'browseRecaps', 'chatLeaderboard', 'chatTimestamps', 'chatTints', 'chatGrouping', 'emotePreviews', 'chatComposer'];
+  const keys = ['enabled', 'topNavigation', 'hideTopNavigation', 'sidebarSections', 'sidebarLabels', 'channelActions', 'channelAbout', 'wheelVolume', 'sideButtonSeek', 'followingStories', 'browseRecaps', 'chatLeaderboard', 'chatTimestamps', 'chatTints', 'chatGrouping', 'emotePreviews', 'chatComposer'];
   assert.deepEqual(Object.keys(api.DEFAULTS), keys);
   assert.deepEqual(Object.keys(api.ATTRIBUTES), keys);
   assert.deepEqual(Array.from(api.GROUPS, group => group.key), keys.slice(1));
@@ -43,8 +43,8 @@ test('settings reject malformed values and retain explicit false preferences', (
   assert.equal(api.normalize({ hideTopNavigation: 'true' }).hideTopNavigation, false);
   assert.equal(api.normalize({ hideTopNavigation: true }).hideTopNavigation, true, 'explicit opt-in persists');
   assert.equal(api.normalize({ hideTopNavigation: false }).hideTopNavigation, false);
-  assert.equal(api.GROUPS.length, 15);
-  for (const key of ['wheelVolume', 'emotePreviews', 'chatTints', 'chatGrouping', 'followingStories', 'browseRecaps']) {
+  assert.equal(api.GROUPS.length, 16);
+  for (const key of ['wheelVolume', 'sideButtonSeek', 'emotePreviews', 'chatTints', 'chatGrouping', 'followingStories', 'browseRecaps']) {
     assert.equal(api.normalize({ enabled: false })[key], true, `${key}: existing installations retain the enhancement`);
     assert.equal(api.normalize({ [key]: false })[key], false, `${key}: explicit opt-out persists`);
   }

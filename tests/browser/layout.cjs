@@ -25,6 +25,24 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await isVisible('later-more'), true);
     });
 
+    await t.test('streak promos hide while pagination stalls and restore with preferences', async () => {
+      await navigate('tests/fixtures/sidebar-more.html');
+      await waitFor(`__moreClicks.length === 2`);
+      const mount = `document.querySelector('#sidebar-shell').insertAdjacentHTML('beforeend', '<div id="pending-streak" role="group" aria-label="Watch Streaks at risk"><a class="saveYourStreakSideNavRow--fixture" href="/videos/123" aria-label="Save your Streak, streak of 2 streams on Example"><p title="Save your Streak">Save your Streak</p></a></div>')`;
+      await evaluate(mount);
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`), false);
+      assert.equal(await isVisible('pending-streak'), false, 'late promo hides without waiting for pagination');
+      assert.equal(await isVisible('followed-offline'), true, 'channel filtering still waits for native expansion');
+      await evaluate(`__storagePatch({sidebarSections:false})`);
+      assert.equal(await isVisible('pending-streak'), true);
+      await evaluate(`__storagePatch({sidebarSections:true,enabled:false})`);
+      assert.equal(await isVisible('pending-streak'), true);
+      await evaluate(`__storagePatch({enabled:true})`);
+      assert.equal(await isVisible('pending-streak'), false);
+      await evaluate(`history.pushState({}, '', '?later-streak');document.querySelector('#pending-streak').remove();${mount}`);
+      assert.equal(await isVisible('pending-streak'), false, 'replacement promo hides after navigation');
+    });
+
     await t.test('native sidebar Collapse stays visible and respects mouse and keyboard toggles', async () => {
       await navigate('tests/fixtures/twitch.html');
       await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
