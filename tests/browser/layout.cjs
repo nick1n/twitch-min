@@ -80,6 +80,20 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await isVisible('sidebar-arrow'), true);
     });
 
+    await t.test('compact styling resumes when Twitch replaces the sidebar arrow during expansion', async () => {
+      await navigate('tests/fixtures/twitch.html');
+      await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
+      await evaluate(`document.querySelector('#sidebar-arrow').click()`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--collapsed')`);
+      await evaluate(`const arrow = document.querySelector('#sidebar-arrow');
+        arrow.click();
+        arrow.replaceWith(arrow.cloneNode(true));
+        __mountNativeSidebar(document.querySelector('#sidebar-shell'));`);
+      await waitFor(`document.querySelector('#sidebar-shell').classList.contains('side-nav--expanded')`);
+      assert.equal(await evaluate(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-compact')`), true);
+      assert.equal(await evaluate('__nativeSidebarClicks'), 2, 'each manual toggle reaches the native handler once');
+    });
+
     await t.test('manual sidebar toggles retain initially collapsed restoration and remount behavior', async () => {
       await navigate('tests/fixtures/twitch.html', 'window.__initialSidebarCollapsed=true;');
       await waitFor(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`);
@@ -128,6 +142,38 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await evaluate(`__lessClicks`), 1, 'native Show less handler remains usable on pause');
       await evaluate(`__storagePatch({enabled:true})`);
       await waitFor(`__moreClicks.length === 4`);
+    });
+
+    await t.test('sidebar pagination advances when a new page replaces rows without growing the list', async () => {
+      await navigate('tests/fixtures/sidebar-more.html', '__stored.sidebarSections=false; __stored.sidebarLabels=false;');
+      await evaluate(`const extra = document.querySelector('#followed-live').cloneNode(true);
+        extra.id = 'followed-extra';
+        document.querySelector('#followed-live').after(extra);
+        __storagePatch({sidebarSections:true});`);
+      await waitFor(`__moreClicks.length === 2`);
+      await evaluate(`document.querySelector('#followed-live').remove();
+        document.querySelector('#followed-extra').remove();`);
+      assert.equal(await evaluate(`__moreClicks.length`), 2, 'removals alone do not retry a pending click');
+      await evaluate(`__finishMore('followed')`);
+      assert.equal(await evaluate(`__moreClicks.filter(click => click.id === 'followed').length`), 2);
+      await evaluate(`__finishMore('followed'); __finishMore('recommended')`);
+      assert.equal(await isVisible('followed-loaded-offline-2'), false);
+    });
+
+    await t.test('sidebar pagination resumes after native Show less while both sidebar options are off', async () => {
+      await navigate('tests/fixtures/sidebar-more.html');
+      await waitFor(`__moreClicks.length === 2`);
+      await evaluate(`__storagePatch({sidebarSections:false,sidebarLabels:false})`);
+      await evaluate(`__finishMore('recommended')`);
+      assert.equal(await isVisible('recommended-more'), true);
+      await evaluate(`document.querySelector('#recommended-more').click()`);
+      assert.equal(await evaluate('__lessClicks'), 1);
+      await evaluate(`__storagePatch({sidebarSections:true})`);
+      assert.deepEqual(await evaluate(`__moreClicks.map(({id}) => id)`), ['followed', 'recommended', 'recommended']);
+      await evaluate(`__finishMore('recommended'); __finishMore('followed')`);
+      await waitFor(`__morePending.has('followed')`);
+      await evaluate(`__finishMore('followed')`);
+      assert.equal(await isVisible('recommended-offline'), false);
     });
 
     await t.test('late list controls, disabled links and sidebar replacements expand before restyling', async () => {

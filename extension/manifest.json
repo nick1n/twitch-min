@@ -21,7 +21,7 @@
   },
   "content_scripts": [{
     "matches": ["https://www.twitch.tv/*", "https://twitch.tv/*"],
-    "js": ["shared/settings.js", "shared/selectors.js", "shared/runtime.js", "shared/regions.js", "styles/rules-sidebar.js", "styles/rules-navigation.js", "styles/rules-player.js", "styles/rules-chat.js", "styles/rules.js", "controllers/emotes.js", "controllers/layout.js", "controllers/timestamps.js", "controllers/player.js", "controllers/chat-badges.js", "controllers/chat.js", "controllers/composer.js", "content.js"],
+    "js": ["shared/settings.js", "shared/selectors.js", "shared/runtime.js", "shared/regions.js", "styles/rules-sidebar.js", "styles/rules-navigation.js", "styles/rules-player.js", "styles/rules-chat.js", "styles/rules-report.js", "styles/rules.js", "controllers/emotes.js", "controllers/layout.js", "controllers/timestamps.js", "controllers/player.js", "controllers/chat-badges.js", "controllers/chat.js", "controllers/composer.js", "controllers/report.js", "content.js"],
     "css": ["styles/emotes.css", "styles/player.css"],
     "run_at": "document_start"
   }]

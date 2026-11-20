@@ -7,6 +7,7 @@
   const moreSettings = document.getElementById('more-settings');
   const enableAllButton = document.getElementById('enable-all-button');
   const status = document.getElementById('status');
+  const reportButton = document.getElementById('hide-and-report');
   const toggleErrorPanel = document.getElementById('toggle-error');
   const toggleErrorMessage = document.getElementById('toggle-error-message');
   const reloadHint = document.getElementById('reload-hint');
@@ -137,6 +138,7 @@
 
   function setBusy(busy) {
     master.disabled = busy || !ready;
+    if (reportButton) reportButton.disabled = busy || !state?.enabled;
     enableAllButton.disabled = busy || !ready || Object.values(state).every(value => value === true);
     enableAllButton.hidden = enableAllButton.disabled;
     for (const input of groupControls.values()) {
@@ -323,6 +325,17 @@
   }
 
   master.addEventListener('change', () => updateField('enabled', master.checked));
+  reportButton?.addEventListener('click', async () => {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const response = await chrome.tabs.sendMessage(tab.id, { type: 'twitch-min:report' }, { frameId: 0 });
+      if (response?.started) {
+        window.close();
+        return;
+      }
+    } catch { /* The active tab may not have a content script. */ }
+    showStatus('Open a Twitch tab with twitch-min enabled. If it is already open, refresh it and try again.');
+  });
   enableAllButton.addEventListener('click', () => {
     if (!ready || pendingWrites) return;
     const previousState = state;

@@ -207,7 +207,7 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     assert.equal(await evaluate(`document.querySelector('#group-hideTopNavigation').checked`), true, 'Enable all opts into whole-bar hiding too');
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').disabled`), true, 'enabling everything is unavailable when already active');
     assert.equal(await evaluate(`document.querySelector('#enable-all-button').hidden`), true, 'an unavailable action is not shown');
-    const headerLayout = () => evaluate(`['header','.brand','.controls','#master-toggle','#enable-all-button','#groups','#scroll-cue'].map(selector=>{const rect=document.querySelector(selector).getBoundingClientRect();return {x:rect.x+scrollX,y:rect.y+scrollY,width:rect.width,height:rect.height}})`);
+    const headerLayout = () => evaluate(`['header','.brand','.controls','#master-toggle','#enable-all-button','#groups','#popup-actions'].map(selector=>{const rect=document.querySelector(selector).getBoundingClientRect();return {x:rect.x+scrollX,y:rect.y+scrollY,width:rect.width,height:rect.height}})`);
     const initialLayout = await headerLayout();
     await evaluate(`window.originalControls=[...document.querySelectorAll('#groups input')]`);
     assert.equal(await evaluate(`document.querySelector('#groups p')`), null, 'loading text is removed');
@@ -311,6 +311,13 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('#groups')).scrollbarWidth`), 'none');
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('#groups'),'::-webkit-scrollbar').display`), 'none');
     await waitFor(`!document.querySelector('#more-settings').hidden`);
+    assert.equal(await evaluate(`(() => {
+      const row = document.querySelector('#popup-actions').getBoundingClientRect();
+      const report = document.querySelector('#hide-and-report').getBoundingClientRect();
+      const more = document.querySelector('#more-settings').getBoundingClientRect();
+      return report.left === row.left && more.right === row.right &&
+        Math.abs(report.top + report.height / 2 - (more.top + more.height / 2)) < 1;
+    })()`), true, 'popup actions share a row and align to opposite edges');
     const point = await evaluate(`(()=>{const rect=document.querySelector('#groups').getBoundingClientRect();return {x:rect.left+rect.width/2,y:rect.top+rect.height/2}})()`);
     await send('Input.dispatchMouseEvent', { type: 'mouseWheel', ...point, deltaY: 1000, deltaX: 0 });
     await waitFor(`document.querySelector('#groups').scrollTop > 0 && document.querySelector('#more-settings').textContent === 'Back to top ↑'`);

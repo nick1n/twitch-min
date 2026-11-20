@@ -5,7 +5,7 @@
   const manifest = globalThis.chrome?.runtime?.getManifest?.();
   const logTag = `[${manifest?.name || 'twitch-min'} v${manifest?.version || 'unknown'}]`;
   const features = ['TwitchMinEmotes', 'TwitchMinLayout', 'TwitchMinTimestamps',
-    'TwitchMinPlayer', 'TwitchMinChat', 'TwitchMinComposer'];
+    'TwitchMinPlayer', 'TwitchMinChat', 'TwitchMinComposer', 'TwitchMinReport'];
   // Keep ownership of this generation even after new scripts replace globals.
   const controllers = features.map(name => globalThis[name]);
   let settings = null;
@@ -136,8 +136,13 @@
     };
   }
   function onMessage(message, sender, respond) {
-    if (disposed || message?.type !== 'twitch-min:status') return;
-    respond(pageStatus());
+    if (disposed) return;
+    if (message?.type === 'twitch-min:status') respond(pageStatus());
+    if (message?.type === 'twitch-min:report' &&
+        sender?.url === chrome.runtime.getURL(manifest.action.default_popup)) {
+      const picker = controllers[features.indexOf('TwitchMinReport')];
+      respond({ started: settings?.enabled === true && picker?.start() === true });
+    }
   }
   chrome.runtime?.onMessage?.addListener(onMessage);
 

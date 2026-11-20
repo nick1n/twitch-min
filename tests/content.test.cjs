@@ -157,7 +157,7 @@ test('toggle diagnostics tag logs and report actual page state and controller fa
       warn: (...args) => logs.push(['warn', ...args])
     }
   });
-  for (const name of ['TwitchMinEmotes', 'TwitchMinLayout', 'TwitchMinTimestamps', 'TwitchMinPlayer', 'TwitchMinChat', 'TwitchMinComposer']) {
+  for (const name of ['TwitchMinEmotes', 'TwitchMinLayout', 'TwitchMinTimestamps', 'TwitchMinPlayer', 'TwitchMinChat', 'TwitchMinComposer', 'TwitchMinReport']) {
     context[name] = { update() { if (name === 'TwitchMinLayout' && failFeature) throw Error('restoration failed'); } };
   }
   loadRules(context);
@@ -214,7 +214,7 @@ function retirementFixture({ lateRoot = false, invalidated = false, failOnce = f
       get: () => new Promise(resolve => finishRead = resolve)
     } } }, console: { info() {}, warn() {} }
   });
-  const names = ['TwitchMinEmotes', 'TwitchMinLayout', 'TwitchMinTimestamps', 'TwitchMinPlayer', 'TwitchMinChat', 'TwitchMinComposer'];
+  const names = ['TwitchMinEmotes', 'TwitchMinLayout', 'TwitchMinTimestamps', 'TwitchMinPlayer', 'TwitchMinChat', 'TwitchMinComposer', 'TwitchMinReport'];
   for (const name of names) context[name] = {
     update() { calls.push(`update:${name}`); },
     dispose() { calls.push(`dispose:${name}`); if (name === 'TwitchMinLayout' && failOnce) { failOnce = false; throw Error('restore failed'); } }

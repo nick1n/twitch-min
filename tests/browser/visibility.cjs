@@ -1,6 +1,35 @@
 const assert = require('node:assert/strict');
 
 module.exports = async (t, { navigate, evaluate, isVisible, waitFor }) => {
+  await t.test('a late Play on Luna shelf hides without waiting for sidebar pagination', async () => {
+    await navigate('tests/fixtures/twitch.html');
+    await evaluate(`document.querySelector('#sidebar-nav').insertAdjacentHTML('beforeend',
+      '<button data-a-target="side-nav-show-more-button" disabled>Show More</button>');
+      document.querySelector('#live-section').insertAdjacentHTML('beforebegin',
+      '<div id="luna-shelf"><div><span>Play on Luna</span></div><ul><li><a href="/example">Game</a></li></ul></div>');
+      history.pushState({}, '', '?luna-shelf');`);
+    await waitFor(`document.querySelector('#luna-shelf').hasAttribute('data-tq-sidebar-luna')`);
+    assert.equal(await evaluate(`document.querySelector('#sidebar-shell').hasAttribute('data-tq-sidebar-ready')`), false);
+    assert.equal(await isVisible('luna-shelf'), false);
+    assert.equal(await isVisible('live-section'), true);
+    await evaluate(`document.body.insertAdjacentHTML('beforeend',
+      '<aside id="replacement-sidebar" class="side-nav"><div class="side-nav-section" aria-label="Recommended"><h3>Recommended</h3></div></aside>')`);
+    await waitFor(`document.querySelector('#replacement-sidebar').hasAttribute('data-tq-sidebar-ready')`);
+    await evaluate(`document.querySelector('#replacement-sidebar').append(document.querySelector('#luna-shelf'))`);
+    assert.equal(await isVisible('luna-shelf'), false, 'a reused shelf stays hidden in its new sidebar');
+    await evaluate(`const sidebar = document.querySelector('#sidebar-nav');
+      sidebar.append(' ');
+      sidebar.append(document.querySelector('#luna-shelf'));`);
+    assert.equal(await isVisible('luna-shelf'), false, 'the old sidebar cannot clear a shelf already claimed by its new sidebar');
+    await evaluate(`__storagePatch({sidebarSections:false})`);
+    assert.equal(await isVisible('luna-shelf'), true);
+    await evaluate(`__storagePatch({sidebarSections:true})`);
+    assert.equal(await isVisible('luna-shelf'), false);
+    await evaluate(`__storagePatch({enabled:false})`);
+    assert.equal(await isVisible('luna-shelf'), true);
+    assert.equal(await evaluate(`document.querySelector('#luna-shelf').hasAttribute('data-tq-sidebar-luna')`), false);
+  });
+
   await t.test('logged-out sticky footer hides on mount and navigation and restores on pause', async () => {
     await navigate('tests/fixtures/twitch.html');
     // Sanitized root from the logged-out snapshot; no generated classes needed.

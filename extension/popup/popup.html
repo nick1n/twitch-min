@@ -23,8 +23,8 @@
       </div>
       <div class="controls">
         <label title="Pause or resume without changing your choices">
-          <input id="master-toggle" type="checkbox" disabled>
           Enabled
+          <input id="master-toggle" type="checkbox" disabled>
         </label>
         <button id="enable-all-button" type="button" title="Turn every setting on and resume" disabled hidden>Enable all settings</button>
       </div>
@@ -33,13 +33,23 @@
     <div id="groups" role="group" aria-label="Preferences" aria-busy="true">
       <p>Loading…</p>
     </div>
-    <p id="scroll-cue"><button id="more-settings" type="button" hidden>More settings ↓</button></p>
+    <div id="popup-actions">
+      <button class="outlined-button" id="hide-and-report" type="button" disabled>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+          <circle cx="8" cy="8" r="4.5"></circle>
+          <path d="M8 1.25v2.25m0 9v2.25M1.25 8H3.5m9 0h2.25" stroke-linecap="round"></path>
+          <circle cx="8" cy="8" r="1.35" fill="currentColor" stroke="none"></circle>
+        </svg>
+        <span>Hide an element and report it</span>
+      </button>
+      <button id="more-settings" type="button" hidden>More settings ↓</button>
+    </div>
 
     <section id="toggle-error" aria-label="Toggle troubleshooting" hidden>
       <p id="toggle-error-message" role="alert"></p>
       <p id="reload-hint">Try refreshing the Twitch tab, then use the switch again. If the problem continues, copy the error details and report an issue.</p>
       <div class="error-actions">
-        <button id="copy-error" type="button" aria-live="polite">Copy error details</button>
+        <button class="outlined-button" id="copy-error" type="button" aria-live="polite">Copy error details</button>
         <a href="https://github.com/nick1n/twitch-min/issues" target="_blank" rel="noopener noreferrer">Report the issue</a>
       </div>
       <p id="copy-error-status" role="status" hidden></p>

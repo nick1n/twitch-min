@@ -3,11 +3,14 @@
   "use strict";
 
   const SIDE = globalThis.TwitchMinSelectors.sidebar;
+  const SIDE_SECTION = '.side-nav-section';
   const MORE = globalThis.TwitchMinSelectors.sidebarShowMore;
   const NAV = globalThis.TwitchMinSelectors.topNav;
   const FOLLOWING = globalThis.TwitchMinSelectors.following;
   const BROWSE = globalThis.TwitchMinSelectors.browse;
   const EXTRA = /^(?:gift turbo|get bits|buy bits|turbo|get ad-free|try 1-month ad-free|go ad-free for free|try 1 month free|try free|luna|prime offers|prime gaming|shouts)$/i;
+  const LUNA = /^play\s+on\s+luna$/i;
+  const LUNA_HEADING = 'h2, h3, h4, button, p, span, [role="heading"], [aria-label]';
   let enabled = false;
   let compact = false;
   let sections = false;
@@ -17,6 +20,7 @@
   let stopBrowse = null;
   let stoppingSides = false;
   const sides = new Set();
+  const lunaOwners = new WeakMap();
   const retirementWaiters = new Set();
 
   function markNavigation(nav) {
@@ -30,9 +34,8 @@
     }
   }
 
-  function markSections(side) {
-    if (!side?.isConnected) return;
-    for (const section of side.querySelectorAll('.side-nav-section')) {
+  function markSections(channelSections) {
+    for (const section of channelSections) {
       const heading = section.querySelector(':scope > .followed-side-nav-header, :scope > .side-nav-header, :scope > header') || section.firstElementChild;
       const label = (section.getAttribute('aria-label') || heading?.textContent || '').replace(/\s+/g, ' ').trim();
       const title = /^followed(?: channels)?$/i.test(label) ? 'Followed'
@@ -44,6 +47,23 @@
         else if (heading.getAttribute('data-tq-section-title') !== title) heading.setAttribute('data-tq-section-title', title);
       }
     }
+  }
+
+  function findLunaShelves(channelSections) {
+    const matches = new Set();
+    const hasLunaLabel = node => LUNA.test((node.getAttribute('aria-label') || '').trim());
+    const isLunaHeading = node => hasLunaLabel(node) || LUNA.test(node.textContent.trim());
+    // The Luna shelf can be a sibling of channel sections without their native class.
+    for (const parent of new Set(Array.from(channelSections, section => section.parentElement))) {
+      for (const shelf of parent.children) {
+        const heading = shelf.firstElementChild;
+        const matchesLuna = hasLunaLabel(shelf) || (heading && (
+          isLunaHeading(heading) || [...heading.querySelectorAll(LUNA_HEADING)].some(isLunaHeading)
+        ));
+        if (matchesLuna && !shelf.querySelector(SIDE_SECTION)) matches.add(shelf);
+      }
+    }
+    return matches;
   }
 
   function finishPause() {
@@ -63,23 +83,44 @@
     let userCollapsed = false;
     let automaticToggle = false;
     const moreClicks = new Map();
+    let lunaShelves = new Set();
+    function syncLunaShelves(matches = new Set()) {
+      for (const shelf of lunaShelves) {
+        // A replacement sidebar may claim the moved shelf before this observer runs.
+        if (matches.has(shelf) || lunaOwners.get(shelf) !== side) continue;
+        lunaOwners.delete(shelf);
+        shelf.removeAttribute('data-tq-sidebar-luna');
+      }
+      lunaShelves = matches;
+      for (const shelf of matches) {
+        if (lunaOwners.get(shelf) === side) continue;
+        lunaOwners.set(shelf, side);
+        shelf.toggleAttribute('data-tq-sidebar-luna', true);
+      }
+    }
     function compactReady(value) {
-      if (side.hasAttribute('data-tq-sidebar-compact') !== value) side.toggleAttribute('data-tq-sidebar-compact', value);
+      side.toggleAttribute('data-tq-sidebar-compact', value);
     }
     function headingsReady(value) {
-      if (side.hasAttribute('data-tq-sidebar-headings') !== value) side.toggleAttribute('data-tq-sidebar-headings', value);
+      side.toggleAttribute('data-tq-sidebar-headings', value);
     }
     function ready(value) {
-      if (side.hasAttribute('data-tq-sidebar-ready') !== value) side.toggleAttribute('data-tq-sidebar-ready', value);
+      side.toggleAttribute('data-tq-sidebar-ready', value);
     }
-    function expandSections() {
-      const buttons = [...new Set([...side.querySelectorAll(MORE)].map(control =>
-        control.matches('button, a, [role="button"]') ? control : control.querySelector('button, a, [role="button"]')
-      ).filter(Boolean))];
-      for (const button of moreClicks.keys()) {
-        if (!buttons.includes(button)) moreClicks.delete(button);
+    function syncPagination(shouldExpand) {
+      if (!shouldExpand && !moreClicks.size) return false;
+      const buttonSelector = 'button, a, [role="button"]';
+      const buttons = new Set();
+      for (const control of side.querySelectorAll(MORE)) {
+        const button = control.matches(buttonSelector) ? control : control.querySelector(buttonSelector);
+        if (button) buttons.add(button);
       }
-      if (!buttons.length) return true;
+      for (const button of moreClicks.keys()) {
+        if (!buttons.has(button)) moreClicks.delete(button);
+      }
+      // Forget controls that became Show less even while both sidebar options are off.
+      if (!shouldExpand) return false;
+      if (!buttons.size) return true;
       // Unmask native pagination controls before invoking Twitch's handlers.
       ready(false);
       side.setAttribute('data-tq-sidebar-expanding', '');
@@ -89,13 +130,14 @@
           if (!button.checkVisibility({ checkVisibilityCSS: true })) continue;
           waiting = true;
           if (button.matches(':disabled, [aria-disabled="true"], [aria-busy="true"]')) continue;
-          const section = button.closest('.side-nav-section') || side;
-          const count = section.querySelectorAll('.side-nav-card__link, a.side-nav-card').length;
+          const section = button.closest(SIDE_SECTION) || side;
+          const rows = section.querySelectorAll('.side-nav-card__link, a.side-nav-card');
           const previous = moreClicks.get(button);
-          // React may retain the same Show more button for several pages. Only
-          // request another page after new rows arrive, never on unrelated edits.
-          if (previous && previous.section === section && count <= previous.count) continue;
-          moreClicks.set(button, { section, count });
+          // Channels can disappear while a page loads, so look for new rows
+          // even when the total stays the same. Removals alone aren't progress.
+          if (previous?.section === section && ![...rows].some(row => !previous.rows.has(row))) continue;
+          // A stalled request should not keep detached channel rows alive.
+          moreClicks.set(button, { section, rows: new WeakSet(rows) });
           button.click();
         }
         return !waiting;
@@ -122,7 +164,8 @@
       // Keep the native handler, including keyboard activation, in charge.
       // A deliberate collapse must not trigger our initial auto-expansion.
       userCollapsed = current;
-      pending = { button, expanded: !current };
+      // A manual click belongs to the sidebar even if Twitch replaces its button.
+      pending = { expanded: !current };
       ready(false);
       compactReady(false);
       headingsReady(false);
@@ -131,13 +174,15 @@
       if (!side.isConnected) return;
       const current = expanded();
       const button = side.querySelector('[data-a-target="side-nav-arrow"]');
-      if (current === null || !button) return;
+      if (pending?.button && pending.button !== button) pending = null;
+      if (current === null) return;
       // Native React clicks settle asynchronously. Retain this state through
       // a pause/resume so a pending expansion is never clicked twice.
-      if (pending?.button === button) {
+      if (pending) {
         if (pending.expanded !== current) return;
         pending = null;
       }
+      if (!button) return;
       if ((compact || sections) && !current && !userCollapsed) {
         restore = true;
         pending = { button, expanded: true };
@@ -150,18 +195,17 @@
     function sync() {
       if (!side.isConnected) return;
       syncCollapse();
+      if (!side.isConnected) return;
+      const canStyle = enabled && !pending && expanded() !== false;
+      const manageSections = canStyle && (compact || sections);
+      const channelSections = sections || manageSections ? side.querySelectorAll(SIDE_SECTION) : [];
+      syncLunaShelves(sections ? findLunaShelves(channelSections) : undefined);
       // Row sizing depends only on native expansion, not pagination completing.
       // Section filtering waits for pagination; heading/control styling does not.
-      compactReady(enabled && compact && !pending && expanded() !== false);
-      headingsReady(enabled && sections && !pending && expanded() !== false);
-      if (!enabled || (!compact && !sections) || pending || expanded() === false) {
-        ready(false);
-        return;
-      }
-      // Headings need only native expansion. A late or stalled page must not
-      // revert existing headings or prevent replacements from being labelled.
-      markSections(side);
-      ready(expandSections());
+      compactReady(canStyle && compact);
+      headingsReady(canStyle && sections);
+      if (manageSections) markSections(channelSections);
+      ready(syncPagination(manageSections));
     }
     const state = {
       sync,
@@ -177,6 +221,7 @@
       side.removeEventListener('click', onToggle, true);
       sides.delete(state);
       moreClicks.clear();
+      syncLunaShelves();
       compactReady(false);
       headingsReady(false);
       ready(false);

@@ -44,7 +44,7 @@ main {
 }
 
 header,
-#scroll-cue,
+#popup-actions,
 #toggle-error,
 #status {
   flex: none;
@@ -174,15 +174,6 @@ input[type="checkbox"]:disabled {
   }
 }
 
-#scroll-cue {
-  height: 20px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 20px;
-  text-align: center;
-}
-
 #enable-all-button,
 #more-settings {
   padding: 0 6px;
@@ -298,6 +289,7 @@ label:has(input:disabled) {
   color: var(--muted);
 }
 
+#popup-actions,
 .error-actions {
   display: flex;
   align-items: center;
@@ -305,7 +297,22 @@ label:has(input:disabled) {
   gap: 12px;
 }
 
-.error-actions button {
+#popup-actions {
+  margin-top: 8px;
+}
+
+#hide-and-report {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#hide-and-report > span {
+  position: relative;
+  inset-block-start: -1px;
+}
+
+.outlined-button {
   padding: 4px 6px;
   border: 1px solid var(--line);
   border-radius: 4px;
@@ -320,7 +327,7 @@ label:has(input:disabled) {
   text-underline-offset: 2px;
 }
 
-.error-actions button:hover {
+.outlined-button:hover {
   background: var(--hover);
 }
 

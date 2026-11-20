@@ -68,6 +68,12 @@ status and errors, not page content, and clear on a new attempt or confirmed
 change. Logs use the name and version from the installed manifest. To debug,
 inspect the popup for save/recovery logs and Twitch's console for controller errors.
 
+The popup starts the report picker in the active Twitch tab's top frame. The
+picker owns a shadow UI, the temporary hide, and a child-list observer on the
+selected element's ancestors. Undo, pause, detachment, route changes, and
+retirement release those resources. The issue link uses the manifest homepage
+and a bounded HTML excerpt with a structural attribute allowlist.
+
 ## Regions and controllers
 
 One shared observer tracks mounts, identity changes, and removals while features

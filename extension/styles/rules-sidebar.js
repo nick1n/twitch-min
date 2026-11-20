@@ -2,10 +2,11 @@
 (() => {
   "use strict";
 
-  const SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar})[data-tq-sidebar-ready]`;
-  const HEADINGS = `:is(${globalThis.TwitchMinSelectors.sidebar})[data-tq-sidebar-headings]`;
-  const COMPACT = `:is(${globalThis.TwitchMinSelectors.sidebar})[data-tq-sidebar-compact]`;
-  const SCROLL_SIDEBAR = `:is(${globalThis.TwitchMinSelectors.sidebar}):is([data-tq-sidebar-compact], .side-nav--collapsed, [data-a-target="side-nav-bar-collapsed"])`;
+  const SIDE = `:is(${globalThis.TwitchMinSelectors.sidebar})`;
+  const SIDEBAR = `${SIDE}[data-tq-sidebar-ready]`;
+  const HEADINGS = `${SIDE}[data-tq-sidebar-headings]`;
+  const COMPACT = `${SIDE}[data-tq-sidebar-compact]`;
+  const SCROLL_SIDEBAR = `${SIDE}:is([data-tq-sidebar-compact], .side-nav--collapsed, [data-a-target="side-nav-bar-collapsed"])`;
   const PROMOTED = `${COMPACT} .side-nav-card__link--promoted-followed`;
 
   globalThis.TwitchMinSidebarRules = Object.freeze([
@@ -38,6 +39,11 @@
     [6.1, {
       key: "sidebarSections",
       selectors: ['.side-nav__title', '[data-a-target="side-nav-for-you"]'].map(selector => `${HEADINGS} ${selector}`),
+      declaration: "display: none !important;"
+    }],
+    [6.15, {
+      key: "sidebarSections",
+      selectors: [`${SIDE} [data-tq-sidebar-luna]`],
       declaration: "display: none !important;"
     }],
     [6.2, {

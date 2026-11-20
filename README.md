@@ -37,7 +37,7 @@ All options start on except **Hide top navigation bar** and
 | --- | --- |
 | Top navigation extras   | Hide promotional buttons at the top of Twitch. Keep search, notifications, whispers, and your account menu. |
 | Hide top navigation bar | Hide the whole bar at the top of Twitch, including search, notifications, and your account menu. |
-| Sidebar sections        | Hide the For You section and make the other section headings take up less space. |
+| Sidebar sections        | Hide For You and Play on Luna, and shorten the remaining section headings. |
 | Compact sidebar         | Make the sidebar narrower while keeping channel icons, viewer counts, and game names. |
 | Channel action extras   | Hide Share, the three-dot menu, the channel bell, Bits, and Gift a Sub. Keep Follow and subscription icons. |
 | About & channel panels  | Hide the About section, channel card, and channel panels below the video. |
@@ -65,6 +65,17 @@ While enabled, twitch-min also:
 Playback controls, chat scrolling, and Twitch's button actions remain available.
 Turn a setting off to restore that feature, or pause to restore everything.
 
+## Hide and report an element
+
+1. On Twitch, open the extension popup and click **Hide and report**.
+2. Hover to see the selection, then click to hide it. Use **Hide larger section**
+   if you clicked a heading or thumbnail and want to hide its container.
+3. Review the HTML, then click **Open GitHub issue**. Describe what should be
+   hidden and submit the prefilled issue on GitHub.
+
+Use **Undo** to restore the section. The hide also clears when you reload, switch
+to another Twitch page, or pause the extension.
+
 ## Troubleshooting
 
 If a setting doesn't seem to work:
@@ -81,8 +92,10 @@ and copy the displayed text manually.
 ## Privacy and limits
 
 Runs only on Twitch and saves your settings in your browser. It doesn't collect
-analytics or upload page content. Larger emote previews load from Twitch's image
-servers. Hiding a Twitch feature doesn't stop it from loading or running.
+analytics. **Open GitHub issue** passes the reviewed markup to GitHub in the
+draft URL. The markup includes structural attributes and omits page text, links,
+and form values. Larger emote previews load from Twitch's image servers. Hiding
+a Twitch feature doesn't stop it from loading or running.
 
 Twitch layouts vary by account and language, so some controls may be missed.
 Third-party emotes aren't specifically supported. Error reports are shared only

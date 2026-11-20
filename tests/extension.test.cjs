@@ -40,9 +40,23 @@ test('installed extension reconnects open documents after extension reload and m
     await popup.evaluate(`document.querySelector('#master-toggle').click()`);
     await tab.waitFor(`document.querySelector('#second').hasAttribute('data-tq-chat-continuation')`);
 
+    await popup.waitFor(`!document.querySelector('#hide-and-report').disabled`);
+    await popup.evaluate(`document.querySelector('#hide-and-report').click()`);
+    await tab.waitFor(`document.querySelector('[data-tq-report-picker]')`);
+    await tab.evaluate(`document.querySelector('#notifications').click()`);
+    assert.equal(await tab.evaluate(`getComputedStyle(document.querySelector('#notifications')).display`), 'none');
+    assert.equal(await tab.evaluate(`nativeClicks`), 1, 'picker intercepts the selected native action');
+    await tab.evaluate(`history.pushState(null, '', '/offline-recovery-next')`);
+    await tab.waitFor(`document.querySelector('#notifications').checkVisibility() && !document.querySelector('[data-tq-report-picker]')`);
+    await tab.evaluate(`history.back()`);
+    await tab.waitFor(`location.pathname === '/offline-recovery'`);
+
     // Retiring a paused instance must also survive invalidation and keep pause.
+    popup = await browser.open(`chrome-extension://${browser.id}/${manifest.action.default_popup}`);
+    await popup.waitFor(`!document.querySelector('#master-toggle').disabled`);
     await popup.evaluate(`document.querySelector('#master-toggle').click()`);
     await tab.waitFor(`document.documentElement.getAttribute('data-tq-enabled')==='false'`);
+    assert.equal(await tab.evaluate(`document.querySelector('#notifications').checkVisibility() && !document.querySelector('[data-tq-report-picker]')`), true);
     await tab.evaluate(`previousStyle=document.getElementById('twitch-min-styles');previousStyle.remove()`);
     await browser.reloadExtension();
     await tab.waitFor(`document.getElementById('twitch-min-styles')!==previousStyle && document.documentElement.getAttribute('data-tq-enabled')==='false'`);
