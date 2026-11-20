@@ -3,6 +3,14 @@
 Release history, newest first. For current checks and limits, see
 [validation notes](docs/validation.md).
 
+## 0.30.0 - Hide and report and sidebar fixes
+
+- Temporarily hide Twitch elements with the popup's Hide and report picker, then
+  review the captured HTML before opening a prefilled GitHub issue.
+- Hide Play on Luna when Sidebar sections is enabled.
+- Keep loading sidebar pages when new channels replace existing rows, and
+  respect manual collapse when Twitch replaces the sidebar button.
+
 ## 0.29.0 - Mouse side button seeking and sidebar cleanup
 
 - Use mouse Back and Forward buttons over the video to skip back 30 seconds or

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "twitch-min",
   "homepage_url": "https://github.com/nick1n/twitch-min",
-  "version": "0.29.0",
+  "version": "0.30.0",
   "description": "A browser extension that hides Twitch promos, shrinks the sidebar, and simplifies chat to keep the video and chat the main focus.",
   "minimum_chrome_version": "106",
   "permissions": ["storage", "scripting"],
