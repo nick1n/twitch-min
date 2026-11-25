@@ -3,6 +3,15 @@
 Release history, newest first. For current checks and limits, see
 [validation notes](docs/validation.md).
 
+## 0.31.0 - Live rewind and element report improvements
+
+- Wait for Twitch's scrubber seek before rewinding 30 seconds from the playable
+  end, and let Back retry if the transition stalls.
+- Show the full GitHub issue draft with the Twitch section, marked HTML
+  selection, and a prompt to attach a screenshot.
+- Keep the popup's More settings and Back to top control the same width at
+  either end of the list.
+
 ## 0.30.0 - Hide and report and sidebar fixes
 
 - Temporarily hide Twitch elements with the popup's Hide and report picker, then
