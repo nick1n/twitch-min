@@ -5,6 +5,8 @@
   const master = document.getElementById('master-toggle');
   const groupList = document.getElementById('groups');
   const moreSettings = document.getElementById('more-settings');
+  const scrollDownLabel = document.getElementById('scroll-down-label').textContent;
+  const scrollUpLabel = document.getElementById('scroll-up-label').textContent;
   const enableAllButton = document.getElementById('enable-all-button');
   const status = document.getElementById('status');
   const reportButton = document.getElementById('hide-and-report');
@@ -32,9 +34,11 @@
   }
 
   function updateScrollCue() {
-    moreSettings.hidden = !ready || groupList.scrollHeight - groupList.clientHeight <= 1;
-    moreSettings.textContent = groupList.scrollHeight - groupList.clientHeight - groupList.scrollTop <= 1
-      ? 'Back to top ↑' : 'More settings ↓';
+    const scrollRange = groupList.scrollHeight - groupList.clientHeight;
+    const atBottom = scrollRange - groupList.scrollTop <= 1;
+    moreSettings.hidden = !ready || scrollRange <= 1;
+    const label = atBottom ? scrollUpLabel : scrollDownLabel;
+    if (moreSettings.textContent !== label) moreSettings.textContent = label;
   }
 
   function buildGroupControls() {

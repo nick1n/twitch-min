@@ -5,6 +5,7 @@
   const excluded = 'script, style, link, input, textarea, select, template, iframe, [contenteditable]';
   const voidElements = 'area, base, br, col, embed, hr, img, meta, param, source, track, wbr';
   const maxMarkup = 1500;
+  const selectors = globalThis.TwitchMinSelectors;
   let session;
 
   function canHide(element) {
@@ -24,9 +25,10 @@
   function capture(element) {
     let prefix = '';
     let suffix = '';
-    for (let parent = element.parentElement, depth = 0; depth < 2 && canHide(parent); parent = parent.parentElement, depth++) {
+    for (let parent = element.parentElement, depth = 0; depth < 2 && parent; parent = parent.parentElement, depth++) {
       prefix = openingTag(parent) + '\n' + prefix;
       suffix += '\n</' + parent.localName + '>';
+      if (parent === document.body) break;
     }
     let left = maxMarkup - prefix.length - suffix.length;
     let truncated = false;
@@ -48,7 +50,29 @@
       return html + end;
     }
     const html = render(element, 0);
-    return prefix + html + suffix + (truncated ? '\n<!-- additional markup omitted -->' : '');
+    return prefix + '<!-- Selected element -->\n' + html + suffix +
+      (truncated ? '\n<!-- additional markup omitted -->' : '');
+  }
+
+  function siteSection(element) {
+    if (element.closest(`${selectors.chatRoot}, ${selectors.composer}`)) return 'Chat bar';
+    if (element.closest(selectors.sidebar)) return 'Sidebar';
+    if (element.closest(selectors.topNav)) return 'Top nav';
+    if (element.closest(selectors.player)) return 'Main content (video player)';
+    if (element.closest(`main, [role="main"], .channel-root, ${selectors.following}, ${selectors.browse}`)) return 'Main content';
+    return 'Global';
+  }
+
+  function reportDraft(element, version) {
+    return [
+      '### What should twitch-min hide?',
+      'Describe the element, where it appears, and how to make it appear again.',
+      '### Screenshot',
+      'Please attach a screenshot showing the element before hiding it, with enough of the surrounding page to locate it. Use Undo if you need to show it again. Crop or redact private information.',
+      '### Element details',
+      `- Twitch section: ${siteSection(element)}\n- Extension version: ${version}`,
+      `\`\`\`html\n${capture(element)}\n\`\`\``
+    ].join('\n\n');
   }
 
   function restore(state) {
@@ -104,7 +128,7 @@
       const status = make('p', { textContent: 'Click the part of Twitch you want to hide. Press Esc to cancel.' });
       status.setAttribute('role', 'status');
       const preview = make('textarea', { readOnly: true, hidden: true });
-      preview.setAttribute('aria-label', 'HTML included in the GitHub issue');
+      preview.setAttribute('aria-label', 'GitHub issue draft');
       const parent = make('button', { type: 'button', className: 'parent', hidden: true, textContent: 'Hide larger section' });
       const undo = make('button', { type: 'button', className: 'undo', hidden: true, textContent: 'Undo' });
       const issue = state.issue = make('a', {
@@ -143,11 +167,11 @@
       function hide(element) {
         if (!canHide(element)) return;
         restore(state);
-        const markup = capture(element);
         const manifest = chrome.runtime.getManifest();
+        const draft = reportDraft(element, manifest.version);
         const url = new URL(manifest.homepage_url.replace(/\/$/, '') + '/issues/new');
         url.searchParams.set('title', 'Twitch element to hide');
-        url.searchParams.set('body', `What should twitch-min hide?\n\ntwitch-min ${manifest.version}\n\n\`\`\`html\n${markup}\n\`\`\``);
+        url.searchParams.set('body', draft);
         const hadStyle = element.hasAttribute('style');
         const style = element.style;
         state.hidden = {
@@ -159,8 +183,8 @@
         style.setProperty('display', 'none', 'important');
         watchRemoval();
         outline.hidden = true;
-        status.textContent = 'Hidden until reload or navigation. Review the HTML before opening a GitHub issue.';
-        preview.value = markup;
+        status.textContent = 'Hidden until reload or navigation. Copy or review the draft before opening a GitHub issue.';
+        preview.value = draft;
         issue.href = url.href;
         preview.hidden = issue.hidden = undo.hidden = false;
         parent.hidden = !canHide(element.parentElement);

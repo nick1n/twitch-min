@@ -67,11 +67,11 @@ Turn a setting off to restore that feature, or pause to restore everything.
 
 ## Hide and report an element
 
-1. On Twitch, open the extension popup and click **Hide and report**.
+1. On Twitch, open the extension popup and click **Hide an element and report it**.
 2. Hover to see the selection, then click to hide it. Use **Hide larger section**
    if you clicked a heading or thumbnail and want to hide its container.
-3. Review the HTML, then click **Open GitHub issue**. Describe what should be
-   hidden and submit the prefilled issue on GitHub.
+3. Review or copy the draft, then click **Open GitHub issue**. Describe what
+   should be hidden and attach a screenshot showing the element in context.
 
 Use **Undo** to restore the section. The hide also clears when you reload, switch
 to another Twitch page, or pause the extension.

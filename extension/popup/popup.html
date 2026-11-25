@@ -42,7 +42,11 @@
         </svg>
         <span>Hide an element and report it</span>
       </button>
-      <button id="more-settings" type="button" hidden>More settings ↓</button>
+      <div id="scroll-cue">
+        <span id="scroll-down-label" aria-hidden="true">More settings ↓</span>
+        <span id="scroll-up-label" aria-hidden="true">Back to top ↑</span>
+        <button id="more-settings" type="button" hidden></button>
+      </div>
     </div>
 
     <section id="toggle-error" aria-label="Toggle troubleshooting" hidden>

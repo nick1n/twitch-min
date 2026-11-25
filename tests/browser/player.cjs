@@ -40,11 +40,11 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       assert.equal(await evaluate('nativeClicks'),1);
       assert.equal(await evaluate('liveWrites'),0,'live currentTime remains untouched during transition');
       await evaluate(`document.querySelector('[data-a-target="player-seekbar"]').remove()`);
-      await evaluate(`rangeEnd=5000;liveDuration=5000;document.querySelector('#stream-video').dispatchEvent(new Event('durationchange'))`);
+      await evaluate(`rangeEnd=5000;liveDuration=5000;document.querySelector('#stream-video').dispatchEvent(new Event('seeked'))`);
       assert.equal(await evaluate('liveWrites'),0,'removing rewind controls cancels pending work');
       await evaluate(`history.pushState({},'', '?seekable-again');liveDuration=Infinity;document.querySelector('#player').insertAdjacentHTML('beforeend',${JSON.stringify(bar)})`);
       await mouse(3);
-      await evaluate(`liveDuration=5000;document.querySelector('#stream-video').dispatchEvent(new Event('loadedmetadata'))`);
+      await evaluate(`liveDuration=5000;document.querySelector('#stream-video').dispatchEvent(new Event('seeked'))`);
       assert.equal(await evaluate('liveTime'),4970,'a later supported stream still rewinds');
     });
 
@@ -100,7 +100,14 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
           for(const type of ['mousedown','mouseup','click'])bar.addEventListener(type,event=>nativeSeeks.push({type:event.type,button:event.button,x:event.clientX}));`);
       };
       const press = button => evaluate(`(()=>{const event=new MouseEvent('mousedown',{bubbles:true,cancelable:true,button:${button}});document.querySelector('#stream-video').dispatchEvent(event);return event.defaultPrevented})()`);
-      const ready = () => evaluate(`liveDuration=4521.05;document.querySelector('#stream-video').dispatchEvent(new Event('durationchange'))`);
+      const mediaEvent = type => evaluate(`document.querySelector('#stream-video').dispatchEvent(new Event(${JSON.stringify(type)}))`);
+      const ready = () => evaluate('liveDuration=4521.05');
+      const captureDeadline = () => evaluate(`
+        const setPageTimeout = window.setTimeout;
+        window.setTimeout = (callback, delay, ...args) => {
+          if (delay !== 8000) return setPageTimeout(callback, delay, ...args);
+          window.runRewindDeadline = callback;
+        };`);
       await setup();
       assert.equal(await press(4),true);
       assert.equal(await evaluate('liveWrites'),0,'Forward at live does not seek the placeholder timeline');
@@ -111,11 +118,57 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
       await press(3);
       assert.equal(await evaluate('nativeSeeks.length'),3,'repeated Back does not restart a pending transition');
       await ready();
+      await mediaEvent('seeked');
       assert.equal(await evaluate('liveTime'),4491.05,'seek relative to the new recording end, not the old live clock');
       await press(3);
       assert.equal(await evaluate('liveTime'),4461.05);
       await press(4);
       assert.equal(await evaluate('liveTime'),4521.05);
+
+      await setup();
+      await evaluate(`window.nativeSeeking=false;window.recordingHasRange=false;
+        const video=document.querySelector('#stream-video');
+        Object.defineProperty(video,'seeking',{get:()=>nativeSeeking});
+        Object.defineProperty(video,'seekable',{get:()=>({length:recordingHasRange?1:0,start:()=>0,end:()=>4500})});`);
+      await press(3);
+      await ready();
+      await evaluate('recordingHasRange=true');
+      await mediaEvent('durationchange');
+      assert.equal(await evaluate('liveWrites'),0,'metadata and a playable range can precede the native seek');
+      await evaluate('nativeSeeking=true');
+      await mediaEvent('loadedmetadata');
+      await press(3);
+      assert.equal(await evaluate('liveWrites'),0,'Back during the native seek does not interrupt it');
+      await evaluate('liveTime=4410;nativeSeeking=false;recordingHasRange=false');
+      await mediaEvent('seeked');
+      assert.equal(await evaluate('liveWrites'),0,'seek completion alone is insufficient while the playable range is empty');
+      await evaluate('recordingHasRange=true');
+      await mediaEvent('progress');
+      assert.equal(await evaluate('liveTime'),4470,'rewind runs after the native seek and uses the playable end');
+      await mediaEvent('seeked');
+      assert.equal(await evaluate('liveWrites'),1,'the extension seek cannot trigger another rewind');
+
+      await setup();
+      await captureDeadline();
+      await press(3);
+      await evaluate('runRewindDeadline()');
+      assert.equal(await evaluate('liveWrites'),0,'a stalled request never seeks the live timeline');
+      await press(3);
+      assert.equal(await evaluate('nativeSeeks.length'),6,'Back can retry after a stalled request');
+      await ready();
+      await mediaEvent('loadedmetadata');
+      await evaluate('runRewindDeadline()');
+      assert.equal(await evaluate('liveTime'),4491.05,'a playable source swap can finish without a native seeked event');
+
+      await setup();
+      await press(3);
+      await evaluate(`history.pushState({}, '', '?new-stream')`);
+      await press(3);
+      assert.equal(await evaluate('nativeSeeks.length'),6,'the old route cannot block a new request on a reused player');
+      await ready();
+      await mediaEvent('seeked');
+      assert.equal(await evaluate('liveWrites'),1);
+
       for(const action of [
         '__storagePatch({sideButtonSeek:false})',
         '__storagePatch({enabled:false})',
@@ -126,14 +179,14 @@ module.exports = async (t, { navigate, evaluate, isVisible, waitFor, send }) => 
         await setup();
         await press(3);
         await evaluate(action);
-        if(action.includes('.remove()')) {
-          await evaluate('liveDuration=4521.05');
-        } else await ready();
+        await ready();
+        if(!action.includes('.remove()')) await mediaEvent('seeked');
         assert.equal(await evaluate('liveWrites'),0,action+' cancels the pending seek');
       }
       await setup();
       await press(3);
       await evaluate(`liveDuration=4521.05;const old=document.querySelector('#stream-video'),replacement=old.cloneNode(true);installLiveVideo(replacement);old.replaceWith(replacement)`);
+      await mediaEvent('seeked');
       await waitFor('liveWrites===1');
       assert.equal(await evaluate('liveTime'),4491.05,'replacement video completes the pending transition');
       await evaluate(`document.querySelector('#stream-video').dispatchEvent(new Event('loadedmetadata'))`);

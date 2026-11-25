@@ -103,13 +103,17 @@ live video may report a placeholder seekable range spanning far beyond its
 actual buffer. Live playback requires a visible, enabled, nonzero-size scrubber;
 reported media ranges alone never authorize seeking or direct live `currentTime`
 changes. Without that control, native side-button behavior remains in place.
-Once media events or video replacement expose a finite duration,
-the controller seeks 30 seconds before that recording's end. The live and
-recording clocks are separate. Forward reaching or passing the seekable end clicks
-the player's visible, enabled `button[aria-label="Skip to Live"]` when present;
+The controller waits for the recording video's native seek to finish and for
+a playable range to become available, then seeks 30 seconds before its seekable
+end. The live and recording clocks are separate. At the eight-second deadline,
+a finite, seekable video that is idle can complete the rewind without a native
+`seeked` event. Otherwise the request expires and Back can retry. Forward
+reaching or passing the seekable end clicks the player's visible, enabled
+`button[aria-label="Skip to Live"]` when present;
 otherwise seeking clamps normally. Forward at live stays at live and cancels a
-pending rewind. Temporary media listeners and the player-scoped observer release on
-completion, manual seeking, pause, opt-out, region removal, or history events;
+pending rewind. The deadline, temporary media listeners, and player-scoped
+observer release on completion, manual seeking, pause, opt-out, region removal,
+or history events;
 completion also rejects a changed URL.
 
 ### Sidebar and page shelves

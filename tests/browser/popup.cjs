@@ -307,10 +307,16 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
   await t.test('popup hides scrollbar chrome and toggles between More settings and Back to top', async () => {
     await navigate(`extension/${manifest.action.default_popup}`);
     const cueHidden = () => evaluate(`document.querySelector('#more-settings').hidden`);
-    const popupHeight = await evaluate(`document.body.getBoundingClientRect().height`);
+    const cueText = "document.querySelector('#more-settings').textContent";
+    const cueRect = () => evaluate(`document.querySelector('#more-settings').getBoundingClientRect().toJSON()`);
+    const popupLayout = () => evaluate(`['body', '#groups', '#popup-actions', '#hide-and-report', '#scroll-cue']
+      .map(selector => document.querySelector(selector).getBoundingClientRect().toJSON())`);
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('#groups')).scrollbarWidth`), 'none');
     assert.equal(await evaluate(`getComputedStyle(document.querySelector('#groups'),'::-webkit-scrollbar').display`), 'none');
     await waitFor(`!document.querySelector('#more-settings').hidden`);
+    const moreSettingsRect = await cueRect();
+    await evaluate(`document.querySelector('#scroll-cue').style.fontSize = '16px'`);
+    const initialLayout = await popupLayout();
     assert.equal(await evaluate(`(() => {
       const row = document.querySelector('#popup-actions').getBoundingClientRect();
       const report = document.querySelector('#hide-and-report').getBoundingClientRect();
@@ -320,23 +326,27 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     })()`), true, 'popup actions share a row and align to opposite edges');
     const point = await evaluate(`(()=>{const rect=document.querySelector('#groups').getBoundingClientRect();return {x:rect.left+rect.width/2,y:rect.top+rect.height/2}})()`);
     await send('Input.dispatchMouseEvent', { type: 'mouseWheel', ...point, deltaY: 1000, deltaX: 0 });
-    await waitFor(`document.querySelector('#groups').scrollTop > 0 && document.querySelector('#more-settings').textContent === 'Back to top ↑'`);
-    assert.equal(await evaluate(`document.body.getBoundingClientRect().height`), popupHeight, 'cue changes do not shift the popup');
+    await waitFor(`document.querySelector('#groups').scrollTop > 0 && ${cueText} === 'Back to top ↑'`);
+    assert.deepEqual(await popupLayout(), initialLayout, 'cue changes preserve the settings list and footer geometry');
+    await evaluate(`document.querySelector('#scroll-cue').style.removeProperty('font-size')`);
+    const backToTopRect = await cueRect();
+    assert.ok(backToTopRect.width < moreSettingsRect.width, 'Back to top uses a narrower button');
+    assert.equal(backToTopRect.right, moreSettingsRect.right, 'both labels align to the right edge');
     await send('Input.dispatchMouseEvent', { type: 'mouseWheel', ...point, deltaY: -1000, deltaX: 0 });
-    await waitFor(`document.querySelector('#more-settings').textContent === 'More settings ↓'`);
+    await waitFor(`${cueText} === 'More settings ↓'`);
     await evaluate(`document.querySelector('#more-settings').click()`);
-    await waitFor(`document.querySelector('#more-settings').textContent === 'Back to top ↑'`);
+    await waitFor(`${cueText} === 'Back to top ↑'`);
     assert.equal(await evaluate(`document.activeElement.id`), 'more-settings', 'scrolling down keeps focus on the scroll button');
     assert.equal(await evaluate(`document.querySelector('.setting:focus-within')`), null, 'scrolling does not highlight a setting');
     assert.equal(await evaluate(`document.querySelector('#groups').scrollHeight-document.querySelector('#groups').clientHeight-document.querySelector('#groups').scrollTop <= 1`), true, 'the action scrolls all the way to the bottom');
     await evaluate(`document.querySelector('#more-settings').click()`);
-    await waitFor(`document.querySelector('#groups').scrollTop === 0 && document.querySelector('#more-settings').textContent === 'More settings ↓'`);
+    await waitFor(`document.querySelector('#groups').scrollTop === 0 && ${cueText} === 'More settings ↓'`);
     assert.equal(await evaluate(`(()=>{
       const list=document.querySelector('#groups');
       document.querySelector('#more-settings').click();
       return list.scrollTop===0;
     })()`), true, 'animated scrolling does not jump straight to the bottom');
-    await waitFor(`document.querySelector('#more-settings').textContent === 'Back to top ↑'`);
+    await waitFor(`${cueText} === 'Back to top ↑'`);
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
     try {
       assert.equal(await evaluate(`(()=>{
@@ -351,16 +361,17 @@ module.exports = async (t, { navigate, evaluate, waitFor, send }) => {
     await evaluate(`document.querySelector('#more-settings').focus()`);
     await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
     await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-    await waitFor(`document.querySelector('#more-settings').textContent === 'Back to top ↑'`);
+    await waitFor(`${cueText} === 'Back to top ↑'`);
     assert.equal(await evaluate(`document.activeElement.id`), 'more-settings', 'keyboard scrolling keeps focus on the scroll button');
     await evaluate(`document.querySelector('#more-settings').focus()`);
     await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
     await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-    await waitFor(`document.querySelector('#groups').scrollTop === 0 && document.querySelector('#more-settings').textContent === 'More settings ↓'`);
+    await waitFor(`document.querySelector('#groups').scrollTop === 0 && ${cueText} === 'More settings ↓'`);
     await evaluate(`document.querySelector('main').style.maxHeight='none';document.querySelector('#groups').style.maxHeight='none'`);
     await waitFor(`document.querySelector('#groups').clientHeight >= document.querySelector('#groups').scrollHeight`);
     await waitFor(`document.querySelector('#more-settings').hidden`);
     assert.equal(await cueHidden(), true, 'no cue appears when all settings fit');
+    assert.equal(await evaluate(`document.querySelector('#more-settings').checkVisibility({checkVisibilityCSS:true})`), false);
     await evaluate(`document.querySelector('#groups').style.maxHeight='160px';document.querySelector('#groups').scrollTop=0`);
     await waitFor(`!document.querySelector('#more-settings').hidden`);
   });

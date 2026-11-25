@@ -7,6 +7,7 @@
   let timer = null;
   let sideButtonsEnabled = false;
   const SIDE_BUTTON_EVENTS = ['mousedown', 'mouseup', 'auxclick'];
+  const LIVE_REWIND_TIMEOUT = 8000;
   let stopSeekRegions = null;
   let pendingRewind = null;
 
@@ -49,16 +50,19 @@
   }
 
   function rewindLive(player, bar) {
-    if (pendingRewind?.player === player) return;
     cancelRewind();
     const rect = bar.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     const url = location.href;
-    const transition = { player, dispose };
-    const observer = new MutationObserver(finish);
+    const transition = { player, url, dispose };
+    const observer = new MutationObserver(queueFinish);
+    const mediaEvents = ['durationchange', 'loadedmetadata', 'progress', 'seeked'];
+    let settledVideo = null;
+    let deadline;
     function dispose() {
+      clearTimeout(deadline);
       observer.disconnect();
-      for (const type of ['durationchange', 'loadedmetadata']) player.removeEventListener(type, finish, true);
+      for (const type of mediaEvents) player.removeEventListener(type, queueFinish, true);
       player.removeEventListener('mousedown', onManualSeek, true);
       window.removeEventListener('popstate', cancelRewind);
       window.removeEventListener('hashchange', cancelRewind);
@@ -66,29 +70,35 @@
     function onManualSeek(event) {
       if (event.isTrusted && event.button === 0) cancelRewind();
     }
-    function finish() {
+    function queueFinish(event) {
       // Let the native event handler finish switching media before seeking.
-      queueMicrotask(() => {
-        if (pendingRewind !== transition) return;
-        if (!player.isConnected || location.href !== url) { cancelRewind(); return; }
-        const video = [...player.querySelectorAll('video')].find(video =>
-          video.checkVisibility({ checkVisibilityCSS: true }) && Number.isFinite(video.duration) && video.duration > 0);
-        if (!video) {
-          if (!liveSeekbar(player)) cancelRewind();
-          return;
-        }
-        cancelRewind();
-        seekVideo(video, video.duration - 30);
-      });
+      if (event?.type === 'seeked' && event.target instanceof HTMLVideoElement &&
+          Number.isFinite(event.target.duration)) settledVideo = event.target;
+      queueMicrotask(() => finish(false));
+    }
+    function finish(timedOut) {
+      if (pendingRewind !== transition) return;
+      if (!player.isConnected || location.href !== url) { cancelRewind(); return; }
+      const video = [...player.querySelectorAll('video')].find(video =>
+        video.checkVisibility({ checkVisibilityCSS: true }) && Number.isFinite(video.duration) && video.duration > 0);
+      if (!video || video.seeking || !video.seekable.length || (!timedOut && video !== settledVideo)) {
+        if (timedOut || (!video && !liveSeekbar(player))) cancelRewind();
+        return;
+      }
+      cancelRewind();
+      seekVideo(video, seekEnd(video) - 30);
     }
     // Own all temporary work before asking Twitch to change its media source.
     pendingRewind = transition;
     try {
-      for (const type of ['durationchange', 'loadedmetadata']) player.addEventListener(type, finish, true);
+      for (const type of mediaEvents) player.addEventListener(type, queueFinish, true);
       player.addEventListener('mousedown', onManualSeek, true);
       window.addEventListener('popstate', cancelRewind);
       window.addEventListener('hashchange', cancelRewind);
       observer.observe(player, { childList: true, subtree: true });
+      // Metadata can arrive before Twitch even starts its scrubber seek.
+      // Allow source swaps without a seeked event to finish at the deadline.
+      deadline = setTimeout(() => finish(true), LIVE_REWIND_TIMEOUT);
       // Twitch's live scrubber loads the recording timeline. Its live video
       // exposes a placeholder seekable range that cannot request older footage.
       for (const type of ['mousedown', 'mouseup', 'click']) {
@@ -99,7 +109,7 @@
           clientY: rect.top + rect.height / 2
         }));
       }
-      finish();
+      queueFinish();
     } catch (error) {
       cancelRewind();
       throw error;
@@ -130,6 +140,7 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     if (event.type !== 'mousedown') return;
+    if (event.button === 3 && pendingRewind?.player === player && pendingRewind.url === location.href) return;
     if (video.duration === Infinity && bar) {
       if (event.button === 3) rewindLive(player, bar);
       else cancelRewind();

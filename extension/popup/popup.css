@@ -301,6 +301,28 @@ label:has(input:disabled) {
   margin-top: 8px;
 }
 
+/* Reserve space for both labels while keeping the button itself content-sized. */
+#scroll-cue {
+  display: grid;
+  place-items: center end;
+  font-size: 11px;
+  line-height: 20px;
+}
+
+#scroll-cue > * {
+  grid-area: 1 / 1;
+}
+
+#scroll-cue > span {
+  padding-inline: 6px;
+  text-align: center;
+  visibility: hidden;
+}
+
+#scroll-cue > button {
+  font: inherit;
+}
+
 #hide-and-report {
   display: inline-flex;
   align-items: center;
