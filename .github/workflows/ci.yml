@@ -13,6 +13,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -47,6 +49,7 @@ jobs:
         run: |
           node -e "require('node:fs').appendFileSync(process.env.GITHUB_OUTPUT, 'path=dist/twitch-min-' + require('./package.json').version + '.zip\n')"
       - name: Upload validated package
+        id: upload
         uses: actions/upload-artifact@v7
         with:
           name: twitch-min-${{ github.run_id }}-${{ github.run_attempt }}
@@ -67,13 +70,14 @@ jobs:
           node-version: 'lts/*'
           check-latest: true
           package-manager-cache: false
-      - name: Tag validated version if missing
-        run: node scripts/tag-version.cjs
       - name: Download validated package
         uses: actions/download-artifact@v8
         with:
-          name: twitch-min-${{ github.run_id }}-${{ github.run_attempt }}
+          # Release-only retries reuse the successful test job's output.
+          artifact-ids: ${{ needs.test.outputs.artifact-id }}
           path: dist
+      - name: Tag validated version if missing
+        run: node scripts/tag-version.cjs
       - name: Publish validated release
         shell: bash
         env:
